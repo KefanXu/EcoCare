@@ -70,4 +70,4 @@ The client runs on `http://localhost:5173` and the server on `http://localhost:8
 
 - Left ~65%: ecological landscape (pan / zoom, D3 SVG)
 - Right ~35%: AI chat panel
-- Top: scenario bar with LCE picker and legend toggle
+- Top: scenario bar with LCE picker; legend visibility is controlled on the visualization (minimize/expand on the legend panel)

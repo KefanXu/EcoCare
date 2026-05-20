@@ -6,8 +6,6 @@ export function ScenarioBar() {
   const activeScenarioId = useEcoStore((s) => s.activeScenarioId);
   const setScenario = useEcoStore((s) => s.setScenario);
   const reset = useEcoStore((s) => s.reset);
-  const showLegend = useEcoStore((s) => s.showLegend);
-  const toggleLegend = useEcoStore((s) => s.toggleLegend);
   const editMode = useEcoStore((s) => s.editMode);
   const setEditMode = useEcoStore((s) => s.setEditMode);
   const openEntityForm = useEcoStore((s) => s.openEntityForm);
@@ -89,12 +87,6 @@ export function ScenarioBar() {
             }`}
           >
             {editMode ? 'Editing…' : 'Edit'}
-          </button>
-          <button
-            onClick={toggleLegend}
-            className="text-xs px-3 py-1.5 rounded-md border border-stone-300 text-slate-600 hover:border-slate-400 bg-white transition"
-          >
-            {showLegend ? 'Hide legend' : 'Show legend'}
           </button>
           <button
             onClick={reset}
