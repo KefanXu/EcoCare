@@ -7,7 +7,37 @@ Grounded in the *Ecological Informatics* framework (see the accompanying papers)
 ## Stack
 
 - **Client**: Vite + React + TypeScript + D3 + Zustand + Tailwind
-- **Server**: Express + OpenAI SDK pointed at any OpenAI-compatible LLM (DeepSeek by default)
+- **Server (local dev)**: Express + OpenAI SDK pointed at any OpenAI-compatible LLM (DeepSeek by default)
+- **Production (Vercel)**: static Vite build + Serverless Functions in [`api/`](api/) (`/api/chat`, `/api/followups`, `/api/proposals`, `/api/health`)
+
+## Deploy to Vercel
+
+This repo ships a SPA from [`client/dist`](client/dist) and mounts API routes alongside it so the browser can keep calling **`/api/...`** on the same origin (no rewrite of the frontend needed).
+
+**One-time:**
+
+1. Push the repo to GitHub/GitLab and [import it in Vercel](https://vercel.com/new).
+2. Use the repository **root** as the project root (default).
+3. Vercel will read [`vercel.json`](vercel.json): `installCommand` runs **`npm run install:all`** (installs root + `client/` + `server/`). The script passes **`--include=dev`** on each install so **TypeScript, Vite, and other build tooling** are still installed when Vercel sets `NODE_ENV=production` during install (fixes `tsc: command not found` on deploy).
+
+**Environment variables** (Production and Preview):
+
+| Variable | Example | Description |
+| --- | --- | --- |
+| `LLM_API_KEY` | _(your key)_ | Required for AI routes. Same as local `.env`. |
+| `LLM_BASE_URL` | `https://api.deepseek.com` | Provider base URL (`https://api.openai.com/v1` for OpenAI). |
+| `LLM_MODEL` | `deepseek-chat` | Model id. |
+
+Do **not** upload `.env` to Vercel; set keys in **Project Settings → Environment Variables**.
+
+**Smoke checks after deploy:**
+
+- Open `https://<your-deployment>/api/health` — JSON with `"hasKey": true` when env is wired.
+- In the app UI, send a chat message — the reply should stream; follow-ups and “Generate visual options” hit `/api/followups` and `/api/proposals`.
+
+Streaming uses up to **60s** (`maxDuration` in [`vercel.json`](vercel.json)); increase on a Pro-tier plan if long answers timeout.
+
+Optional: run `npx vercel dev` locally to exercise the Serverless handlers without deploying.
 
 ## Setup
 

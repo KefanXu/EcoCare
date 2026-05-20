@@ -427,7 +427,7 @@ export function ChatPanel() {
         })}
       </div>
 
-      <div className="border-t border-stone-200 p-3 space-y-2 bg-white">
+      <div className="border-t border-stone-200/70 px-3 py-2 space-y-2">
         {selection.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] uppercase tracking-wider text-slate-500 mr-1 font-medium">

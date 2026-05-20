@@ -7,6 +7,12 @@ import {
   type FlowKind,
 } from '../../types/ecology';
 import { useEcoStore } from '../../store/useEcoStore';
+import { ChevronDown } from 'lucide-react';
+
+export interface LegendProps {
+  /** Optional header action to minimize the legend into an icon FAB. */
+  onMinimize?: () => void;
+}
 
 const CATEGORIES: EntityCategory[] = ['stakeholder', 'component', 'practice', 'information'];
 const FLOWS: FlowKind[] = ['data', 'guidance', 'feedback', 'communication'];
@@ -19,13 +25,25 @@ function CategoryGlyph({ color }: { color: string }) {
   );
 }
 
-export function Legend() {
+export function Legend({ onMinimize }: LegendProps) {
   const showInformationFlows = useEcoStore((s) => s.showInformationFlows);
   const toggleInformationFlows = useEcoStore((s) => s.toggleInformationFlows);
 
   return (
-    <div className="absolute bottom-4 left-4 bg-white/90 border border-stone-200 rounded-lg p-3 backdrop-blur text-xs space-y-3 shadow-md">
-      <div>
+    <div className="absolute bottom-4 left-4 z-[15] pointer-events-none">
+      <div className="relative pointer-events-auto bg-white/90 border border-stone-200 rounded-lg p-3 pt-9 backdrop-blur text-xs space-y-3 shadow-md">
+        {onMinimize ? (
+          <button
+            type="button"
+            onClick={onMinimize}
+            className="absolute top-2 right-2 p-1 rounded-md text-slate-500 hover:bg-stone-100 hover:text-slate-700 transition"
+            title="Minimize legend"
+            aria-label="Minimize legend"
+          >
+            <ChevronDown className="w-4 h-4" aria-hidden />
+          </button>
+        ) : null}
+        <div>
         <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5 font-medium">
           Entity categories
         </div>
@@ -75,6 +93,7 @@ export function Legend() {
             <span className="text-slate-700">Broken</span>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
