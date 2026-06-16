@@ -571,10 +571,6 @@ function computeStrengthMap(ids: readonly string[], t: number): Map<string, numb
   return map;
 }
 
-/** Sentinel used to avoid subscribing to `messages` when no preview is active.
- * Zustandʼs strict-equality check sees the same reference → skips re-renders. */
-const EMPTY_MESSAGES: ChatMessage[] = [];
-
 /** Internal helper: returns the currently-active proposals (preview + applied). */
 function useActiveProposalSet(): {
   preview: EcologyProposal | null;
@@ -582,11 +578,7 @@ function useActiveProposalSet(): {
 } {
   const previewProposalId = useEcoStore((s) => s.previewProposalId);
   const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
-  // Only subscribe to messages when a preview is active — avoids pulling
-  // EcoLandscape into every streaming delta re-render.
-  const messages = useEcoStore((s) =>
-    s.previewProposalId ? s.messages : EMPTY_MESSAGES,
-  );
+  const messages = useEcoStore((s) => s.messages);
   return useMemo(() => {
     const preview = previewProposalId
       ? findProposalInMessages(messages, previewProposalId)
@@ -763,13 +755,10 @@ export function useConflictResolvers(): Map<string, EcologyProposal> {
   }, [applied]);
 }
 
-/** The currently-active AI highlight (resolved from messages by id), or null.
- * Only subscribes to messages while a highlight is active. */
+/** The currently-active AI highlight (resolved from messages by id), or null. */
 export function useActiveHighlight(): EcologyHighlight | null {
   const activeHighlightId = useEcoStore((s) => s.activeHighlightId);
-  const messages = useEcoStore((s) =>
-    s.activeHighlightId ? s.messages : EMPTY_MESSAGES,
-  );
+  const messages = useEcoStore((s) => s.messages);
   return useMemo(
     () => (activeHighlightId ? findHighlightInMessages(messages, activeHighlightId) : null),
     [activeHighlightId, messages],
