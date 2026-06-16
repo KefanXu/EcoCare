@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createElement, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import {
   useEffectivePatient,
@@ -870,7 +870,7 @@ interface EntityNodeProps {
   onPointerCancel: (e: React.PointerEvent<SVGGElement>) => void;
 }
 
-function EntityNode({
+const EntityNode = memo<EntityNodeProps>(function EntityNode({
   p,
   offset,
   isDragging,
@@ -1023,7 +1023,7 @@ function EntityNode({
       )}
     </g>
   );
-}
+});
 
 function OverlayPill({
   tag,
