@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useRef } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import {
   useEffectivePatient,
@@ -22,6 +22,7 @@ import {
   bezierMidpoint,
   bezierPath,
   computeLayout,
+  computeRowLayout,
   ringTextPath,
 } from './layout';
 
@@ -30,6 +31,32 @@ const PATIENT_BEZEL_R = 36;
 const DISRUPTED_COLOR = '#fb7185';
 const OVERLAY_COLOR = '#10b981';
 const HIGHLIGHT_COLOR = '#f59e0b';
+const NODE_NUDGE_MAX_PX = 48;
+const NODE_DRAG_CLICK_THRESHOLD_PX = 5;
+
+type NodeOffset = { dx: number; dy: number };
+
+function clientToLayout(
+  svg: SVGSVGElement,
+  layer: SVGGElement,
+  clientX: number,
+  clientY: number,
+): { x: number; y: number } {
+  const pt = svg.createSVGPoint();
+  pt.x = clientX;
+  pt.y = clientY;
+  const ctm = layer.getScreenCTM();
+  if (!ctm) return { x: 0, y: 0 };
+  const local = pt.matrixTransform(ctm.inverse());
+  return { x: local.x, y: local.y };
+}
+
+function clampNodeNudge(dx: number, dy: number): NodeOffset {
+  const dist = Math.hypot(dx, dy);
+  if (dist <= NODE_NUDGE_MAX_PX) return { dx, dy };
+  const k = NODE_NUDGE_MAX_PX / dist;
+  return { dx: dx * k, dy: dy * k };
+}
 
 function categoryStrokeColor(cat: EntityCategory): string {
   return CATEGORY_COLOR[cat];
@@ -71,7 +98,7 @@ function mixHex(a: string, b: string, t: number): string {
   return `#${toHex2(r)}${toHex2(g)}${toHex2(bch)}`;
 }
 
-export function EcoLandscape() {
+export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const gRef = useRef<SVGGElement | null>(null);
 
@@ -92,7 +119,219 @@ export function EcoLandscape() {
   const overlayTags = useOverlayTagMap();
   const highlightIds = useHighlightedIds();
 
-  const layout = useMemo(() => computeLayout(patient), [patient]);
+  const [nodeOffsets, setNodeOffsets] = useState<Record<string, NodeOffset>>({});
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const dragRef = useRef<{
+    id: string;
+    pointerX: number;
+    pointerY: number;
+    offsetDx: number;
+    offsetDy: number;
+    moved: boolean;
+  } | null>(null);
+  const springAnimRef = useRef<number | null>(null);
+
+  const ringLayout = useMemo(() => computeLayout(patient), [patient]);
+  const rowLayout = useMemo(() => computeRowLayout(patient), [patient]);
+
+  // ── View transition ──────────────────────────────────────────────
+  const [transitionProgress, setTransitionProgress] = useState(0);
+  const transitionRef = useRef(0);
+  const animatingRef = useRef(false);
+
+  useEffect(() => {
+    const target = viewMode === 'row' ? 1 : 0;
+    const start = transitionRef.current;
+    if (Math.abs(target - start) < 0.001) return;
+
+    animatingRef.current = true;
+    const duration = 500; // ms
+    const startTime = performance.now();
+
+    const animate = (now: number) => {
+      if (!animatingRef.current) return;
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      // smoothstep easing: 3t² - 2t³
+      const eased = t * t * (3 - 2 * t);
+      const current = start + (target - start) * eased;
+      transitionRef.current = current;
+      setTransitionProgress(current);
+      if (t < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        transitionRef.current = target;
+        setTransitionProgress(target);
+      }
+    };
+
+    requestAnimationFrame(animate);
+    return () => {
+      animatingRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
+
+  // Interpolated positions — smoothly move entities between layouts
+  const positions = useMemo(() => {
+    const p = transitionProgress;
+    if (p === 0) return ringLayout.positions;
+    if (p === 1) return rowLayout.positions;
+
+    const interpolated = new Map<string, PositionedEntity>();
+    for (const [id, ringPos] of ringLayout.positions) {
+      const rowPos = rowLayout.positions.get(id);
+      if (!rowPos) {
+        interpolated.set(id, ringPos);
+        continue;
+      }
+      interpolated.set(id, {
+        ...ringPos,
+        x: ringPos.x + (rowPos.x - ringPos.x) * p,
+        y: ringPos.y + (rowPos.y - ringPos.y) * p,
+        angleDeg: ringPos.angleDeg + (rowPos.angleDeg - ringPos.angleDeg) * p,
+        radius: ringPos.radius + (rowPos.radius - ringPos.radius) * p,
+      });
+    }
+    return interpolated;
+  }, [ringLayout, rowLayout, transitionProgress]);
+
+  const transitionActive = transitionProgress > 0.01 && transitionProgress < 0.99;
+  const useRowLabel = transitionProgress >= 0.5;
+
+  const setNodeOffset = useCallback((id: string, dx: number, dy: number) => {
+    setNodeOffsets((prev) => {
+      if (Math.abs(dx) < 1e-4 && Math.abs(dy) < 1e-4) {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      }
+      return { ...prev, [id]: { dx, dy } };
+    });
+  }, []);
+
+  const springNodeBack = useCallback(
+    (id: string, start: NodeOffset) => {
+      if (springAnimRef.current !== null) {
+        cancelAnimationFrame(springAnimRef.current);
+      }
+      let dx = start.dx;
+      let dy = start.dy;
+      let vx = 0;
+      let vy = 0;
+      const step = () => {
+        vx += -dx * 0.26;
+        vy += -dy * 0.26;
+        vx *= 0.74;
+        vy *= 0.74;
+        dx += vx;
+        dy += vy;
+        if (
+          Math.hypot(dx, dy) < 0.35 &&
+          Math.hypot(vx, vy) < 0.12
+        ) {
+          setNodeOffset(id, 0, 0);
+          springAnimRef.current = null;
+          return;
+        }
+        setNodeOffset(id, dx, dy);
+        springAnimRef.current = requestAnimationFrame(step);
+      };
+      springAnimRef.current = requestAnimationFrame(step);
+    },
+    [setNodeOffset],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (springAnimRef.current !== null) {
+        cancelAnimationFrame(springAnimRef.current);
+      }
+    };
+  }, []);
+
+  const positionedAt = useCallback(
+    (id: string, x: number, y: number) => {
+      const o = nodeOffsets[id];
+      return { x: x + (o?.dx ?? 0), y: y + (o?.dy ?? 0) };
+    },
+    [nodeOffsets],
+  );
+
+  const handleNodePointerDown = useCallback(
+    (id: string, e: React.PointerEvent<SVGGElement>) => {
+      if (connectMode.active || transitionActive) return;
+      if (e.button !== 0) return;
+      if (!svgRef.current || !gRef.current) return;
+
+      e.stopPropagation();
+      e.currentTarget.setPointerCapture(e.pointerId);
+
+      if (springAnimRef.current !== null) {
+        cancelAnimationFrame(springAnimRef.current);
+        springAnimRef.current = null;
+      }
+
+      const local = clientToLayout(svgRef.current, gRef.current, e.clientX, e.clientY);
+      const existing = nodeOffsets[id];
+      dragRef.current = {
+        id,
+        pointerX: local.x,
+        pointerY: local.y,
+        offsetDx: existing?.dx ?? 0,
+        offsetDy: existing?.dy ?? 0,
+        moved: false,
+      };
+      setDraggingNodeId(id);
+    },
+    [connectMode.active, nodeOffsets],
+  );
+
+  const handleNodePointerMove = useCallback(
+    (e: React.PointerEvent<SVGGElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.id === undefined) return;
+      if (!svgRef.current || !gRef.current) return;
+
+      const local = clientToLayout(svgRef.current, gRef.current, e.clientX, e.clientY);
+      const rawDx = local.x - drag.pointerX;
+      const rawDy = local.y - drag.pointerY;
+      if (
+        !drag.moved &&
+        Math.hypot(rawDx, rawDy) >= NODE_DRAG_CLICK_THRESHOLD_PX
+      ) {
+        drag.moved = true;
+      }
+      const { dx, dy } = clampNodeNudge(drag.offsetDx + rawDx, drag.offsetDy + rawDy);
+      setNodeOffset(drag.id, dx, dy);
+    },
+    [setNodeOffset],
+  );
+
+  const finishNodePointer = useCallback(
+    (id: string, onActivate: () => void, e: React.PointerEvent<SVGGElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.id !== id) return;
+
+      e.stopPropagation();
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+
+      const offset = nodeOffsets[id] ?? { dx: 0, dy: 0 };
+      const wasDrag = drag.moved;
+      dragRef.current = null;
+      setDraggingNodeId(null);
+
+      if (wasDrag) {
+        springNodeBack(id, offset);
+      } else {
+        onActivate();
+      }
+    },
+    [nodeOffsets, springNodeBack],
+  );
 
   useEffect(() => {
     if (!svgRef.current || !gRef.current) return;
@@ -100,26 +339,21 @@ export function EcoLandscape() {
     const g = d3.select<SVGGElement, unknown>(gRef.current);
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.4, 2.2])
+      .scaleExtent([0.5, 3.0])
+      // Lock the ecology to the viewport center — scale only, no pan.
+      .constrain((transform) => d3.zoomIdentity.scale(transform.k))
+      .filter((event) => {
+        if (event.type === 'wheel') return true;
+        if (event.type === 'touchstart' || event.type === 'touchmove') {
+          return (event as TouchEvent).touches.length >= 2;
+        }
+        return false;
+      })
       .on('zoom', (event) => {
         g.attr('transform', event.transform.toString());
-      })
-      .on('end', (event) => {
-        // Only bounce after user drag gestures: skip programmatic transitions and
-        // wheel zoom (which relies on the translation staying anchored to the cursor).
-        const src = event.sourceEvent as Event | undefined | null;
-        if (!src) return;
-        if (src.type === 'wheel') return;
-        const { k, x, y } = event.transform;
-        if (Math.abs(x) < 0.5 && Math.abs(y) < 0.5) return;
-        svg
-          .transition()
-          .duration(450)
-          .ease(d3.easeCubicOut)
-          .call(zoom.transform, d3.zoomIdentity.scale(k));
       });
     svg.call(zoom);
-    const initial = d3.zoomIdentity.translate(0, 0).scale(0.78);
+    const initial = d3.zoomIdentity.translate(0, 0).scale(1.0);
     svg.call(zoom.transform, initial);
     return () => {
       svg.on('.zoom', null);
@@ -133,7 +367,7 @@ export function EcoLandscape() {
     };
   }, [selection]);
 
-  const { width, height, rings, wedges, positions } = layout;
+  const { width, height, rings, wedges } = ringLayout;
 
   const search = entitySearchQuery.trim().toLowerCase();
   const searchMatchIds = useMemo(() => {
@@ -253,6 +487,8 @@ export function EcoLandscape() {
       </defs>
 
       <g ref={gRef}>
+        {/* Ring view backgrounds — fade out during transition */}
+        <g opacity={1 - transitionProgress}>
         {/* Render rings outer-to-inner so the inner microsystem sits on top */}
         {[...rings].reverse().map((ring) => {
           const isMicro = ring.isMicrosystem;
@@ -350,12 +586,51 @@ export function EcoLandscape() {
           );
         })()}
 
+        {/* End ring view backgrounds */}
+        </g>
+
+        {/* Row view backgrounds — fade in during transition */}
+        {transitionProgress > 0 && (
+          <g opacity={transitionProgress}>
+            {rowLayout.bands.map((band) => (
+              <g key={`row-${band.name}`}>
+                <rect
+                  x={-580}
+                  y={band.y - band.height / 2}
+                  width={1160}
+                  height={band.height}
+                  rx={8}
+                  fill={ringFill(band.name)}
+                  fillOpacity={0.55}
+                  stroke="rgba(100,116,139,0.14)"
+                  strokeWidth={1}
+                />
+                <text
+                  x={-570}
+                  y={band.y}
+                  textAnchor="start"
+                  dominantBaseline="middle"
+                  fontSize={10}
+                  letterSpacing={2}
+                  fill="rgba(71,85,105,0.6)"
+                  fontWeight={600}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {band.label}
+                </text>
+              </g>
+            ))}
+          </g>
+        )}
+
         {/* Flows */}
         {showInformationFlows &&
           patient.flows.map((flow) => {
-            const s = positions.get(flow.source);
-            const t = positions.get(flow.target);
-            if (!s || !t) return null;
+            const sPos = positions.get(flow.source);
+            const tPos = positions.get(flow.target);
+            if (!sPos || !tPos) return null;
+            const s = positionedAt(flow.source, sPos.x, sPos.y);
+            const t = positionedAt(flow.target, tPos.x, tPos.y);
             const breakStrength = flowStrengths.get(flow.id) ?? 0;
             const isSelected = selectedSet.flows.has(flow.id);
             const isFlowHovered = hoveredFlowId === flow.id;
@@ -471,6 +746,8 @@ export function EcoLandscape() {
             <EntityNode
               key={p.id}
               p={p}
+              offset={nodeOffsets[p.id]}
+              isDragging={draggingNodeId === p.id}
               isSelected={selectedSet.entities.has(p.id)}
               disruption={entityStrengths.get(p.id) ?? 0}
               isHovered={hoveredEntityId === p.id}
@@ -483,15 +760,25 @@ export function EcoLandscape() {
               overlayTag={overlayTags.get(p.id)}
               highlightActive={highlightIds.active}
               isHighlighted={highlightIds.entityIds.has(p.id)}
+              labelBelow={useRowLabel}
               onHover={(id) => setHoveredEntity(id)}
-              onClick={() => handleEntityClick(p.id)}
+              onPointerDown={(e) => handleNodePointerDown(p.id, e)}
+              onPointerMove={handleNodePointerMove}
+              onPointerUp={(e) => finishNodePointer(p.id, () => handleEntityClick(p.id), e)}
+              onPointerCancel={(e) => finishNodePointer(p.id, () => handleEntityClick(p.id), e)}
             />
           ))}
 
         {/* Patient at center */}
-        {layout.patientCenter && (
-          <PatientCenter
-            label={layout.patientCenter.label}
+        {(() => {
+          const patientPos = positions.get('patient');
+          if (!patientPos) return null;
+          return (
+            <g transform={`translate(${patientPos.x}, ${patientPos.y})`}>
+              <PatientCenter
+                label={patientPos.label}
+            offset={nodeOffsets.patient}
+            isDragging={draggingNodeId === 'patient'}
             isSelected={selectedSet.entities.has('patient')}
             isConnectMode={connectMode.active}
             isConnectSource={connectMode.active && connectMode.sourceId === 'patient'}
@@ -499,10 +786,19 @@ export function EcoLandscape() {
             isSearchMatch={searchMatchIds.has('patient')}
             highlightActive={highlightIds.active}
             isHighlighted={highlightIds.entityIds.has('patient')}
-            onClick={() => handleEntityClick('patient')}
             onHover={(v) => setHoveredEntity(v ? 'patient' : null)}
+            onPointerDown={(e) => handleNodePointerDown('patient', e)}
+            onPointerMove={handleNodePointerMove}
+            onPointerUp={(e) =>
+              finishNodePointer('patient', () => handleEntityClick('patient'), e)
+            }
+            onPointerCancel={(e) =>
+              finishNodePointer('patient', () => handleEntityClick('patient'), e)
+            }
           />
-        )}
+        </g>
+        );
+      })()}
 
         {/* Hovered flow tooltip — drawn last so it sits above flows AND nodes. */}
         {showInformationFlows &&
@@ -510,9 +806,11 @@ export function EcoLandscape() {
           (() => {
             const flow = patient.flows.find((f) => f.id === hoveredFlowId);
             if (!flow) return null;
-            const s = positions.get(flow.source);
-            const t = positions.get(flow.target);
-            if (!s || !t) return null;
+            const sPos = positions.get(flow.source);
+            const tPos = positions.get(flow.target);
+            if (!sPos || !tPos) return null;
+            const s = positionedAt(flow.source, sPos.x, sPos.y);
+            const t = positionedAt(flow.target, tPos.x, tPos.y);
             const { x, y } = bezierMidpoint(s.x, s.y, t.x, t.y);
             const label = flow.content || flow.label;
             // Width grows ~7px per char; clamp to a sane max.
@@ -550,6 +848,8 @@ export function EcoLandscape() {
 
 interface EntityNodeProps {
   p: PositionedEntity;
+  offset?: NodeOffset;
+  isDragging: boolean;
   isSelected: boolean;
   disruption: number;
   isHovered: boolean;
@@ -562,12 +862,18 @@ interface EntityNodeProps {
   overlayTag?: OverlayTag;
   highlightActive: boolean;
   isHighlighted: boolean;
+  labelBelow?: boolean;
   onHover: (id: string | null) => void;
-  onClick: () => void;
+  onPointerDown: (e: React.PointerEvent<SVGGElement>) => void;
+  onPointerMove: (e: React.PointerEvent<SVGGElement>) => void;
+  onPointerUp: (e: React.PointerEvent<SVGGElement>) => void;
+  onPointerCancel: (e: React.PointerEvent<SVGGElement>) => void;
 }
 
 function EntityNode({
   p,
+  offset,
+  isDragging,
   isSelected,
   disruption,
   isHovered,
@@ -580,8 +886,12 @@ function EntityNode({
   overlayTag,
   highlightActive,
   isHighlighted,
+  labelBelow,
   onHover,
-  onClick,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
 }: EntityNodeProps) {
   const Icon = iconFor(p.id, p.category);
   const baseStroke = categoryStrokeColor(p.category);
@@ -594,24 +904,28 @@ function EntityNode({
   const opacity = Math.min(hoverOpacity, searchOpacity, highlightOpacity);
   const showDisruptionGlow = disruption > 0.02;
 
-  // Label placement: above when on top half, below when on bottom half
+  // Label placement: above when on top half, below when on bottom half.
+  // In row mode (labelBelow), always place label below the node.
   let normAngle = ((p.angleDeg % 360) + 360) % 360;
   // angleDeg uses 0deg = right, +90 = bottom (svg). Top half = 180..360.
-  const isBottomHalf = normAngle > 0 && normAngle < 180;
+  const isBottomHalf = labelBelow || (normAngle > 0 && normAngle < 180);
   const labelDy = isBottomHalf ? NODE_BEZEL_R + 16 : -(NODE_BEZEL_R + 6);
   const labelBaseline = isBottomHalf ? 'hanging' : 'auto';
+  const nudgeX = offset?.dx ?? 0;
+  const nudgeY = offset?.dy ?? 0;
+  const nodeCursor = isConnectMode ? 'crosshair' : isDragging ? 'grabbing' : 'grab';
 
   return (
     <g
-      transform={`translate(${p.x}, ${p.y})`}
-      style={{ cursor: isConnectMode ? 'crosshair' : 'pointer' }}
+      transform={`translate(${p.x + nudgeX}, ${p.y + nudgeY})`}
+      style={{ cursor: nodeCursor, touchAction: isConnectMode ? undefined : 'none' }}
       opacity={opacity}
       onMouseEnter={() => onHover(p.id)}
       onMouseLeave={() => onHover(null)}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
     >
       {showDisruptionGlow && (
         <circle
@@ -760,6 +1074,8 @@ function OverlayPill({
 
 interface PatientCenterProps {
   label: string;
+  offset?: NodeOffset;
+  isDragging: boolean;
   isSelected: boolean;
   isConnectMode: boolean;
   isConnectSource: boolean;
@@ -767,12 +1083,17 @@ interface PatientCenterProps {
   isSearchMatch: boolean;
   highlightActive: boolean;
   isHighlighted: boolean;
-  onClick: () => void;
   onHover: (v: boolean) => void;
+  onPointerDown: (e: React.PointerEvent<SVGGElement>) => void;
+  onPointerMove: (e: React.PointerEvent<SVGGElement>) => void;
+  onPointerUp: (e: React.PointerEvent<SVGGElement>) => void;
+  onPointerCancel: (e: React.PointerEvent<SVGGElement>) => void;
 }
 
 function PatientCenter({
   label,
+  offset,
+  isDragging,
   isSelected,
   isConnectMode,
   isConnectSource,
@@ -780,23 +1101,29 @@ function PatientCenter({
   isSearchMatch,
   highlightActive,
   isHighlighted,
-  onClick,
   onHover,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
 }: PatientCenterProps) {
   const searchOpacity = searchActive ? (isSearchMatch ? 1 : 0.18) : 1;
   const highlightOpacity = highlightActive ? (isHighlighted ? 1 : 0.18) : 1;
   const opacity = Math.min(searchOpacity, highlightOpacity);
+  const nudgeX = offset?.dx ?? 0;
+  const nudgeY = offset?.dy ?? 0;
+  const nodeCursor = isConnectMode ? 'crosshair' : isDragging ? 'grabbing' : 'grab';
   return (
     <g
-      transform={`translate(0, 0)`}
-      style={{ cursor: isConnectMode ? 'crosshair' : 'pointer' }}
+      transform={`translate(${nudgeX}, ${nudgeY})`}
+      style={{ cursor: nodeCursor, touchAction: isConnectMode ? undefined : 'none' }}
       opacity={opacity}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
     >
       {highlightActive && isHighlighted && (
         <circle

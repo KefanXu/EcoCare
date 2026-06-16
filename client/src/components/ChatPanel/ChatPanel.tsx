@@ -50,6 +50,19 @@ export function ChatPanel() {
   );
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  function autoResizeTextarea() {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  // reset height when input is cleared (e.g. after send)
+  useEffect(() => {
+    if (!input) autoResizeTextarea();
+  }, [input]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -447,37 +460,46 @@ export function ChatPanel() {
             e.preventDefault();
             send(input);
           }}
-          className="flex gap-2"
         >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              selection.length === 0
-                ? 'Ask about the ecology…'
-                : 'Ask about the selected items…'
-            }
-            className="flex-1 bg-white border border-stone-300 rounded-md px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-500"
-            disabled={isStreaming}
-          />
-          {isStreaming ? (
-            <button
-              type="button"
-              onClick={stopStreaming}
-              className="px-3 py-2 rounded-md bg-rose-100 text-rose-700 border border-rose-300 text-sm"
-            >
-              Stop
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!input.trim()}
-              className="px-3 py-2 rounded-md bg-slate-800 text-white text-sm font-medium disabled:opacity-40"
-            >
-              Ask
-            </button>
-          )}
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onInput={autoResizeTextarea}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  send(input);
+                }
+              }}
+              placeholder={
+                selection.length === 0
+                  ? 'Ask about the ecology…'
+                  : 'Ask about the selected items…'
+              }
+              className="w-full bg-white border border-stone-300 rounded-md pl-3 pr-12 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-500 resize-none"
+              disabled={isStreaming}
+            />
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={stopStreaming}
+                className="absolute bottom-2 right-2 px-3 py-1 rounded-md bg-rose-100 text-rose-700 border border-rose-300 text-xs font-medium"
+              >
+                Stop
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                className="absolute bottom-2 right-2 px-3 py-1 rounded-md bg-slate-800 text-white text-xs font-medium disabled:opacity-40"
+              >
+                Ask
+              </button>
+            )}
+          </div>
         </form>
       </div>
     </div>

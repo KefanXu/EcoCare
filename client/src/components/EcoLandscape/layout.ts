@@ -36,6 +36,19 @@ export interface LayoutResult {
   height: number;
 }
 
+export interface RowBand {
+  name: Layer;
+  label: string;
+  y: number;
+  height: number;
+}
+
+export interface RowLayoutResult {
+  bands: RowBand[];
+  positions: Map<string, PositionedEntity>;
+  patientCenter: PositionedEntity | null;
+}
+
 const CATEGORY_ORDER: EntityCategory[] = ['component', 'stakeholder', 'practice', 'information'];
 
 const CATEGORY_WEDGE_OFFSET_DEG = -90; // start "component" at top
@@ -216,4 +229,114 @@ export function ringTextPath(r: number): string {
   // Top center starts at angle -90deg => (0, -r)
   // Use two arcs to draw a complete circle
   return `M ${0},${-r} A ${r},${r} 0 1 0 ${0},${r} A ${r},${r} 0 1 0 ${0},${-r}`;
+}
+
+// ── Row layout ────────────────────────────────────────────────────────
+
+const ROW_HEIGHT = 76;
+const ROW_GAP = 20;
+const ROW_STEP = ROW_HEIGHT + ROW_GAP;
+const ROW_X_MIN = -560;
+const ROW_X_MAX = 560;
+const ROW_USABLE_WIDTH = ROW_X_MAX - ROW_X_MIN;
+const PATIENT_Y = -300;
+
+/** Distribute entities for one layer into a horizontal row, grouped by
+ * category and spread evenly across the full width so labels never overlap. */
+function layoutRow(
+  entities: EcoEntity[],
+  y: number,
+  positions: Map<string, PositionedEntity>,
+): void {
+  if (entities.length === 0) return;
+
+  // Group by category (in stable order)
+  const groups: { cat: EntityCategory; members: EcoEntity[] }[] = [];
+  for (const cat of CATEGORY_ORDER) {
+    const members = entities.filter((e) => e.category === cat);
+    if (members.length > 0) groups.push({ cat, members });
+  }
+
+  const totalCount = entities.length;
+  const margin = 24;
+  const usableWidth = ROW_USABLE_WIDTH - margin * 2;
+  const groupGapWidth = groups.length > 1 ? 28 : 0;
+
+  // Give every entity an equal share of the available width;
+  // insert a fixed gap between category groups.
+  const numGaps = Math.max(0, groups.length - 1);
+  const entityPitch =
+    (usableWidth - numGaps * groupGapWidth) / totalCount;
+  const startX = -usableWidth / 2;
+
+  let cursorX = startX;
+  for (const group of groups) {
+    for (let i = 0; i < group.members.length; i++) {
+      const x = cursorX + (i + 0.5) * entityPitch;
+      positions.set(group.members[i].id, {
+        ...group.members[i],
+        angleDeg: 0,
+        radius: 0,
+        x,
+        y,
+      });
+    }
+    cursorX += group.members.length * entityPitch + groupGapWidth;
+  }
+}
+
+export function computeRowLayout(patient: Patient): RowLayoutResult {
+  // Individual closest to patient, macrosystem farthest.
+  const layerOrder: Layer[] = [
+    'individual',
+    'microsystem',
+    'mesosystem',
+    'exosystem',
+    'macrosystem',
+  ];
+  const layerLabel: Record<Layer, string> = {
+    individual: 'INDIVIDUAL',
+    microsystem: 'MICROSYSTEM',
+    mesosystem: 'MESOSYSTEM',
+    exosystem: 'EXOSYSTEM',
+    macrosystem: 'MACROSYSTEM',
+  };
+
+  // Compute row band y-positions centered around 0
+  const totalHeight = layerOrder.length * ROW_STEP - ROW_GAP;
+  const firstY = -totalHeight / 2 + ROW_HEIGHT / 2;
+  const bands: RowBand[] = layerOrder.map((name, i) => ({
+    name,
+    label: layerLabel[name],
+    y: firstY + i * ROW_STEP,
+    height: ROW_HEIGHT,
+  }));
+
+  const positions = new Map<string, PositionedEntity>();
+  let patientCenter: PositionedEntity | null = null;
+
+  // Patient — prominent, right above the individual row
+  const patientEntity = patient.entities.find((e) => e.id === 'patient');
+  if (patientEntity) {
+    patientCenter = {
+      ...patientEntity,
+      label: `Patient (${patient.name})`,
+      angleDeg: 0,
+      radius: 0,
+      x: 0,
+      y: PATIENT_Y,
+    };
+    positions.set(patientEntity.id, patientCenter);
+  }
+
+  // Distribute non-patient entities into their layer rows
+  for (const layer of layerOrder) {
+    const band = bands.find((b) => b.name === layer)!;
+    const inLayer = patient.entities.filter(
+      (e) => e.layer === layer && e.id !== 'patient',
+    );
+    layoutRow(inLayer, band.y, positions);
+  }
+
+  return { bands, positions, patientCenter };
 }

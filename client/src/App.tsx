@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardList, ChevronDown, Layers, Search } from 'lucide-react';
+import { ClipboardList, ChevronDown, Layers, List, Orbit, Search } from 'lucide-react';
 import { ChatPanel } from './components/ChatPanel/ChatPanel';
 import { EcoLandscape } from './components/EcoLandscape/EcoLandscape';
 import { EntityDetail } from './components/EntityDetail/EntityDetail';
@@ -18,6 +18,7 @@ export default function App() {
   const setEntitySearchQuery = useEcoStore((s) => s.setEntitySearchQuery);
   const scenario = useActiveScenario();
 
+  const [viewMode, setViewMode] = useState<'ring' | 'row'>('ring');
   const [inspectorMinimized, setInspectorMinimized] = useState(false);
   const [legendMinimized, setLegendMinimized] = useState(false);
   const [searchMinimized, setSearchMinimized] = useState(false);
@@ -113,7 +114,7 @@ export default function App() {
                 <EntityDetail />
               </div>
             )}
-            <EcoLandscape />
+            <EcoLandscape viewMode={viewMode} />
             <OverlayBanner />
             {showLegend &&
               (legendMinimized ? (
@@ -131,6 +132,21 @@ export default function App() {
               ) : (
                 <Legend onMinimize={() => setLegendMinimized(true)} />
               ))}
+            <div className="absolute bottom-4 right-4 z-[15] pointer-events-none">
+              <button
+                type="button"
+                className={fabCls}
+                onClick={() => setViewMode((v) => (v === 'ring' ? 'row' : 'ring'))}
+                title={viewMode === 'ring' ? 'Switch to row view' : 'Switch to ring view'}
+                aria-label={viewMode === 'ring' ? 'Switch to row view' : 'Switch to ring view'}
+              >
+                {viewMode === 'ring' ? (
+                  <List className="w-5 h-5 shrink-0" aria-hidden />
+                ) : (
+                  <Orbit className="w-5 h-5 shrink-0" aria-hidden />
+                )}
+              </button>
+            </div>
             <ConnectModeOverlay />
           </div>
           <Timeline />

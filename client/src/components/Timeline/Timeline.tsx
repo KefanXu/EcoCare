@@ -53,7 +53,7 @@ export function Timeline() {
 
   if (!scenario) {
     return (
-      <div className="border-t border-stone-200 bg-white px-4 py-3">
+      <div className="bg-white px-4 py-3">
         <div className="flex items-center gap-3 text-xs text-slate-500">
           <div className="w-9 h-9 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center text-slate-400">
             <Play size={14} strokeWidth={1.75} />
@@ -77,7 +77,7 @@ export function Timeline() {
   const atStart = simulationTime <= 1e-4 && !simulationPlaying;
 
   return (
-    <div className="border-t border-stone-200 bg-white px-4 py-3">
+    <div className="bg-white px-4 py-3">
       <div className="flex items-center gap-3">
         <button
           onClick={() => (simulationPlaying ? pauseSimulation() : playSimulation())}
