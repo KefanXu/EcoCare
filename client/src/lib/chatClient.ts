@@ -44,6 +44,10 @@ export async function streamChat(
       signal,
     });
   } catch (err) {
+    // User/nav cancel — not a failure to surface.
+    if (signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
+      return;
+    }
     handlers.onError(err instanceof Error ? err.message : 'Network error');
     return;
   }
@@ -96,6 +100,9 @@ export async function streamChat(
     }
     handlers.onDone();
   } catch (err) {
+    if (signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
+      return;
+    }
     handlers.onError(err instanceof Error ? err.message : 'Stream error');
   }
 }

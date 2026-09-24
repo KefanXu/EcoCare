@@ -12,6 +12,7 @@ import {
   FLOW_LABEL,
   LAYER_LABEL,
 } from '../../types/ecology';
+import { useUiText } from '../../lib/uiText';
 
 export function EntityDetail() {
   const patient = useEffectivePatient();
@@ -25,6 +26,7 @@ export function EntityDetail() {
   const disrupted = useDisruptedEntityIds();
   const broken = useBrokenFlowIds();
   const conflicts = useActiveConflicts();
+  const { t, easy } = useUiText();
 
   const focusEntityId =
     hoveredEntityId ??
@@ -35,11 +37,15 @@ export function EntityDetail() {
     ? hoveredFlowId ?? selection.find((s) => s.kind === 'flow')?.id ?? null
     : null;
 
+  const smallLabel = easy
+    ? 'text-xs uppercase tracking-wider text-slate-500 font-semibold'
+    : 'text-[10px] uppercase tracking-wider text-slate-500 font-medium';
+  const bodyText = easy ? 'text-sm' : 'text-xs';
+
   if (!focusEntityId && !focusFlowId) {
     return (
-      <div className="text-xs text-slate-500 leading-relaxed">
-        Hover or click any entity or information flow to inspect it. Selected items become context
-        for the AI on the right.
+      <div className={easy ? 'text-sm text-slate-500 leading-relaxed' : 'text-xs text-slate-500 leading-relaxed'}>
+        {t('inspectorHint')}
       </div>
     );
   }
@@ -64,20 +70,20 @@ export function EntityDetail() {
             </span>
           )}
         </div>
-        <div className="text-sm text-slate-800">
+        <div className={easy ? 'text-base text-slate-800' : 'text-sm text-slate-800'}>
           <span className="text-slate-700">{src?.label}</span>
           <span className="mx-1 text-slate-400">→</span>
           <span className="text-slate-700">{tgt?.label}</span>
         </div>
         {flow.content && (
           <div className="rounded-md border border-stone-200 bg-stone-50 px-2 py-1.5">
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium mb-0.5">
-              Information content
-            </div>
-            <div className="text-xs text-slate-800">{flow.content}</div>
+            <div className={smallLabel}>Information content</div>
+            <div className={`text-slate-800 ${easy ? 'text-sm' : 'text-xs'}`}>{flow.content}</div>
           </div>
         )}
-        <div className="text-xs text-slate-500 leading-relaxed">{flow.description}</div>
+        <div className={`text-slate-500 leading-relaxed ${easy ? 'text-sm' : 'text-xs'}`}>
+          {flow.description}
+        </div>
         {editMode && (
           <div className="flex gap-2 pt-1">
             <button
@@ -123,8 +129,12 @@ export function EntityDetail() {
           </span>
         )}
       </div>
-      <div className="text-sm font-semibold text-slate-800">{entity.label}</div>
-      <div className="text-xs text-slate-500 leading-relaxed">{entity.description}</div>
+      <div className={easy ? 'text-base font-semibold text-slate-800' : 'text-sm font-semibold text-slate-800'}>
+        {entity.label}
+      </div>
+      <div className={`text-slate-500 leading-relaxed ${easy ? 'text-sm' : 'text-xs'}`}>
+        {entity.description}
+      </div>
 
       {editMode && !isPatientCenter && (
         <div className="flex gap-2 pt-1">
@@ -146,12 +156,10 @@ export function EntityDetail() {
       )}
 
       {(incoming.length > 0 || outgoing.length > 0) && (
-        <div className="text-xs space-y-2">
+        <div className={`space-y-2 ${easy ? 'text-sm' : 'text-xs'}`}>
           {outgoing.length > 0 && (
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-medium">
-                Outgoing flows
-              </div>
+              <div className={smallLabel}>{t('sendsTo')}</div>
               <ul className="space-y-1.5">
                 {outgoing.map((f) => {
                   const tgt = patient.entities.find((e) => e.id === f.target);
@@ -162,7 +170,7 @@ export function EntityDetail() {
                         <span className="text-slate-400">→</span> {tgt?.label}
                       </div>
                       {f.content && (
-                        <div className="text-[11px] text-slate-500 italic pl-2 mt-0.5">
+                        <div className={`text-slate-500 italic pl-2 mt-0.5 ${easy ? 'text-xs' : 'text-[11px]'}`}>
                           carries: {f.content}
                         </div>
                       )}
@@ -174,9 +182,7 @@ export function EntityDetail() {
           )}
           {incoming.length > 0 && (
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-medium">
-                Incoming flows
-              </div>
+              <div className={smallLabel}>{t('receivesFrom')}</div>
               <ul className="space-y-1.5">
                 {incoming.map((f) => {
                   const src = patient.entities.find((e) => e.id === f.source);
@@ -187,7 +193,7 @@ export function EntityDetail() {
                         <span style={{ color: FLOW_COLOR[f.kind] }}>{f.label}</span>
                       </div>
                       {f.content && (
-                        <div className="text-[11px] text-slate-500 italic pl-2 mt-0.5">
+                        <div className={`text-slate-500 italic pl-2 mt-0.5 ${easy ? 'text-xs' : 'text-[11px]'}`}>
                           carries: {f.content}
                         </div>
                       )}

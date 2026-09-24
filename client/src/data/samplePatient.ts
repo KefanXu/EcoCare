@@ -5,11 +5,14 @@ const entities: EcoEntity[] = [
   // ------ INDIVIDUAL LAYER ------
   {
     id: 'patient',
-    label: 'Patient (Jane)',
+    label: 'Patient (Jordan)',
     category: 'stakeholder',
     layer: 'individual',
     description:
-      'A 52-year-old living with Type 2 Diabetes for 9 years and a diabetic foot ulcer for 6 months. Works full-time; lives with her partner.',
+      'A 52-year-old living with Type 2 Diabetes for 9 years and a diabetic foot ulcer for 6 months. Works full-time; lives with their partner.',
+    easyLabel: 'Jordan',
+    easyDescription:
+      'This is Jordan. Jordan has diabetes and a sore foot, and this whole map is about the people and things that help Jordan stay healthy.',
   },
   {
     id: 'glucose-monitor',
@@ -17,7 +20,10 @@ const entities: EcoEntity[] = [
     category: 'component',
     layer: 'individual',
     description:
-      'A wearable CGM (Dexcom G7) that streams glucose readings to her phone and triggers alarms below 100 mg/dL.',
+      'A wearable CGM (Dexcom G7) that streams glucose readings to their phone and triggers alarms below 100 mg/dL.',
+    easyLabel: 'Sugar Sensor',
+    easyDescription:
+      'A little sensor Jordan wears that checks blood sugar all day and sends the numbers to a phone.',
   },
   {
     id: 'insulin-pen',
@@ -26,6 +32,8 @@ const entities: EcoEntity[] = [
     layer: 'individual',
     description:
       'A pre-filled insulin pen used to dose mealtime insulin. Replaced finger-prick + vial workflow.',
+    easyLabel: 'Insulin Pen',
+    easyDescription: 'The pen Jordan uses to take insulin medicine before meals.',
   },
   {
     id: 'foot-dressings',
@@ -33,6 +41,8 @@ const entities: EcoEntity[] = [
     category: 'component',
     layer: 'individual',
     description: 'Wound care supplies for the diabetic foot ulcer; replaced daily.',
+    easyLabel: 'Foot Bandages',
+    easyDescription: 'Clean bandages that protect the sore on Jordan\u2019s foot. They get changed every day.',
   },
   {
     id: 'med-routine',
@@ -41,6 +51,8 @@ const entities: EcoEntity[] = [
     layer: 'individual',
     description:
       'Take metformin with breakfast and dinner; bolus insulin before each meal; align timing with family meals.',
+    easyLabel: 'Medicine Routine',
+    easyDescription: 'Taking the right medicine at the right times every day, usually with meals.',
   },
   {
     id: 'foot-care-routine',
@@ -48,13 +60,17 @@ const entities: EcoEntity[] = [
     category: 'practice',
     layer: 'individual',
     description: 'Daily wound cleaning, redressing, and skin inspection. Wears wide-toe shoes.',
+    easyLabel: 'Foot Care Routine',
+    easyDescription: 'Cleaning the foot sore, putting on a fresh bandage, and checking the skin every day.',
   },
   {
     id: 'glucose-readings',
     label: 'Glucose Readings',
     category: 'information',
     layer: 'individual',
-    description: 'Continuous time-series data from the CGM, synced to her phone.',
+    description: 'Continuous time-series data from the CGM, synced to their phone.',
+    easyLabel: 'Sugar Numbers',
+    easyDescription: 'The numbers from the sugar sensor that tell Jordan if blood sugar is high or low.',
   },
 
   // ------ MICROSYSTEM ------
@@ -65,6 +81,8 @@ const entities: EcoEntity[] = [
     layer: 'microsystem',
     description:
       'Primary informal caregiver. Helps wrap and clean the foot ulcer; verifies clinic instructions.',
+    easyLabel: 'Partner',
+    easyDescription: 'Jordan\u2019s partner, who helps clean and wrap the foot sore every evening.',
   },
   {
     id: 'daughter',
@@ -72,7 +90,9 @@ const entities: EcoEntity[] = [
     category: 'stakeholder',
     layer: 'microsystem',
     description:
-      'Lives nearby; researches diabetes care online and shares findings with Jane.',
+      'Lives nearby; researches diabetes care online and shares findings with Jordan.',
+    easyLabel: 'Daughter',
+    easyDescription: 'Jordan\u2019s daughter, who lives close by and shares helpful tips she finds.',
   },
   {
     id: 'family-meals',
@@ -81,6 +101,8 @@ const entities: EcoEntity[] = [
     layer: 'microsystem',
     description:
       'Shared breakfast and dinner at fixed times; dietary planning is a family project.',
+    easyLabel: 'Family Meals',
+    easyDescription: 'The family eats breakfast and dinner together, and Jordan takes medicine with those meals.',
   },
   {
     id: 'home-pantry',
@@ -88,7 +110,9 @@ const entities: EcoEntity[] = [
     category: 'component',
     layer: 'microsystem',
     description:
-      'Low-glycemic groceries managed by Jane and her partner; constrained by budget.',
+      'Low-glycemic groceries managed by Jordan and their partner; constrained by budget.',
+    easyLabel: 'Food at Home',
+    easyDescription: 'The healthy food Jordan and their partner keep at home to cook with.',
   },
   {
     id: 'work-schedule',
@@ -97,6 +121,8 @@ const entities: EcoEntity[] = [
     layer: 'microsystem',
     description:
       'Standing retail job, 30-minute lunch and two 15-minute breaks. Closed-toe-shoe policy.',
+    easyLabel: 'Work Hours',
+    easyDescription: 'Jordan\u2019s job hours and short breaks, which decide when Jordan can eat and take medicine.',
   },
   {
     id: 'caregiver-notes',
@@ -105,6 +131,8 @@ const entities: EcoEntity[] = [
     layer: 'microsystem',
     description:
       'Partner-maintained notes on dressing changes, blood pressure, and questions for the clinic.',
+    easyLabel: 'Care Notes',
+    easyDescription: 'Notes the partner writes about how Jordan is doing, to show the doctors later.',
   },
 
   // ------ MESOSYSTEM ------
@@ -115,6 +143,8 @@ const entities: EcoEntity[] = [
     layer: 'mesosystem',
     description:
       'Manages diabetes treatment plan, prescribes metformin and insulin, refers to specialists.',
+    easyLabel: 'Main Doctor',
+    easyDescription: 'Jordan\u2019s main doctor, who decides the medicines and keeps an eye on everything.',
   },
   {
     id: 'podiatrist',
@@ -122,6 +152,8 @@ const entities: EcoEntity[] = [
     category: 'stakeholder',
     layer: 'mesosystem',
     description: 'Treats the diabetic foot ulcer; recommends offloading pads and footwear.',
+    easyLabel: 'Foot Doctor',
+    easyDescription: 'The doctor who takes care of the sore on Jordan\u2019s foot.',
   },
   {
     id: 'diabetes-educator',
@@ -129,6 +161,8 @@ const entities: EcoEntity[] = [
     category: 'stakeholder',
     layer: 'mesosystem',
     description: 'Coaches insulin technique, glucose interpretation, and lifestyle adjustments.',
+    easyLabel: 'Diabetes Coach',
+    easyDescription: 'A coach who teaches Jordan how to use insulin and understand the sugar numbers.',
   },
   {
     id: 'pharmacy',
@@ -137,6 +171,8 @@ const entities: EcoEntity[] = [
     layer: 'mesosystem',
     description:
       'Dispenses prescriptions; runs medication-reminder texts and insurance prior-auth checks.',
+    easyLabel: 'Pharmacy',
+    easyDescription: 'The store where Jordan picks up medicine and bandages.',
   },
   {
     id: 'clinic-visits',
@@ -145,6 +181,8 @@ const entities: EcoEntity[] = [
     layer: 'mesosystem',
     description:
       'Quarterly primary-care visits and bi-weekly podiatry visits where the care plan is iterated.',
+    easyLabel: 'Doctor Visits',
+    easyDescription: 'Going to see the doctors for checkups, where the care plan gets updated.',
   },
   {
     id: 'treatment-plan',
@@ -153,6 +191,8 @@ const entities: EcoEntity[] = [
     layer: 'mesosystem',
     description:
       'Shared, evolving plan covering medication, foot-care protocol, and target A1C.',
+    easyLabel: 'Care Plan',
+    easyDescription: 'The plan the doctors write that says which medicines to take and how to care for the foot.',
   },
 
   // ------ EXOSYSTEM ------
@@ -163,6 +203,8 @@ const entities: EcoEntity[] = [
     layer: 'exosystem',
     description:
       'Closed-toe-shoe rule at work; managers can grant medical accommodation but rarely do.',
+    easyLabel: 'Work Shoe Rules',
+    easyDescription: 'Rules at Jordan\u2019s job about what shoes to wear \u2014 they make the sore foot harder to protect.',
   },
   {
     id: 'insurance',
@@ -171,6 +213,8 @@ const entities: EcoEntity[] = [
     layer: 'exosystem',
     description:
       'Employer-sponsored plan that determines drug formulary and specialist coverage.',
+    easyLabel: 'Insurance',
+    easyDescription: 'The company that helps pay for Jordan\u2019s medicine and doctor visits.',
   },
   {
     id: 'emr',
@@ -178,14 +222,18 @@ const entities: EcoEntity[] = [
     category: 'component',
     layer: 'exosystem',
     description:
-      'Electronic medical record shared across her clinicians; she views labs and messages providers.',
+      'Electronic medical record shared across their clinicians; they view labs and messages providers.',
+    easyLabel: 'Health Records App',
+    easyDescription: 'The app where the doctors and Jordan can see test results and send messages.',
   },
   {
     id: 'transportation',
     label: 'Transportation Access',
     category: 'component',
     layer: 'exosystem',
-    description: 'A 30-minute bus ride is the only path to her primary clinic.',
+    description: 'A 30-minute bus ride is the only path to their primary clinic.',
+    easyLabel: 'Rides to the Doctor',
+    easyDescription: 'The bus Jordan takes to get to the doctor. Without it, visits are hard.',
   },
 
   // ------ MACROSYSTEM ------
@@ -195,6 +243,8 @@ const entities: EcoEntity[] = [
     category: 'information',
     layer: 'macrosystem',
     description: 'American Diabetes Association guidelines that shape clinical decisions.',
+    easyLabel: 'Care Rulebook',
+    easyDescription: 'Expert rules that tell doctors the best way to treat diabetes.',
   },
   {
     id: 'healthcare-system',
@@ -202,7 +252,9 @@ const entities: EcoEntity[] = [
     category: 'stakeholder',
     layer: 'macrosystem',
     description:
-      'Regional hospital network, billing system, and referral norms that her clinics operate within.',
+      'Regional hospital network, billing system, and referral norms that their clinics operate within.',
+    easyLabel: 'Hospitals & Clinics',
+    easyDescription: 'All the hospitals and clinics in the area, and the rules they work by.',
   },
   {
     id: 'cultural-norms',
@@ -211,6 +263,8 @@ const entities: EcoEntity[] = [
     layer: 'macrosystem',
     description:
       'Expectations around food, work, and caregiving that shape daily management decisions.',
+    easyLabel: 'Family Traditions',
+    easyDescription: 'The family\u2019s habits around food, work, and helping each other.',
   },
 ];
 
@@ -232,7 +286,7 @@ const flows: InfoFlow[] = [
     label: 'informs decisions',
     kind: 'data',
     content: 'Current glucose level & low alerts',
-    description: 'Jane checks her phone for current glucose before eating, exercising, or dosing.',
+    description: 'Jordan checks their phone for current glucose before eating, exercising, or dosing.',
   },
   {
     id: 'f-patient-medroutine',
@@ -241,7 +295,7 @@ const flows: InfoFlow[] = [
     label: 'follows',
     kind: 'feedback',
     content: 'Self-adjusted dosing decisions',
-    description: 'She adjusts insulin dosing and timing based on glucose readings and meals.',
+    description: 'They adjust insulin dosing and timing based on glucose readings and meals.',
   },
   {
     id: 'f-patient-footroutine',
@@ -279,7 +333,7 @@ const flows: InfoFlow[] = [
     label: 'assists wound care',
     kind: 'communication',
     content: 'Hands-on wound care assistance',
-    description: 'Partner wraps and inspects the foot ulcer with Jane each evening.',
+    description: 'Partner wraps and inspects the foot ulcer with Jordan each evening.',
   },
   {
     id: 'f-partner-notes',
@@ -297,7 +351,7 @@ const flows: InfoFlow[] = [
     label: 'shares research',
     kind: 'communication',
     content: 'Diabetes articles & lifestyle tips',
-    description: 'Daughter forwards diabetes articles and discusses them with Jane.',
+    description: 'Daughter forwards diabetes articles and discusses them with Jordan.',
   },
   {
     id: 'f-meals-medroutine',
@@ -324,7 +378,7 @@ const flows: InfoFlow[] = [
     label: 'constrains',
     kind: 'feedback',
     content: 'Break-window constraints on dosing',
-    description: 'Short breaks at work limit when Jane can dose or eat.',
+    description: 'Short breaks at work limit when Jordan can dose or eat.',
   },
 
   // Mesosystem
@@ -353,7 +407,7 @@ const flows: InfoFlow[] = [
     label: 'coaches',
     kind: 'guidance',
     content: 'Insulin technique & glucose interpretation',
-    description: 'Educator coaches Jane on insulin technique and glucose interpretation.',
+    description: 'Educator coaches Jordan on insulin technique and glucose interpretation.',
   },
   {
     id: 'f-plan-medroutine',
@@ -407,7 +461,7 @@ const flows: InfoFlow[] = [
     label: 'attends',
     kind: 'feedback',
     content: 'Self-tracked glucose & questions',
-    description: 'Jane brings questions and self-tracked data to each visit.',
+    description: 'Jordan brings questions and self-tracked data to each visit.',
   },
   {
     id: 'f-notes-clinic',
@@ -463,7 +517,7 @@ const flows: InfoFlow[] = [
     label: 'shapes',
     kind: 'guidance',
     content: 'Footwear & break-time policy',
-    description: 'Footwear and break policy constrain Jane during the workday.',
+    description: 'Footwear and break policy constrain Jordan during the workday.',
   },
   {
     id: 'f-transport-clinic',
@@ -521,16 +575,16 @@ const baselineConflicts: Conflict[] = [
     entityIds: ['employer-policy', 'foot-care-routine', 'work-schedule'],
     flowIds: ['f-employer-work', 'f-work-medroutine'],
     description:
-      'Jane needs wide, open footwear for the ulcer, but the employer policy requires closed-toe shoes — a cross-layer conflict between the exosystem and the individual layer.',
+      'Jordan needs wide, open footwear for the ulcer, but the employer policy requires closed-toe shoes — a cross-layer conflict between the exosystem and the individual layer.',
   },
 ];
 
 export const samplePatient: Patient = {
-  id: 'jane',
-  name: 'Jane',
+  id: 'jordan',
+  name: 'Jordan',
   condition: 'Type 2 Diabetes + Diabetic Foot Ulcer',
   background:
-    'Jane has been managing Type 2 Diabetes for 9 years and developed a diabetic foot ulcer 6 months ago. She works a standing retail job, lives with her partner who is the primary informal caregiver, and sees a primary-care clinician, podiatrist, and diabetes educator regularly.',
+    'Jordan has been managing Type 2 Diabetes for 9 years and developed a diabetic foot ulcer 6 months ago. They work a standing retail job, live with their partner who is the primary informal caregiver, and see a primary-care clinician, podiatrist, and diabetes educator regularly.',
   entities,
   flows,
   baselineConflicts,

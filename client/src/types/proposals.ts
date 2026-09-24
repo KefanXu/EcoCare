@@ -35,6 +35,13 @@ export interface EcologyProposal {
   restoresFlowIds?: string[];
   /** Existing conflict ids this proposal claims to resolve. */
   resolvesConflictIds?: string[];
+  /**
+   * Existing entity ids to hide from the ecology for this what-if
+   * (e.g. stop relying on someone). Never includes the patient center.
+   */
+  removeEntityIds?: string[];
+  /** Existing flow ids to hide from the ecology for this what-if. */
+  removeFlowIds?: string[];
 }
 
 /**

@@ -5,7 +5,10 @@ export const lceScenarios: LCE[] = [
     id: 'lce-insurance',
     name: 'Insurance Drops Insulin Coverage',
     description:
-      "Jane's employer-sponsored insurance switched formularies. Her current insulin pen is no longer covered, and the alternative requires a prior authorization that may take weeks.",
+      "Jordan's employer-sponsored insurance switched formularies. Their current insulin pen is no longer covered, and the alternative requires a prior authorization that may take weeks.",
+    easyName: 'Insulin costs too much now',
+    easyStory:
+      'The insurance company stopped paying for Jordan\u2019s insulin pen. Now it is very hard to get the medicine Jordan needs every day.',
     disruptsEntityIds: ['insurance', 'insulin-pen', 'med-routine', 'pharmacy', 'treatment-plan'],
     breaksFlowIds: ['f-insurance-plan', 'f-pharm-pen', 'f-medroutine-pen'],
     addsConflicts: [
@@ -28,7 +31,10 @@ export const lceScenarios: LCE[] = [
     id: 'lce-relocation',
     name: 'Relocation Away From Family',
     description:
-      "Jane and her partner move two hours away for her partner's job. Her daughter, primary-care clinician, podiatrist, and pharmacy are all left behind.",
+      "Jordan and their partner move two hours away for their partner's job. Their daughter, primary-care clinician, podiatrist, and pharmacy are all left behind.",
+    easyName: 'Moved far from family',
+    easyStory:
+      'Jordan moved to a new town, far away from the daughter, the doctors, and the pharmacy that helped every day.',
     disruptsEntityIds: [
       'daughter',
       'primary-care',
@@ -74,7 +80,10 @@ export const lceScenarios: LCE[] = [
     id: 'lce-caregiver-surgery',
     name: 'Partner Has Hand Surgery',
     description:
-      "Jane's partner needs hand surgery and a 6-week recovery, and can no longer help wrap her foot ulcer or maintain caregiver notes.",
+      "Jordan's partner needs hand surgery and a 6-week recovery, and can no longer help wrap their foot ulcer or maintain caregiver notes.",
+    easyName: 'Partner hurt their hand',
+    easyStory:
+      'Jordan\u2019s partner had hand surgery and cannot help with the foot bandages or the care notes for six weeks.',
     disruptsEntityIds: ['partner', 'caregiver-notes', 'foot-care-routine'],
     breaksFlowIds: ['f-partner-footroutine', 'f-partner-notes', 'f-notes-clinic'],
     addsConflicts: [
@@ -84,11 +93,11 @@ export const lceScenarios: LCE[] = [
         entityIds: ['patient', 'foot-care-routine', 'foot-dressings'],
         flowIds: ['f-partner-footroutine', 'f-patient-footroutine'],
         description:
-          'Jane must perform wound care alone, increasing time, cognitive load, and risk of infection.',
+          'Jordan must perform wound care alone, increasing time, cognitive load, and risk of infection.',
       },
       {
         id: 'c-caregiver-info',
-        title: 'Information work falls back on Jane',
+        title: 'Information work falls back on Jordan',
         entityIds: ['caregiver-notes', 'clinic-visits'],
         flowIds: ['f-partner-notes', 'f-notes-clinic'],
         description:

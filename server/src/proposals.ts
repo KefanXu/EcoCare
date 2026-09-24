@@ -30,6 +30,10 @@ export interface EcologyProposal {
   restoresEntityIds?: string[];
   restoresFlowIds?: string[];
   resolvesConflictIds?: string[];
+  /** Hide existing entities for this what-if (never `patient`). */
+  removeEntityIds?: string[];
+  /** Hide existing flows for this what-if. */
+  removeFlowIds?: string[];
 }
 
 /** Subset of the entity/flow/conflict ids in the live ecology so the model
@@ -179,13 +183,17 @@ export function validateProposals(
     const restoresEntityIds = clean(p.restoresEntityIds, entityIds);
     const restoresFlowIds = clean(p.restoresFlowIds, flowIds);
     const resolvesConflictIds = clean(p.resolvesConflictIds, conflictIds);
+    const removeEntityIds = clean(p.removeEntityIds, entityIds).filter((id) => id !== 'patient');
+    const removeFlowIds = clean(p.removeFlowIds, flowIds);
 
     const empty =
       addEntities.length === 0 &&
       addFlows.length === 0 &&
       restoresEntityIds.length === 0 &&
       restoresFlowIds.length === 0 &&
-      resolvesConflictIds.length === 0;
+      resolvesConflictIds.length === 0 &&
+      removeEntityIds.length === 0 &&
+      removeFlowIds.length === 0;
     if (empty) continue;
 
     out.push({
@@ -197,6 +205,8 @@ export function validateProposals(
       ...(restoresEntityIds.length ? { restoresEntityIds } : {}),
       ...(restoresFlowIds.length ? { restoresFlowIds } : {}),
       ...(resolvesConflictIds.length ? { resolvesConflictIds } : {}),
+      ...(removeEntityIds.length ? { removeEntityIds } : {}),
+      ...(removeFlowIds.length ? { removeFlowIds } : {}),
     });
 
     if (out.length >= 3) break;
@@ -206,7 +216,7 @@ export function validateProposals(
 }
 
 /** Render a markdown-friendly description of the schema for the system prompt. */
-export const PROPOSAL_SCHEMA_BLURB = `An "ecology proposal" is a structured care-ecology modification you can offer alongside your prose. Each proposal MUST have an \`id\`, a short \`title\`, a one-sentence \`rationale\`, and at least ONE of: \`addEntities[]\`, \`addFlows[]\`, \`restoresEntityIds[]\`, \`restoresFlowIds[]\`, \`resolvesConflictIds[]\`.
+export const PROPOSAL_SCHEMA_BLURB = `An "ecology proposal" is a structured care-ecology modification you can offer alongside your prose. Each proposal MUST have an \`id\`, a short \`title\`, a one-sentence \`rationale\`, and at least ONE of: \`addEntities[]\`, \`addFlows[]\`, \`restoresEntityIds[]\`, \`restoresFlowIds[]\`, \`resolvesConflictIds[]\`, \`removeEntityIds[]\`, \`removeFlowIds[]\`.
 
 Schema (TypeScript):
 \`\`\`
@@ -218,7 +228,9 @@ EcologyProposal = {
   addFlows?:    [{ source, target, label, kind, content, description }],
   restoresEntityIds?: string[],
   restoresFlowIds?:   string[],
-  resolvesConflictIds?: string[]
+  resolvesConflictIds?: string[],
+  removeEntityIds?: string[],
+  removeFlowIds?: string[]
 }
 \`\`\`
 - \`category\`: one of "component" | "stakeholder" | "information" | "practice"
@@ -226,4 +238,5 @@ EcologyProposal = {
 - \`kind\`: one of "data" | "guidance" | "feedback" | "communication"
 - \`tempId\` MUST start with "temp-" and be unique within the proposal.
 - \`source\` / \`target\` MUST reference either an existing entity id (see "Known entity ids" below) or a \`tempId\` you introduced in this proposal's \`addEntities\`.
-- \`restoresEntityIds\` / \`restoresFlowIds\` / \`resolvesConflictIds\` MUST reference real ids from the lists below.`;
+- \`restoresEntityIds\` / \`restoresFlowIds\` / \`resolvesConflictIds\` / \`removeEntityIds\` / \`removeFlowIds\` MUST reference real ids from the lists below.
+- \`removeEntityIds\` / \`removeFlowIds\` mean "stop relying on / take out of the care picture for this what-if" — never permanent delete. Never remove the patient center (\`patient\`).`;

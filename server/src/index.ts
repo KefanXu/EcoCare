@@ -13,6 +13,10 @@ import type { FollowUpsPayload } from './handlers/followups.js';
 import type { ChatContext } from './systemPrompt.js';
 import { generateFollowUps } from './handlers/followups.js';
 import { generateProposals } from './handlers/proposals.js';
+import { classifyItem } from './handlers/classify.js';
+import type { ClassifyPayload } from './handlers/classify.js';
+import { suggestFlowsForEntity } from './handlers/classify.js';
+import type { SuggestFlowsPayload } from './handlers/classify.js';
 
 const app = express();
 app.use(cors());
@@ -102,6 +106,51 @@ app.post('/api/proposals', async (req, res) => {
   } catch (err) {
     console.error('[ecocare] proposals error', err);
     res.json({ proposals: [] });
+  }
+});
+
+app.post('/api/classify', async (req, res) => {
+  const body = req.body as ClassifyPayload;
+  if (
+    !body ||
+    !body.label ||
+    !body.label.trim() ||
+    (body.type !== 'entity' && body.type !== 'flow')
+  ) {
+    res.status(400).json({ error: 'Invalid request body' });
+    return;
+  }
+  if (!openai) {
+    res.status(500).json({ error: 'LLM_API_KEY is not configured on the server.' });
+    return;
+  }
+
+  try {
+    const suggestion = await classifyItem(openai, rt, body);
+    res.json({ suggestion });
+  } catch (err) {
+    console.error('[ecocare] classify error', err);
+    res.status(500).json({ error: 'Classification failed' });
+  }
+});
+
+app.post('/api/suggest-flows', async (req, res) => {
+  const body = req.body as SuggestFlowsPayload;
+  if (!body || !body.entity || !body.entity.label || !Array.isArray(body.entities)) {
+    res.status(400).json({ error: 'Invalid request body' });
+    return;
+  }
+  if (!openai) {
+    res.status(500).json({ error: 'LLM_API_KEY is not configured on the server.' });
+    return;
+  }
+
+  try {
+    const flows = await suggestFlowsForEntity(openai, rt, body);
+    res.json({ flows });
+  } catch (err) {
+    console.error('[ecocare] suggest-flows error', err);
+    res.json({ flows: [] });
   }
 });
 

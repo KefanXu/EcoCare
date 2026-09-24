@@ -15,6 +15,10 @@ export interface EcoEntity {
   category: EntityCategory;
   layer: Layer;
   description: string;
+  /** Optional plain-language name shown in Easy mode (e.g. "Sugar Sensor"). */
+  easyLabel?: string;
+  /** Optional one-sentence plain-language description for Easy mode. */
+  easyDescription?: string;
 }
 
 export interface InfoFlow {
@@ -43,6 +47,10 @@ export interface LCE {
   id: string;
   name: string;
   description: string;
+  /** Optional short plain-language name for Easy mode. */
+  easyName?: string;
+  /** Optional one-sentence plain-language story for Easy mode. */
+  easyStory?: string;
   disruptsEntityIds: string[];
   breaksFlowIds: string[];
   addsConflicts: Conflict[];

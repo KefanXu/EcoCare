@@ -38,6 +38,77 @@ body,
   animation: brokenPulse 1.6s ease-in-out infinite;
 }
 
+/* Ring that breathes around an entity a strategy has brought back online. */
+@keyframes healPulse {
+  0%,
+  100% {
+    opacity: 0.95;
+    stroke-width: 2.5;
+  }
+  50% {
+    opacity: 0.45;
+    stroke-width: 3.5;
+  }
+}
+
+.heal-pulse {
+  animation: healPulse 2s ease-in-out infinite;
+}
+
+/* Enter animation for a newly added entity: scale-in + fade + ripple ring. */
+@keyframes entityEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.entity-enter {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: entityEnter 0.5s ease-out both;
+}
+
+@keyframes entityRipple {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+.entity-ripple {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: entityRipple 0.9s ease-out forwards;
+}
+
+/* Pulsing ring on eligible connect targets while a source is selected. */
+@keyframes targetPulse {
+  0%,
+  100% {
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.target-pulse {
+  animation: targetPulse 1.2s ease-in-out infinite;
+}
+
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
 }
@@ -48,3 +119,47 @@ body,
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 0.45);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Easy mode: larger type, bigger touch targets, friendlier look.
+   ───────────────────────────────────────────────────────────── */
+.mode-easy {
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+/* Global visible focus ring for keyboard users (both modes). */
+:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Map nodes already show a circular selection ring — suppress the browser's
+   rectangular focus box around the SVG group (reads as a yellow/blue rectangle). */
+.eco-map g[role='button']:focus,
+.eco-map g[role='button']:focus-visible {
+  outline: none;
+}
+
+/* Wider scrollbars in easy mode for easier grabbing. */
+.mode-easy .scrollbar-thin::-webkit-scrollbar {
+  width: 12px;
+}
+.mode-easy .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.4);
+  border-radius: 6px;
+}
+
+/* Honor reduced-motion preferences: stop decorative animation. */
+@media (prefers-reduced-motion: reduce) {
+  .flow-active,
+  .flow-broken-pulse,
+  .heal-pulse,
+  .entity-enter,
+  .entity-ripple,
+  .target-pulse {
+    animation: none !important;
+  }
+}
+

@@ -5,7 +5,9 @@ import {
   useEntityDisruptionStrengths,
   useFlowBreakStrengths,
   useHighlightedIds,
+  useLegendFocusIds,
   useOverlayTagMap,
+  useRepairState,
   useEcoStore,
   type OverlayTag,
 } from '../../store/useEcoStore';
@@ -66,6 +68,18 @@ function ringFill(name: string): string {
   return LAYER_RING_FILL[name as keyof typeof LAYER_RING_FILL] ?? '#ffffff';
 }
 
+const LAYER_EASY_NAMES: Record<string, string> = {
+  microsystem: 'Home circle',
+  mesosystem: 'Care team',
+  exosystem: 'Services',
+  macrosystem: 'Wider world',
+};
+
+function ringDisplayLabel(name: string, label: string, easy: boolean): string {
+  if (easy) return LAYER_EASY_NAMES[name] ?? label;
+  return label;
+}
+
 function parseHex(hex: string): [number, number, number] {
   const m = hex.replace('#', '');
   const full =
@@ -111,13 +125,27 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
   const toggleSelection = useEcoStore((s) => s.toggleSelection);
   const setHoveredEntity = useEcoStore((s) => s.setHoveredEntity);
   const setHoveredFlow = useEcoStore((s) => s.setHoveredFlow);
-  const editMode = useEcoStore((s) => s.editMode);
   const connectMode = useEcoStore((s) => s.connectMode);
   const pickConnectNode = useEcoStore((s) => s.pickConnectNode);
+  const impactPickMode = useEcoStore((s) => s.impactPickMode);
+  const userImpactEntityIds = useEcoStore((s) => s.userImpactEntityIds);
+  const toggleUserImpactEntity = useEcoStore((s) => s.toggleUserImpactEntity);
+  const recentlyAddedEntityIds = useEcoStore((s) => s.recentlyAddedEntityIds);
+  const uiMode = useEcoStore((s) => s.uiMode);
+  const easy = uiMode === 'easy';
+  const activeScenarioId = useEcoStore((s) => s.activeScenarioId);
+
+  const easyLabelById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of patient.entities) m.set(e.id, e.easyLabel ?? e.label);
+    return m;
+  }, [patient.entities]);
   const entityStrengths = useEntityDisruptionStrengths();
   const flowStrengths = useFlowBreakStrengths();
   const overlayTags = useOverlayTagMap();
   const highlightIds = useHighlightedIds();
+  const legendFocus = useLegendFocusIds();
+  const repair = useRepairState();
 
   const [nodeOffsets, setNodeOffsets] = useState<Record<string, NodeOffset>>({});
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
@@ -261,7 +289,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
 
   const handleNodePointerDown = useCallback(
     (id: string, e: React.PointerEvent<SVGGElement>) => {
-      if (connectMode.active || transitionActive) return;
+      if (connectMode.active || impactPickMode || transitionActive) return;
       if (e.button !== 0) return;
       if (!svgRef.current || !gRef.current) return;
 
@@ -285,7 +313,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
       };
       setDraggingNodeId(id);
     },
-    [connectMode.active, nodeOffsets],
+    [connectMode.active, impactPickMode, nodeOffsets],
   );
 
   const handleNodePointerMove = useCallback(
@@ -311,6 +339,14 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
 
   const finishNodePointer = useCallback(
     (id: string, onActivate: () => void, e: React.PointerEvent<SVGGElement>) => {
+      // In connect / impact-pick mode there is no drag bookkeeping (pointer down
+      // returns early), so a click resolves straight to the mode handler.
+      if (connectMode.active || impactPickMode) {
+        e.stopPropagation();
+        onActivate();
+        return;
+      }
+
       const drag = dragRef.current;
       if (!drag || drag.id !== id) return;
 
@@ -330,7 +366,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
         onActivate();
       }
     },
-    [nodeOffsets, springNodeBack],
+    [connectMode.active, impactPickMode, nodeOffsets, springNodeBack],
   );
 
   useEffect(() => {
@@ -391,21 +427,34 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
     return set;
   }, [hoveredEntityId, patient.flows]);
 
+  /** Focused entity for Easy progressive disclosure (hover or selection). */
+  const focusEntityId =
+    hoveredEntityId ?? selection.find((s) => s.kind === 'entity')?.id ?? null;
+  const scenarioActive = !!activeScenarioId;
+  const easySpotlight = easy && scenarioActive && !focusEntityId && !searchActive;
+
   function handleEntityClick(entityId: string) {
-    if (editMode && connectMode.active) {
+    if (connectMode.active) {
       pickConnectNode(entityId);
+      return;
+    }
+    if (impactPickMode) {
+      toggleUserImpactEntity(entityId);
       return;
     }
     toggleSelection({ id: entityId, kind: 'entity' });
   }
 
+  const pickModeActive = connectMode.active || impactPickMode;
+  const userImpactSet = useMemo(() => new Set(userImpactEntityIds), [userImpactEntityIds]);
+
   return (
     <svg
       ref={svgRef}
       viewBox={`${-width / 2} ${-height / 2} ${width} ${height}`}
-      className="w-full h-full"
+      className="eco-map w-full h-full"
       preserveAspectRatio="xMidYMid meet"
-      style={{ cursor: connectMode.active ? 'crosshair' : 'default' }}
+      style={{ cursor: pickModeActive ? 'crosshair' : 'default' }}
     >
       <defs>
         {(['data', 'guidance', 'feedback', 'communication'] as const).map((k) => (
@@ -517,8 +566,8 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
               )}
               {/* Layer label following the outer arc */}
               <text
-                fontSize={11}
-                letterSpacing={3}
+                fontSize={easy ? 13 : 11}
+                letterSpacing={easy ? 2 : 3}
                 fill="rgba(71,85,105,0.7)"
                 fontWeight={600}
                 style={{ pointerEvents: 'none' }}
@@ -528,7 +577,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
                   startOffset="50%"
                   textAnchor="middle"
                 >
-                  {ring.label}
+                  {ringDisplayLabel(ring.name, ring.label, easy)}
                 </textPath>
               </text>
             </g>
@@ -610,13 +659,13 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
                   y={band.y}
                   textAnchor="start"
                   dominantBaseline="middle"
-                  fontSize={10}
-                  letterSpacing={2}
+                  fontSize={easy ? 13 : 10}
+                  letterSpacing={easy ? 1.5 : 2}
                   fill="rgba(71,85,105,0.6)"
                   fontWeight={600}
                   style={{ pointerEvents: 'none' }}
                 >
-                  {band.label}
+                  {ringDisplayLabel(band.name, band.label, easy)}
                 </text>
               </g>
             ))}
@@ -639,45 +688,70 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
               (flow.source === hoveredEntityId || flow.target === hoveredEntityId);
             const isHighlighted = highlightIds.active && highlightIds.flowIds.has(flow.id);
             const dimByHighlight = highlightIds.active && !isHighlighted;
+            const isLegendMatch = legendFocus.active && legendFocus.flowIds.has(flow.id);
+            const dimByLegend = legendFocus.active && !isLegendMatch;
+            const tag = overlayTags.get(flow.id);
+            const isOverlayFlow = tag === 'preview' || tag === 'applied';
+            const isRepairedFlow = repair.flowIds.has(flow.id);
+
+            // Easy progressive flows: hide the spaghetti unless focused / broken / repaired / overlay.
+            if (easy) {
+              const incidentToFocus =
+                !!focusEntityId &&
+                (flow.source === focusEntityId || flow.target === focusEntityId);
+              const keep =
+                isFlowHovered ||
+                isSelected ||
+                isHighlighted ||
+                isLegendMatch ||
+                isOverlayFlow ||
+                isRepairedFlow ||
+                breakStrength > 0.15 ||
+                incidentToFocus;
+              if (!keep) return null;
+            }
+
             const baseOpacity = isFlowHovered
               ? 1
               : hoveredEntityId
                 ? isAdjacent
                   ? 1
                   : 0.18
-                : isHighlighted
+                : isHighlighted || isLegendMatch
                   ? 1
-                  : dimByHighlight
+                  : dimByHighlight || dimByLegend
                     ? 0.12
                     : isSelected
                       ? 1
                       : 0.65;
-            const tag = overlayTags.get(flow.id);
-            const isOverlayFlow = tag === 'preview' || tag === 'applied';
             const baseColor = isHighlighted
               ? HIGHLIGHT_COLOR
-              : isOverlayFlow
+              : isOverlayFlow || isRepairedFlow
                 ? OVERLAY_COLOR
                 : FLOW_COLOR[flow.kind];
             const stroke = mixHex(baseColor, DISRUPTED_COLOR, breakStrength);
-            const widthPx = isHighlighted
-              ? 3
-              : isOverlayFlow
-                ? isFlowHovered
-                  ? 3.2
-                  : 2.6
-                : isFlowHovered
-                  ? 2.6
-                  : isSelected
-                    ? 2.5
-                    : isAdjacent
-                      ? 2
-                      : 1.2;
+            const easyBump = easy ? 0.6 : 0;
+            const widthPx =
+              (isHighlighted || isLegendMatch
+                ? 3
+                : isOverlayFlow || isRepairedFlow
+                  ? isFlowHovered
+                    ? 3.2
+                    : 2.6
+                  : isFlowHovered
+                    ? 2.6
+                    : isSelected
+                      ? 2.5
+                      : isAdjacent
+                        ? 2
+                        : 1.2) + easyBump;
             const path = bezierPath(s.x, s.y, t.x, t.y);
             const useBrokenArrow = breakStrength >= 0.5;
             const showBrokenLayer = breakStrength > 0.02;
             const showIntactLayer = breakStrength < 0.98;
             const strokeDasharray = tag === 'preview' ? '6 4' : undefined;
+            const midX = (s.x + t.x) / 2;
+            const midY = (s.y + t.y) / 2;
             return (
               <g key={flow.id} style={{ cursor: 'pointer' }}>
                 <path
@@ -689,10 +763,22 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
                   onMouseLeave={() => setHoveredFlow(null)}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (editMode && connectMode.active) return;
+                    if (connectMode.active || impactPickMode) return;
                     toggleSelection({ id: flow.id, kind: 'flow' });
                   }}
                 />
+                {/* Ghost of the break this strategy repaired, so the fix reads as a before/after. */}
+                {isRepairedFlow && (
+                  <path
+                    d={path}
+                    fill="none"
+                    stroke={DISRUPTED_COLOR}
+                    strokeWidth={widthPx + 5}
+                    strokeDasharray="6 6"
+                    opacity={baseOpacity * 0.28}
+                    pointerEvents="none"
+                  />
+                )}
                 {showIntactLayer && (
                   <path
                     d={path}
@@ -701,13 +787,15 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
                     strokeWidth={widthPx}
                     strokeDasharray={strokeDasharray}
                     opacity={baseOpacity * (1 - breakStrength)}
-                    className={isSelected ? 'flow-active' : undefined}
+                    className={
+                      isRepairedFlow ? 'flow-active' : isSelected ? 'flow-active' : undefined
+                    }
                     markerEnd={
                       useBrokenArrow
                         ? `url(#arrow-broken)`
                         : isHighlighted
                           ? `url(#arrow-highlight)`
-                          : isOverlayFlow
+                          : isOverlayFlow || isRepairedFlow
                             ? `url(#arrow-overlay)`
                             : `url(#arrow-${flow.kind})`
                     }
@@ -735,6 +823,22 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
                     pointerEvents="none"
                   />
                 )}
+                {easy && breakStrength >= 0.5 && (
+                  <g
+                    transform={`translate(${midX}, ${midY})`}
+                    opacity={baseOpacity}
+                    pointerEvents="none"
+                    aria-hidden
+                  >
+                    <circle r={7} fill="#fff1f2" stroke="#e11d48" strokeWidth={1.5} />
+                    <path
+                      d="M -3.2 -3.2 L 3.2 3.2 M 3.2 -3.2 L -3.2 3.2"
+                      stroke="#e11d48"
+                      strokeWidth={1.75}
+                      strokeLinecap="round"
+                    />
+                  </g>
+                )}
               </g>
             );
           })}
@@ -753,14 +857,29 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
               isHovered={hoveredEntityId === p.id}
               isAdjacent={adjacentEntityIds.has(p.id)}
               isConnectSource={connectMode.active && connectMode.sourceId === p.id}
+              isConnectTarget={connectMode.active && connectMode.sourceId !== p.id}
               isConnectMode={connectMode.active}
+              isImpactPickMode={impactPickMode}
+              isUserImpactMarked={userImpactSet.has(p.id)}
+              isEntering={recentlyAddedEntityIds.includes(p.id)}
               dimNonAdjacent={!!hoveredEntityId}
               searchActive={searchActive}
               isSearchMatch={searchMatchIds.has(p.id)}
               overlayTag={overlayTags.get(p.id)}
+              isRepaired={repair.entityIds.has(p.id)}
               highlightActive={highlightIds.active}
               isHighlighted={highlightIds.entityIds.has(p.id)}
+              legendActive={legendFocus.active}
+              isLegendMatch={legendFocus.entityIds.has(p.id)}
               labelBelow={useRowLabel}
+              easy={easy}
+              displayLabel={easy ? easyLabelById.get(p.id) : undefined}
+              spotlightDim={
+                easySpotlight &&
+                (entityStrengths.get(p.id) ?? 0) < 0.15 &&
+                !repair.entityIds.has(p.id)
+              }
+              onActivate={() => handleEntityClick(p.id)}
               onHover={(id) => setHoveredEntity(id)}
               onPointerDown={(e) => handleNodePointerDown(p.id, e)}
               onPointerMove={handleNodePointerMove}
@@ -776,16 +895,31 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
           return (
             <g transform={`translate(${patientPos.x}, ${patientPos.y})`}>
               <PatientCenter
-                label={patientPos.label}
+                label={easy ? patient.name : patientPos.label}
             offset={nodeOffsets.patient}
             isDragging={draggingNodeId === 'patient'}
             isSelected={selectedSet.entities.has('patient')}
             isConnectMode={connectMode.active}
             isConnectSource={connectMode.active && connectMode.sourceId === 'patient'}
+            isConnectTarget={
+              connectMode.active && connectMode.sourceId !== 'patient'
+            }
+            isImpactPickMode={impactPickMode}
+            isUserImpactMarked={userImpactSet.has('patient')}
             searchActive={searchActive}
             isSearchMatch={searchMatchIds.has('patient')}
             highlightActive={highlightIds.active}
             isHighlighted={highlightIds.entityIds.has('patient')}
+            legendActive={legendFocus.active}
+            isLegendMatch={legendFocus.entityIds.has('patient')}
+            isRepaired={repair.entityIds.has('patient')}
+            easy={easy}
+            spotlightDim={
+              easySpotlight &&
+              (entityStrengths.get('patient') ?? 0) < 0.15 &&
+              !repair.entityIds.has('patient')
+            }
+            onActivate={() => handleEntityClick('patient')}
             onHover={(v) => setHoveredEntity(v ? 'patient' : null)}
             onPointerDown={(e) => handleNodePointerDown('patient', e)}
             onPointerMove={handleNodePointerMove}
@@ -856,13 +990,27 @@ interface EntityNodeProps {
   isAdjacent: boolean;
   isConnectSource: boolean;
   isConnectMode: boolean;
+  isConnectTarget: boolean;
+  isImpactPickMode?: boolean;
+  isUserImpactMarked?: boolean;
+  isEntering: boolean;
   dimNonAdjacent: boolean;
   searchActive: boolean;
   isSearchMatch: boolean;
   overlayTag?: OverlayTag;
+  /** LCE damaged this node and an active strategy puts it back in service. */
+  isRepaired?: boolean;
   highlightActive: boolean;
   isHighlighted: boolean;
+  legendActive: boolean;
+  isLegendMatch: boolean;
   labelBelow?: boolean;
+  easy?: boolean;
+  /** Plain-language name override used in Easy mode. */
+  displayLabel?: string;
+  /** Easy scenario spotlight: dim healthy nodes so hurt ones pop. */
+  spotlightDim?: boolean;
+  onActivate: () => void;
   onHover: (id: string | null) => void;
   onPointerDown: (e: React.PointerEvent<SVGGElement>) => void;
   onPointerMove: (e: React.PointerEvent<SVGGElement>) => void;
@@ -880,13 +1028,24 @@ function EntityNode({
   isAdjacent,
   isConnectSource,
   isConnectMode,
+  isConnectTarget,
+  isImpactPickMode = false,
+  isUserImpactMarked = false,
+  isEntering,
   dimNonAdjacent,
   searchActive,
   isSearchMatch,
   overlayTag,
+  isRepaired = false,
   highlightActive,
   isHighlighted,
+  legendActive,
+  isLegendMatch,
   labelBelow,
+  easy = false,
+  displayLabel,
+  spotlightDim = false,
+  onActivate,
   onHover,
   onPointerDown,
   onPointerMove,
@@ -894,14 +1053,24 @@ function EntityNode({
   onPointerCancel,
 }: EntityNodeProps) {
   const Icon = iconFor(p.id, p.category);
+  const R = easy ? NODE_BEZEL_R * 1.25 : NODE_BEZEL_R;
+  const shownLabel = displayLabel ?? p.label;
   const baseStroke = categoryStrokeColor(p.category);
   const isOverlayNode = overlayTag === 'preview' || overlayTag === 'applied';
-  const nodeBaseStroke = isOverlayNode ? OVERLAY_COLOR : baseStroke;
+  const nodeBaseStroke = isOverlayNode || isRepaired ? OVERLAY_COLOR : baseStroke;
   const bezelStroke = mixHex(nodeBaseStroke, DISRUPTED_COLOR, disruption);
   const hoverOpacity = dimNonAdjacent && !isHovered && !isAdjacent ? 0.35 : 1;
   const searchOpacity = searchActive ? (isSearchMatch ? 1 : 0.18) : 1;
   const highlightOpacity = highlightActive ? (isHighlighted ? 1 : 0.18) : 1;
-  const opacity = Math.min(hoverOpacity, searchOpacity, highlightOpacity);
+  const legendOpacity = legendActive ? (isLegendMatch ? 1 : 0.18) : 1;
+  const spotlightOpacity = spotlightDim ? 0.3 : 1;
+  const opacity = Math.min(
+    hoverOpacity,
+    searchOpacity,
+    highlightOpacity,
+    legendOpacity,
+    spotlightOpacity,
+  );
   const showDisruptionGlow = disruption > 0.02;
 
   // Label placement: above when on top half, below when on bottom half.
@@ -909,17 +1078,30 @@ function EntityNode({
   let normAngle = ((p.angleDeg % 360) + 360) % 360;
   // angleDeg uses 0deg = right, +90 = bottom (svg). Top half = 180..360.
   const isBottomHalf = labelBelow || (normAngle > 0 && normAngle < 180);
-  const labelDy = isBottomHalf ? NODE_BEZEL_R + 16 : -(NODE_BEZEL_R + 6);
+  const labelDy = isBottomHalf ? R + 16 : -(R + 6);
   const labelBaseline = isBottomHalf ? 'hanging' : 'auto';
   const nudgeX = offset?.dx ?? 0;
   const nudgeY = offset?.dy ?? 0;
-  const nodeCursor = isConnectMode ? 'crosshair' : isDragging ? 'grabbing' : 'grab';
+  const nodeCursor =
+    isConnectMode || isImpactPickMode ? 'crosshair' : isDragging ? 'grabbing' : 'grab';
 
   return (
     <g
       transform={`translate(${p.x + nudgeX}, ${p.y + nudgeY})`}
-      style={{ cursor: nodeCursor, touchAction: isConnectMode ? undefined : 'none' }}
+      style={{
+        cursor: nodeCursor,
+        touchAction: isConnectMode || isImpactPickMode ? undefined : 'none',
+      }}
       opacity={opacity}
+      role="button"
+      tabIndex={0}
+      aria-label={shownLabel}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onActivate();
+        }
+      }}
       onMouseEnter={() => onHover(p.id)}
       onMouseLeave={() => onHover(null)}
       onPointerDown={onPointerDown}
@@ -927,9 +1109,31 @@ function EntityNode({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
+      {isConnectTarget && (
+        <circle
+          r={R + 7}
+          fill="none"
+          stroke="#f59e0b"
+          strokeWidth={2}
+          strokeDasharray="4 3"
+          className="target-pulse"
+          opacity={0.9}
+        />
+      )}
+      {isUserImpactMarked && (
+        <circle
+          r={R + 9}
+          fill="none"
+          stroke={DISRUPTED_COLOR}
+          strokeWidth={2}
+          strokeDasharray="3 2"
+          opacity={0.95}
+        />
+      )}
+      <g className={isEntering ? 'entity-enter' : undefined}>
       {showDisruptionGlow && (
         <circle
-          r={NODE_BEZEL_R + 7}
+          r={R + 7}
           fill="none"
           stroke={DISRUPTED_COLOR}
           strokeWidth={2}
@@ -937,9 +1141,30 @@ function EntityNode({
           opacity={0.9 * disruption}
         />
       )}
-      {overlayTag === 'applied' && !showDisruptionGlow && (
+      {isRepaired && (
+        <>
+          {/* Dashed rose "scar": where the LCE hit before the strategy repaired it. */}
+          <circle
+            r={R + 12}
+            fill="none"
+            stroke={DISRUPTED_COLOR}
+            strokeWidth={1.5}
+            strokeDasharray="4 4"
+            opacity={0.5}
+          />
+          <circle
+            r={R + 7}
+            fill="none"
+            stroke={OVERLAY_COLOR}
+            strokeWidth={2.5}
+            filter="url(#select-glow)"
+            className="heal-pulse"
+          />
+        </>
+      )}
+      {overlayTag === 'applied' && !showDisruptionGlow && !isRepaired && (
         <circle
-          r={NODE_BEZEL_R + 7}
+          r={R + 7}
           fill="none"
           stroke={OVERLAY_COLOR}
           strokeWidth={2}
@@ -949,7 +1174,7 @@ function EntityNode({
       )}
       {highlightActive && isHighlighted && (
         <circle
-          r={NODE_BEZEL_R + 10}
+          r={R + 10}
           fill="none"
           stroke={HIGHLIGHT_COLOR}
           strokeWidth={2.5}
@@ -959,7 +1184,7 @@ function EntityNode({
       )}
       {(isSelected || isConnectSource || (searchActive && isSearchMatch)) && (
         <circle
-          r={NODE_BEZEL_R + 7}
+          r={R + 7}
           fill="none"
           stroke={
             isConnectSource
@@ -975,8 +1200,8 @@ function EntityNode({
       )}
 
       <circle
-        r={NODE_BEZEL_R}
-        fill={isOverlayNode ? '#ecfdf5' : 'white'}
+        r={R}
+        fill={isOverlayNode || isRepaired ? '#ecfdf5' : 'white'}
         stroke={bezelStroke}
         strokeWidth={2}
         strokeDasharray={overlayTag === 'preview' ? '4 3' : undefined}
@@ -984,10 +1209,10 @@ function EntityNode({
 
       {/* Lucide icon via foreignObject */}
       <foreignObject
-        x={-NODE_BEZEL_R + 6}
-        y={-NODE_BEZEL_R + 6}
-        width={(NODE_BEZEL_R - 6) * 2}
-        height={(NODE_BEZEL_R - 6) * 2}
+        x={-R + 6}
+        y={-R + 6}
+        width={(R - 6) * 2}
+        height={(R - 6) * 2}
         style={{ pointerEvents: 'none' }}
       >
         <div
@@ -1000,27 +1225,116 @@ function EntityNode({
             color: bezelStroke,
           }}
         >
-          {createElement(Icon, { size: 20, strokeWidth: 1.75 })}
+          {createElement(Icon, { size: easy ? 26 : 20, strokeWidth: 1.75 })}
         </div>
       </foreignObject>
+
+      {isRepaired && <RepairBadge r={R} />}
+      {easy && disruption > 0.35 && !isRepaired && <AlertBadge r={R} />}
+      {isEntering && (
+        <circle
+          r={R + 4}
+          fill="none"
+          stroke="#f59e0b"
+          strokeWidth={2}
+          className="entity-ripple"
+        />
+      )}
+      </g>
 
       <text
         y={labelDy}
         textAnchor="middle"
         dominantBaseline={labelBaseline}
-        fontSize={11}
-        fill={isOverlayNode ? '#065f46' : 'rgba(30,41,59,0.92)'}
-        style={{ pointerEvents: 'none', fontWeight: 500 }}
+        fontSize={easy ? 13 : 11}
+        fill={isOverlayNode || isRepaired ? '#065f46' : 'rgba(30,41,59,0.92)'}
+        style={{ pointerEvents: 'none', fontWeight: easy ? 600 : 500 }}
       >
-        {p.label}
+        {shownLabel}
       </text>
-      {isOverlayNode && (
+      {isOverlayNode ? (
         <OverlayPill
           tag={overlayTag!}
           dy={isBottomHalf ? labelDy + 14 : labelDy - 14}
           baseline={labelBaseline}
         />
-      )}
+      ) : isRepaired ? (
+        <RepairPill
+          dy={isBottomHalf ? labelDy + 14 : labelDy - 14}
+          baseline={labelBaseline}
+        />
+      ) : null}
+    </g>
+  );
+}
+
+/** Emerald check stamped on a node the active strategy brought back online. */
+function RepairBadge({ r }: { r: number }) {
+  const d = r * 0.76;
+  return (
+    <g transform={`translate(${d}, ${-d})`} style={{ pointerEvents: 'none' }}>
+      <circle r={8} fill={OVERLAY_COLOR} stroke="#ffffff" strokeWidth={1.5} />
+      <path
+        d="M -3.4 0.2 L -1.1 2.5 L 3.5 -2.3"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </g>
+  );
+}
+
+/** Easy-mode "!" badge: marks hurt items with a symbol, not color alone. */
+function AlertBadge({ r }: { r: number }) {
+  const d = r * 0.76;
+  return (
+    <g transform={`translate(${-d}, ${-d})`} style={{ pointerEvents: 'none' }}>
+      <circle r={8} fill="#e11d48" stroke="#ffffff" strokeWidth={1.5} />
+      <text
+        y={0.5}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={11}
+        fontWeight={800}
+        fill="#ffffff"
+      >
+        !
+      </text>
+    </g>
+  );
+}
+
+function RepairPill({ dy, baseline }: { dy: number; baseline: 'hanging' | 'auto' }) {
+  const label = 'repaired';
+  const w = Math.max(label.length * 6 + 12, 44);
+  const h = 14;
+  return (
+    <g style={{ pointerEvents: 'none' }} transform={`translate(0, ${dy})`}>
+      <rect
+        x={-w / 2}
+        y={baseline === 'hanging' ? 0 : -h}
+        rx={7}
+        ry={7}
+        width={w}
+        height={h}
+        fill="#ecfdf5"
+        stroke={OVERLAY_COLOR}
+        strokeWidth={1}
+      />
+      <text
+        x={0}
+        y={baseline === 'hanging' ? h / 2 + 3 : -h / 2 + 3}
+        textAnchor="middle"
+        fontSize={9}
+        fontWeight={600}
+        letterSpacing={0.5}
+        fill="#047857"
+        style={{ textTransform: 'uppercase' }}
+      >
+        {label}
+      </text>
     </g>
   );
 }
@@ -1079,10 +1393,19 @@ interface PatientCenterProps {
   isSelected: boolean;
   isConnectMode: boolean;
   isConnectSource: boolean;
+  isConnectTarget: boolean;
+  isImpactPickMode?: boolean;
+  isUserImpactMarked?: boolean;
   searchActive: boolean;
   isSearchMatch: boolean;
   highlightActive: boolean;
   isHighlighted: boolean;
+  legendActive: boolean;
+  isLegendMatch: boolean;
+  isRepaired?: boolean;
+  easy?: boolean;
+  spotlightDim?: boolean;
+  onActivate: () => void;
   onHover: (v: boolean) => void;
   onPointerDown: (e: React.PointerEvent<SVGGElement>) => void;
   onPointerMove: (e: React.PointerEvent<SVGGElement>) => void;
@@ -1097,27 +1420,52 @@ function PatientCenter({
   isSelected,
   isConnectMode,
   isConnectSource,
+  isConnectTarget,
+  isImpactPickMode = false,
+  isUserImpactMarked = false,
   searchActive,
   isSearchMatch,
   highlightActive,
   isHighlighted,
+  legendActive,
+  isLegendMatch,
+  isRepaired = false,
+  easy = false,
+  spotlightDim = false,
+  onActivate,
   onHover,
   onPointerDown,
   onPointerMove,
   onPointerUp,
   onPointerCancel,
 }: PatientCenterProps) {
+  const R = easy ? PATIENT_BEZEL_R * 1.25 : PATIENT_BEZEL_R;
   const searchOpacity = searchActive ? (isSearchMatch ? 1 : 0.18) : 1;
   const highlightOpacity = highlightActive ? (isHighlighted ? 1 : 0.18) : 1;
-  const opacity = Math.min(searchOpacity, highlightOpacity);
+  const legendOpacity = legendActive ? (isLegendMatch ? 1 : 0.18) : 1;
+  const spotlightOpacity = spotlightDim ? 0.3 : 1;
+  const opacity = Math.min(searchOpacity, highlightOpacity, legendOpacity, spotlightOpacity);
   const nudgeX = offset?.dx ?? 0;
   const nudgeY = offset?.dy ?? 0;
-  const nodeCursor = isConnectMode ? 'crosshair' : isDragging ? 'grabbing' : 'grab';
+  const nodeCursor =
+    isConnectMode || isImpactPickMode ? 'crosshair' : isDragging ? 'grabbing' : 'grab';
   return (
     <g
       transform={`translate(${nudgeX}, ${nudgeY})`}
-      style={{ cursor: nodeCursor, touchAction: isConnectMode ? undefined : 'none' }}
+      style={{
+        cursor: nodeCursor,
+        touchAction: isConnectMode || isImpactPickMode ? undefined : 'none',
+      }}
       opacity={opacity}
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onActivate();
+        }
+      }}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
       onPointerDown={onPointerDown}
@@ -1125,9 +1473,50 @@ function PatientCenter({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
+      {isConnectTarget && (
+        <circle
+          r={R + 8}
+          fill="none"
+          stroke="#f59e0b"
+          strokeWidth={2}
+          strokeDasharray="4 3"
+          className="target-pulse"
+          opacity={0.9}
+        />
+      )}
+      {isUserImpactMarked && (
+        <circle
+          r={R + 10}
+          fill="none"
+          stroke={DISRUPTED_COLOR}
+          strokeWidth={2}
+          strokeDasharray="3 2"
+          opacity={0.95}
+        />
+      )}
+      {isRepaired && (
+        <>
+          <circle
+            r={R + 14}
+            fill="none"
+            stroke={DISRUPTED_COLOR}
+            strokeWidth={1.5}
+            strokeDasharray="4 4"
+            opacity={0.5}
+          />
+          <circle
+            r={R + 8}
+            fill="none"
+            stroke={OVERLAY_COLOR}
+            strokeWidth={2.5}
+            filter="url(#select-glow)"
+            className="heal-pulse"
+          />
+        </>
+      )}
       {highlightActive && isHighlighted && (
         <circle
-          r={PATIENT_BEZEL_R + 11}
+          r={R + 11}
           fill="none"
           stroke={HIGHLIGHT_COLOR}
           strokeWidth={2.5}
@@ -1137,7 +1526,7 @@ function PatientCenter({
       )}
       {(isSelected || isConnectSource || (searchActive && isSearchMatch)) && (
         <circle
-          r={PATIENT_BEZEL_R + 8}
+          r={R + 8}
           fill="none"
           stroke={
             isConnectSource
@@ -1152,16 +1541,16 @@ function PatientCenter({
         />
       )}
       <circle
-        r={PATIENT_BEZEL_R}
+        r={R}
         fill="#fff1f2"
         stroke="#fb7185"
         strokeWidth={2.5}
       />
       <foreignObject
-        x={-PATIENT_BEZEL_R + 8}
-        y={-PATIENT_BEZEL_R + 8}
-        width={(PATIENT_BEZEL_R - 8) * 2}
-        height={(PATIENT_BEZEL_R - 8) * 2}
+        x={-R + 8}
+        y={-R + 8}
+        width={(R - 8) * 2}
+        height={(R - 8) * 2}
         style={{ pointerEvents: 'none' }}
       >
         <div
@@ -1175,15 +1564,16 @@ function PatientCenter({
           }}
         >
           {createElement(iconFor('patient', 'stakeholder'), {
-            size: 28,
+            size: easy ? 36 : 28,
             strokeWidth: 1.75,
           })}
         </div>
       </foreignObject>
+      {isRepaired && <RepairBadge r={R} />}
       <text
-        y={PATIENT_BEZEL_R + 18}
+        y={R + 18}
         textAnchor="middle"
-        fontSize={12}
+        fontSize={easy ? 15 : 12}
         fontWeight={700}
         fill="#9f1239"
         style={{ pointerEvents: 'none' }}

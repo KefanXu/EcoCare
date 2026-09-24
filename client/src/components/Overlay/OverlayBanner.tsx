@@ -1,28 +1,57 @@
 import { useState } from 'react';
-import { useActiveHighlight, useEcoStore } from '../../store/useEcoStore';
+import { useActiveHighlight, useEcoStore, useRepairState } from '../../store/useEcoStore';
 import { findPreviewProposal } from './findPreviewProposal';
 
 export function OverlayBanner() {
   const previewProposalId = useEcoStore((s) => s.previewProposalId);
   const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
   const messages = useEcoStore((s) => s.messages);
+  const suggestPanel = useEcoStore((s) => s.suggestPanel);
   const cancelPreview = useEcoStore((s) => s.cancelPreview);
   const applyPreviewAsOverlay = useEcoStore((s) => s.applyPreviewAsOverlay);
   const discardOverlay = useEcoStore((s) => s.discardOverlay);
   const clearAllOverlays = useEcoStore((s) => s.clearAllOverlays);
   const setActiveHighlight = useEcoStore((s) => s.setActiveHighlight);
   const activeHighlight = useActiveHighlight();
+  const repair = useRepairState();
 
   const [managerOpen, setManagerOpen] = useState(false);
 
   const preview = previewProposalId
-    ? findPreviewProposal(messages, previewProposalId)
+    ? findPreviewProposal(messages, previewProposalId, suggestPanel)
     : null;
 
   if (!preview && appliedOverlay.length === 0 && !activeHighlight) return null;
 
+  const healedPct = repair.total > 0 ? Math.round((repair.repaired / repair.total) * 100) : 0;
+
   return (
     <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2">
+      {repair.total > 0 && (preview || appliedOverlay.length > 0) && (
+        <div className="flex items-center gap-2.5 bg-white border border-stone-200 rounded-full pl-3 pr-3 py-1 shadow-md text-xs">
+          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
+            Damage
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="line-through text-rose-500 font-semibold">{repair.total}</span>
+            <span className="text-slate-400">→</span>
+            <span
+              className={`font-semibold ${
+                repair.remaining === 0 ? 'text-emerald-600' : 'text-slate-700'
+              }`}
+            >
+              {repair.remaining}
+            </span>
+            <span className="text-slate-500">still affected</span>
+          </span>
+          <span className="h-1.5 w-16 rounded-full bg-rose-100 overflow-hidden">
+            <span
+              className="block h-full rounded-full bg-emerald-500 transition-all duration-500"
+              style={{ width: `${healedPct}%` }}
+            />
+          </span>
+        </div>
+      )}
       {activeHighlight && (
         <div className="flex items-center gap-2 bg-white border border-amber-300 ring-1 ring-amber-200 rounded-full pl-3 pr-1.5 py-1 shadow-md text-xs">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />

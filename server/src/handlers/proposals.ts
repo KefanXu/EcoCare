@@ -18,6 +18,8 @@ const PROPOSAL_INSTRUCTION =
   'Reply with ONLY a JSON object of the shape `{ "proposals": EcologyProposal[] }`, no prose, no markdown fences. ' +
   'Each proposal must follow the schema described in the system prompt above. ' +
   'Only use entity / flow / conflict ids from the "Known ids" lists. Introduce new entities via `addEntities` with `tempId` values like "temp-<slug>". ' +
+  'If an LCE is active, every proposal MUST also repair part of the damage: populate `restoresEntityIds` / `restoresFlowIds` ' +
+  'with ids taken from the "Currently damaged by the active LCE" lists, claiming only what the strategy genuinely fixes. ' +
   'If no concrete modification is appropriate, reply with `{ "proposals": [] }`.';
 
 export async function generateProposals(

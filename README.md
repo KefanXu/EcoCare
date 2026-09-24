@@ -33,7 +33,7 @@ Do **not** upload `.env` to Vercel; set keys in **Project Settings → Environme
 **Smoke checks after deploy:**
 
 - Open `https://<your-deployment>/api/health` — JSON with `"hasKey": true` when env is wired.
-- In the app UI, send a chat message — the reply should stream; follow-ups and “Generate visual options” hit `/api/followups` and `/api/proposals`.
+- In the app UI, send a chat message — the reply should stream; follow-ups hit `/api/followups`. Strategies appear only when the user explicitly asks for them (or uses **Suggest strategies** on the visualization).
 
 Streaming uses up to **60s** (`maxDuration` in [`vercel.json`](vercel.json)); increase on a Pro-tier plan if long answers timeout.
 
@@ -62,9 +62,11 @@ The client runs on `http://localhost:5173` and the server on `http://localhost:8
 ## Using the prototype
 
 1. Hover or click any entity (node) or information flow (edge) — selections appear as chips above the chat composer.
-2. Pick an LCE from the top bar to apply a Life-Changing Event; affected entities glow red and impacted flows become dashed.
-3. Ask the AI to make sense of what you selected, propose coping strategies, or unpack ripple effects across ecological layers.
-4. Hit **Reset** to return to baseline.
+2. Pick an LCE from the top bar to apply a Life-Changing Event; affected entities glow red and impacted flows become dashed. A **Suggest strategies** button appears on the visualization — click it for a draggable floating panel with AI mediation options (same format and Preview / Apply interactions as the chat).
+3. Ask the AI (chat panel or floating panel) to make sense of what you selected, propose coping strategies, or unpack ripple effects across ecological layers. Replies follow a fixed shape: what's happening, ripple effects by layer, 2–3 numbered strategies, and questions for the care team. Entities and flows named in the prose render as chips that select them on the map.
+4. Each strategy comes with a card under **Strategy options** showing a "repairs damage" meter (how many of the red entities/flows it puts back in service), the exact items it fixes, and what it adds to the ecology. **Preview on map** simulates it; **Apply what-if** keeps it stacked.
+5. While a strategy is active, repaired nodes swap their red disruption glow for an emerald ring, a check badge and a `REPAIRED` pill, keeping a faint dashed rose "scar" ring so the before/after stays legible. A pill above the visualization tracks the damage count falling (e.g. `6 → 2 still affected`).
+6. Hit **Reset** to return to baseline.
 
 ## Layout
 

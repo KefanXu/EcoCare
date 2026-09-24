@@ -5,6 +5,8 @@ import { samplePatient } from '../data/samplePatient';
 import type {
   Conflict,
   EcoEntity,
+  EntityCategory,
+  FlowKind,
   InfoFlow,
   LCE,
   Patient,
@@ -12,7 +14,18 @@ import type {
 } from '../types/ecology';
 import type { EcologyHighlight, EcologyProposal } from '../types/proposals';
 
-export type OverlayTag = 'preview' | 'applied' | 'restored';
+export type OverlayTag = 'preview' | 'applied' | 'restored' | 'removed';
+
+/** UI presentation mode. `standard` is the original dense design; `easy` is the accessible, plain-language variant. */
+export type UiMode = 'standard' | 'easy';
+
+/** Which legend row is currently hovered — drives map spotlighting. */
+export type LegendHover =
+  | { kind: 'category'; category: EntityCategory }
+  | { kind: 'flow'; flowKind: FlowKind }
+  | { kind: 'broken' }
+  | { kind: 'repaired' }
+  | { kind: 'added' };
 
 export interface ChatMessage {
   id: string;
@@ -40,17 +53,57 @@ export interface FlowFormState {
   targetId: string | null;
 }
 
+/** Floating "Suggest strategies" panel spawned from the visualization AI button. */
+export interface SuggestPanelState {
+  open: boolean;
+  streaming: boolean;
+  content: string;
+  proposals: EcologyProposal[];
+  highlights: EcologyHighlight[];
+  error: string | null;
+  /** Ids of proposals that came from participant-entered strategies. */
+  userStrategyIds: string[];
+  /** Queued freeform idea to interpret when the ideas panel opens. */
+  pendingUserStrategy: string | null;
+  /** Pixel offset from the top-left of the visualization container. */
+  position: { x: number; y: number };
+}
+
+export const INITIAL_SUGGEST_PANEL: SuggestPanelState = {
+  open: false,
+  streaming: false,
+  content: '',
+  proposals: [],
+  highlights: [],
+  error: null,
+  userStrategyIds: [],
+  pendingUserStrategy: null,
+  position: { x: 72, y: 96 },
+};
+
 interface EcoState {
   patient: Patient;
   activeScenarioId: string | null;
   selection: SelectionRef[];
   hoveredEntityId: string | null;
   hoveredFlowId: string | null;
+  legendHover: LegendHover | null;
   entitySearchQuery: string;
+  uiMode: UiMode;
   showLegend: boolean;
   showInformationFlows: boolean;
   messages: ChatMessage[];
   isStreaming: boolean;
+
+  /** A question queued from elsewhere in the UI (Easy guide, item card) for
+   * the chat panel to send as soon as it can. Session-only. */
+  pendingChatPrompt: string | null;
+
+  /** Easy-mode Helper (chat) drawer open state. Session-only. */
+  helperOpen: boolean;
+
+  /** Easy-mode Guide overlay open state. Session-only. */
+  guideOpen: boolean;
 
   // Timeline simulation
   simulationTime: number;
@@ -63,11 +116,22 @@ interface EcoState {
   // AI ecology highlight (session-only; NOT persisted)
   activeHighlightId: string | null;
 
+  // Visualization AI suggest panel (session-only; NOT persisted)
+  suggestPanel: SuggestPanelState;
+
   // Edit mode
   editMode: boolean;
   connectMode: ConnectModeState;
   entityForm: EntityFormState;
   flowForm: FlowFormState;
+
+  /** User-marked entity impacts for the active LCE (session-only). */
+  userImpactEntityIds: string[];
+  /** Map/list pick mode for marking impacted entities. */
+  impactPickMode: boolean;
+
+  // Ids of entities just added this session (drives the enter animation).
+  recentlyAddedEntityIds: string[];
 
   setScenario: (id: string | null) => void;
   setSimulationTime: (t: number) => void;
@@ -79,7 +143,9 @@ interface EcoState {
   clearSelection: () => void;
   setHoveredEntity: (id: string | null) => void;
   setHoveredFlow: (id: string | null) => void;
+  setLegendHover: (hover: LegendHover | null) => void;
   setEntitySearchQuery: (query: string) => void;
+  setUiMode: (mode: UiMode) => void;
   toggleLegend: () => void;
   toggleInformationFlows: () => void;
 
@@ -92,9 +158,38 @@ interface EcoState {
   setMessageHighlights: (id: string, highlights: EcologyHighlight[]) => void;
   setMessageContent: (id: string, content: string) => void;
   resetChat: () => void;
+  requestChatPrompt: (text: string) => void;
+  clearPendingChatPrompt: () => void;
+  openHelper: () => void;
+  closeHelper: () => void;
+  openGuide: () => void;
+  closeGuide: () => void;
 
   // Highlight actions (session-only)
   setActiveHighlight: (highlightId: string | null) => void;
+
+  // Suggest panel actions (session-only)
+  openSuggestPanel: () => void;
+  closeSuggestPanel: () => void;
+  setSuggestPanelPosition: (pos: { x: number; y: number }) => void;
+  beginSuggestStream: () => void;
+  beginUserStrategyStream: () => void;
+  appendSuggestContent: (chunk: string) => void;
+  finishSuggestStream: (payload: {
+    content: string;
+    proposals: EcologyProposal[];
+    highlights: EcologyHighlight[];
+    error?: string | null;
+  }) => void;
+  finishUserStrategyStream: (payload: {
+    content: string;
+    proposals: EcologyProposal[];
+    highlights: EcologyHighlight[];
+    error?: string | null;
+  }) => void;
+  failSuggestStream: (error: string) => void;
+  requestUserStrategy: (text: string) => void;
+  clearPendingUserStrategy: () => void;
 
   // Proposal preview / overlay actions (session-only)
   startPreview: (proposalId: string) => void;
@@ -109,6 +204,12 @@ interface EcoState {
   startConnectMode: () => void;
   cancelConnectMode: () => void;
   pickConnectNode: (id: string) => void;
+
+  startImpactPickMode: () => void;
+  cancelImpactPickMode: () => void;
+  toggleUserImpactEntity: (id: string) => void;
+  clearUserImpactEntities: () => void;
+  setUserImpactEntities: (ids: string[]) => void;
 
   openEntityForm: (editingId?: string) => void;
   closeEntityForm: () => void;
@@ -155,6 +256,28 @@ function findHighlightInMessages(
   return null;
 }
 
+/** Resolve a proposal from chat messages OR the visualization suggest panel. */
+function findProposal(
+  messages: ChatMessage[],
+  suggestPanel: SuggestPanelState,
+  proposalId: string,
+): EcologyProposal | null {
+  const fromSuggest = suggestPanel.proposals.find((p) => p.id === proposalId);
+  if (fromSuggest) return fromSuggest;
+  return findProposalInMessages(messages, proposalId);
+}
+
+/** Resolve a highlight from chat messages OR the visualization suggest panel. */
+function findHighlight(
+  messages: ChatMessage[],
+  suggestPanel: SuggestPanelState,
+  highlightId: string,
+): EcologyHighlight | null {
+  const fromSuggest = suggestPanel.highlights.find((h) => h.id === highlightId);
+  if (fromSuggest) return fromSuggest;
+  return findHighlightInMessages(messages, highlightId);
+}
+
 interface PersistedShape {
   entities: EcoEntity[];
   flows: InfoFlow[];
@@ -169,11 +292,16 @@ export const useEcoStore = create<EcoState>()(
       selection: [],
       hoveredEntityId: null,
       hoveredFlowId: null,
+      legendHover: null,
       entitySearchQuery: '',
+      uiMode: 'standard',
       showLegend: true,
       showInformationFlows: true,
       messages: [],
       isStreaming: false,
+      pendingChatPrompt: null,
+      helperOpen: true,
+      guideOpen: true,
 
       simulationTime: 0,
       simulationPlaying: false,
@@ -183,10 +311,15 @@ export const useEcoStore = create<EcoState>()(
 
       activeHighlightId: null,
 
+      suggestPanel: { ...INITIAL_SUGGEST_PANEL },
+
       editMode: false,
       connectMode: { active: false, sourceId: null },
       entityForm: { open: false, editingId: null },
       flowForm: { open: false, sourceId: null, targetId: null },
+      userImpactEntityIds: [],
+      impactPickMode: false,
+      recentlyAddedEntityIds: [],
 
       setScenario: (id) =>
         set({
@@ -196,6 +329,12 @@ export const useEcoStore = create<EcoState>()(
           // Play rewinds to 0 to replay the unfolding; Reset rewinds to 0 to scrub manually.
           simulationTime: id ? 1 : 0,
           simulationPlaying: false,
+          // Drop the suggest panel when the LCE changes — its strategies are scenario-specific.
+          suggestPanel: { ...INITIAL_SUGGEST_PANEL },
+          previewProposalId: null,
+          activeHighlightId: null,
+          userImpactEntityIds: [],
+          impactPickMode: false,
         }),
       setSimulationTime: (t) =>
         set({ simulationTime: Math.min(1, Math.max(0, t)) }),
@@ -221,7 +360,10 @@ export const useEcoStore = create<EcoState>()(
           previewProposalId: null,
           appliedOverlay: [],
           activeHighlightId: null,
+          suggestPanel: { ...INITIAL_SUGGEST_PANEL },
           connectMode: { active: false, sourceId: null },
+          userImpactEntityIds: [],
+          impactPickMode: false,
         }),
       toggleSelection: (ref) =>
         set((s) => {
@@ -235,7 +377,10 @@ export const useEcoStore = create<EcoState>()(
       clearSelection: () => set({ selection: [] }),
       setHoveredEntity: (id) => set({ hoveredEntityId: id }),
       setHoveredFlow: (id) => set({ hoveredFlowId: id }),
+      setLegendHover: (legendHover) => set({ legendHover }),
       setEntitySearchQuery: (entitySearchQuery) => set({ entitySearchQuery }),
+      setUiMode: (uiMode) =>
+        set({ uiMode, helperOpen: uiMode === 'standard' }),
       toggleLegend: () => set((s) => ({ showLegend: !s.showLegend })),
       toggleInformationFlows: () =>
         set((s) => {
@@ -288,8 +433,118 @@ export const useEcoStore = create<EcoState>()(
           appliedOverlay: [],
           activeHighlightId: null,
         }),
+      requestChatPrompt: (text) => set({ pendingChatPrompt: text, helperOpen: true }),
+      clearPendingChatPrompt: () => set({ pendingChatPrompt: null }),
+      openHelper: () => set({ helperOpen: true }),
+      closeHelper: () => set({ helperOpen: false }),
+      openGuide: () => set({ guideOpen: true }),
+      closeGuide: () => set({ guideOpen: false }),
 
       setActiveHighlight: (highlightId) => set({ activeHighlightId: highlightId }),
+
+      openSuggestPanel: () =>
+        set((s) => ({
+          suggestPanel: { ...s.suggestPanel, open: true, error: null },
+        })),
+      closeSuggestPanel: () =>
+        set((s) => ({
+          suggestPanel: { ...s.suggestPanel, open: false, streaming: false },
+        })),
+      setSuggestPanelPosition: (position) =>
+        set((s) => ({ suggestPanel: { ...s.suggestPanel, position } })),
+      beginSuggestStream: () =>
+        set((s) => {
+          const kept = s.suggestPanel.proposals.filter((p) =>
+            s.suggestPanel.userStrategyIds.includes(p.id),
+          );
+          return {
+            suggestPanel: {
+              ...s.suggestPanel,
+              open: true,
+              streaming: true,
+              content: '',
+              proposals: kept,
+              highlights: [],
+              error: null,
+            },
+          };
+        }),
+      beginUserStrategyStream: () =>
+        set((s) => ({
+          suggestPanel: {
+            ...s.suggestPanel,
+            open: true,
+            streaming: true,
+            content: '',
+            error: null,
+            pendingUserStrategy: null,
+          },
+        })),
+      appendSuggestContent: (chunk) =>
+        set((s) => ({
+          suggestPanel: {
+            ...s.suggestPanel,
+            content: s.suggestPanel.content + chunk,
+          },
+        })),
+      finishSuggestStream: ({ content, proposals, highlights, error }) =>
+        set((s) => {
+          const kept = s.suggestPanel.proposals.filter((p) =>
+            s.suggestPanel.userStrategyIds.includes(p.id),
+          );
+          const keptIds = new Set(kept.map((p) => p.id));
+          const ai = proposals.filter((p) => !keptIds.has(p.id));
+          return {
+            suggestPanel: {
+              ...s.suggestPanel,
+              streaming: false,
+              content,
+              proposals: [...kept, ...ai],
+              highlights,
+              error: error ?? null,
+            },
+          };
+        }),
+      finishUserStrategyStream: ({ content, proposals, highlights, error }) =>
+        set((s) => {
+          const userIds = new Set(proposals.map((p) => p.id));
+          const withoutOldUser = s.suggestPanel.proposals.filter(
+            (p) => !s.suggestPanel.userStrategyIds.includes(p.id),
+          );
+          return {
+            suggestPanel: {
+              ...s.suggestPanel,
+              streaming: false,
+              content,
+              proposals: [...withoutOldUser, ...proposals],
+              highlights: [...s.suggestPanel.highlights, ...highlights],
+              userStrategyIds: [...userIds],
+              error: error ?? null,
+            },
+          };
+        }),
+      failSuggestStream: (error) =>
+        set((s) => ({
+          suggestPanel: {
+            ...s.suggestPanel,
+            streaming: false,
+            error,
+          },
+        })),
+      requestUserStrategy: (text) =>
+        set((s) => ({
+          suggestPanel: {
+            ...s.suggestPanel,
+            open: true,
+            pendingUserStrategy: text.trim() || null,
+            error: null,
+          },
+          guideOpen: true,
+        })),
+      clearPendingUserStrategy: () =>
+        set((s) => ({
+          suggestPanel: { ...s.suggestPanel, pendingUserStrategy: null },
+        })),
 
       startPreview: (proposalId) => set({ previewProposalId: proposalId }),
       cancelPreview: () => set({ previewProposalId: null }),
@@ -300,7 +555,7 @@ export const useEcoStore = create<EcoState>()(
           if (s.appliedOverlay.some((p) => p.id === id)) {
             return { previewProposalId: null };
           }
-          const proposal = findProposalInMessages(s.messages, id);
+          const proposal = findProposal(s.messages, s.suggestPanel, id);
           if (!proposal) return { previewProposalId: null };
           return {
             previewProposalId: null,
@@ -310,7 +565,7 @@ export const useEcoStore = create<EcoState>()(
       applyProposalAsOverlay: (proposalId) =>
         set((s) => {
           if (s.appliedOverlay.some((p) => p.id === proposalId)) return s;
-          const proposal = findProposalInMessages(s.messages, proposalId);
+          const proposal = findProposal(s.messages, s.suggestPanel, proposalId);
           if (!proposal) return s;
           return {
             previewProposalId:
@@ -331,10 +586,16 @@ export const useEcoStore = create<EcoState>()(
         set({
           editMode: v,
           connectMode: { active: false, sourceId: null },
+          impactPickMode: false,
           entityForm: { open: false, editingId: null },
           flowForm: { open: false, sourceId: null, targetId: null },
         }),
-      startConnectMode: () => set({ connectMode: { active: true, sourceId: null } }),
+      startConnectMode: () =>
+        set({
+          connectMode: { active: true, sourceId: null },
+          editMode: false,
+          impactPickMode: false,
+        }),
       cancelConnectMode: () => set({ connectMode: { active: false, sourceId: null } }),
       pickConnectNode: (id) =>
         set((s) => {
@@ -352,6 +613,26 @@ export const useEcoStore = create<EcoState>()(
           };
         }),
 
+      startImpactPickMode: () =>
+        set({
+          impactPickMode: true,
+          editMode: false,
+          connectMode: { active: false, sourceId: null },
+        }),
+      cancelImpactPickMode: () => set({ impactPickMode: false }),
+      toggleUserImpactEntity: (id) =>
+        set((s) => {
+          const has = s.userImpactEntityIds.includes(id);
+          return {
+            userImpactEntityIds: has
+              ? s.userImpactEntityIds.filter((x) => x !== id)
+              : [...s.userImpactEntityIds, id],
+          };
+        }),
+      clearUserImpactEntities: () => set({ userImpactEntityIds: [] }),
+      setUserImpactEntities: (ids) =>
+        set({ userImpactEntityIds: [...new Set(ids)] }),
+
       openEntityForm: (editingId) =>
         set({ entityForm: { open: true, editingId: editingId ?? null } }),
       closeEntityForm: () => set({ entityForm: { open: false, editingId: null } }),
@@ -363,7 +644,13 @@ export const useEcoStore = create<EcoState>()(
         const id = genId('ent');
         set((s) => ({
           patient: { ...s.patient, entities: [...s.patient.entities, { id, ...input }] },
+          recentlyAddedEntityIds: [...s.recentlyAddedEntityIds, id],
         }));
+        window.setTimeout(() => {
+          set((s) => ({
+            recentlyAddedEntityIds: s.recentlyAddedEntityIds.filter((x) => x !== id),
+          }));
+        }, 2000);
         return id;
       },
       updateEntity: (id, patch) =>
@@ -425,6 +712,7 @@ export const useEcoStore = create<EcoState>()(
           previewProposalId: null,
           appliedOverlay: [],
           activeHighlightId: null,
+          suggestPanel: { ...INITIAL_SUGGEST_PANEL },
           connectMode: { active: false, sourceId: null },
           entityForm: { open: false, editingId: null },
           flowForm: { open: false, sourceId: null, targetId: null },
@@ -494,6 +782,7 @@ export const useEcoStore = create<EcoState>()(
         },
         showLegend: s.showLegend,
         showInformationFlows: s.showInformationFlows,
+        uiMode: s.uiMode,
       }),
       merge: (persisted, current) => {
         if (!persisted) return current;
@@ -501,22 +790,35 @@ export const useEcoStore = create<EcoState>()(
           patient?: Partial<Patient>;
           showLegend?: boolean;
           showInformationFlows?: boolean;
+          uiMode?: UiMode;
         };
         const persistedPatient = p.patient;
         const mergedEntities = Array.isArray(persistedPatient?.entities)
           ? (persistedPatient!.entities as EcoEntity[])
           : current.patient.entities;
-        const entitiesWithSyncedPatientLabel = mergedEntities.map((e) =>
-          e.id === 'patient'
-            ? { ...e, label: `Patient (${current.patient.name})` }
-            : e,
-        );
+        // Backfill plain-language fields added to the seed after the user's
+        // data was persisted (persisted entities win for everything else).
+        const seedById = new Map(current.patient.entities.map((e) => [e.id, e]));
+        const entitiesWithSyncedPatientLabel = mergedEntities.map((e) => {
+          const seed = seedById.get(e.id);
+          const enriched = {
+            ...e,
+            easyLabel: e.easyLabel ?? seed?.easyLabel,
+            easyDescription: e.easyDescription ?? seed?.easyDescription,
+          };
+          return e.id === 'patient'
+            ? { ...enriched, label: `Patient (${current.patient.name})` }
+            : enriched;
+        });
         return {
           ...current,
           ...(p.showLegend !== undefined ? { showLegend: p.showLegend } : {}),
           ...(p.showInformationFlows !== undefined
             ? { showInformationFlows: p.showInformationFlows }
             : {}),
+          ...(p.uiMode !== undefined ? { uiMode: p.uiMode } : {}),
+          // Assistant is open by default in Standard; stay closed when restoring Easy.
+          helperOpen: (p.uiMode ?? current.uiMode) === 'standard',
           patient: {
             ...current.patient,
             entities: entitiesWithSyncedPatientLabel,
@@ -579,16 +881,18 @@ function useActiveProposalSet(): {
   const previewProposalId = useEcoStore((s) => s.previewProposalId);
   const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
   const messages = useEcoStore((s) => s.messages);
+  const suggestPanel = useEcoStore((s) => s.suggestPanel);
   return useMemo(() => {
     const preview = previewProposalId
-      ? findProposalInMessages(messages, previewProposalId)
+      ? findProposal(messages, suggestPanel, previewProposalId)
       : null;
     return { preview, applied: appliedOverlay };
-  }, [previewProposalId, appliedOverlay, messages]);
+  }, [previewProposalId, appliedOverlay, messages, suggestPanel]);
 }
 
 /** Patient with proposal entities/flows merged in. New entities use their
- * `tempId` as their id; new flows get a synthetic id `overlay-flow-<pid>-<i>`. */
+ * `tempId` as their id; new flows get a synthetic id `overlay-flow-<pid>-<i>`.
+ * Removals from active overlays are filtered out (session what-if only). */
 export function useEffectivePatient(): Patient {
   const patient = useEcoStore((s) => s.patient);
   const { preview, applied } = useActiveProposalSet();
@@ -600,10 +904,22 @@ export function useEffectivePatient(): Patient {
     }
     if (proposals.length === 0) return patient;
 
-    const seenEntityIds = new Set(patient.entities.map((e) => e.id));
+    const removeEntityIds = new Set<string>();
+    const removeFlowIds = new Set<string>();
+    for (const p of proposals) {
+      for (const id of p.removeEntityIds ?? []) {
+        if (id !== 'patient') removeEntityIds.add(id);
+      }
+      for (const id of p.removeFlowIds ?? []) removeFlowIds.add(id);
+    }
+
+    const seenEntityIds = new Set(
+      patient.entities.filter((e) => !removeEntityIds.has(e.id)).map((e) => e.id),
+    );
     const extraEntities: EcoEntity[] = [];
     for (const p of proposals) {
       for (const e of p.addEntities ?? []) {
+        if (removeEntityIds.has(e.tempId)) continue;
         if (seenEntityIds.has(e.tempId)) continue;
         seenEntityIds.add(e.tempId);
         extraEntities.push({
@@ -634,13 +950,30 @@ export function useEffectivePatient(): Patient {
       });
     }
 
-    if (extraEntities.length === 0 && extraFlows.length === 0) return patient;
+    const entities = [
+      ...patient.entities.filter((e) => !removeEntityIds.has(e.id)),
+      ...extraEntities,
+    ];
+    const flows = [
+      ...patient.flows.filter(
+        (f) =>
+          !removeFlowIds.has(f.id) &&
+          !removeEntityIds.has(f.source) &&
+          !removeEntityIds.has(f.target),
+      ),
+      ...extraFlows,
+    ];
 
-    return {
-      ...patient,
-      entities: [...patient.entities, ...extraEntities],
-      flows: [...patient.flows, ...extraFlows],
-    };
+    if (
+      extraEntities.length === 0 &&
+      extraFlows.length === 0 &&
+      removeEntityIds.size === 0 &&
+      removeFlowIds.size === 0
+    ) {
+      return patient;
+    }
+
+    return { ...patient, entities, flows };
   }, [patient, preview, applied]);
 }
 
@@ -661,6 +994,10 @@ export function useOverlayTagMap(): Map<string, OverlayTag> {
       for (const id of p.restoresFlowIds ?? []) {
         if (!map.has(id)) map.set(id, 'restored');
       }
+      for (const id of p.removeEntityIds ?? []) {
+        if (id !== 'patient') map.set(id, 'removed');
+      }
+      for (const id of p.removeFlowIds ?? []) map.set(id, 'removed');
     }
 
     if (preview) {
@@ -669,6 +1006,10 @@ export function useOverlayTagMap(): Map<string, OverlayTag> {
       flows.forEach((_f, idx) => map.set(`overlay-flow-${preview.id}-${idx}`, 'preview'));
       for (const id of preview.restoresEntityIds ?? []) map.set(id, 'restored');
       for (const id of preview.restoresFlowIds ?? []) map.set(id, 'restored');
+      for (const id of preview.removeEntityIds ?? []) {
+        if (id !== 'patient') map.set(id, 'removed');
+      }
+      for (const id of preview.removeFlowIds ?? []) map.set(id, 'removed');
     }
 
     return map;
@@ -678,15 +1019,21 @@ export function useOverlayTagMap(): Map<string, OverlayTag> {
 export function useEntityDisruptionStrengths(): Map<string, number> {
   const scenario = useActiveScenario();
   const t = useEcoStore((s) => s.simulationTime);
+  const userImpactEntityIds = useEcoStore((s) => s.userImpactEntityIds);
   const { preview, applied } = useActiveProposalSet();
   return useMemo(() => {
     const base = computeStrengthMap(scenario?.disruptsEntityIds ?? [], t);
+    // Participant-marked impacts: full red once the ripple has started.
+    const userStrength = t > 0 ? 1 : 0;
+    for (const id of userImpactEntityIds) {
+      base.set(id, Math.max(base.get(id) ?? 0, userStrength));
+    }
     const restored = new Set<string>();
     for (const p of applied) (p.restoresEntityIds ?? []).forEach((id) => restored.add(id));
     if (preview) (preview.restoresEntityIds ?? []).forEach((id) => restored.add(id));
     for (const id of restored) base.set(id, 0);
     return base;
-  }, [scenario, t, preview, applied]);
+  }, [scenario, t, userImpactEntityIds, preview, applied]);
 }
 
 export function useFlowBreakStrengths(): Map<string, number> {
@@ -701,6 +1048,97 @@ export function useFlowBreakStrengths(): Map<string, number> {
     for (const id of restored) base.set(id, 0);
     return base;
   }, [scenario, t, preview, applied]);
+}
+
+export interface ScenarioImpact {
+  entityIds: Set<string>;
+  flowIds: Set<string>;
+  total: number;
+}
+
+/**
+ * The damage the active LCE has done at the current simulation time, *ignoring*
+ * any AI repair. This is the "before" picture that repaired items are compared
+ * against, so the visualization can show a node that used to be red as healed.
+ */
+export function useScenarioImpact(): ScenarioImpact {
+  const scenario = useActiveScenario();
+  const t = useEcoStore((s) => s.simulationTime);
+  const userImpactEntityIds = useEcoStore((s) => s.userImpactEntityIds);
+  return useMemo(() => {
+    const entityIds = new Set<string>();
+    computeStrengthMap(scenario?.disruptsEntityIds ?? [], t).forEach((v, k) => {
+      if (v > 0) entityIds.add(k);
+    });
+    if (t > 0) {
+      for (const id of userImpactEntityIds) entityIds.add(id);
+    }
+    const flowIds = new Set<string>();
+    computeStrengthMap(scenario?.breaksFlowIds ?? [], t).forEach((v, k) => {
+      if (v > 0) flowIds.add(k);
+    });
+    return { entityIds, flowIds, total: entityIds.size + flowIds.size };
+  }, [scenario, t, userImpactEntityIds]);
+}
+
+/** Ids a proposal repairs, narrowed to what the LCE actually damaged. */
+export function repairedByProposal(
+  proposal: EcologyProposal,
+  impact: ScenarioImpact,
+): { entityIds: string[]; flowIds: string[]; total: number } {
+  const entityIds = (proposal.restoresEntityIds ?? []).filter((id) => impact.entityIds.has(id));
+  const flowIds = (proposal.restoresFlowIds ?? []).filter((id) => impact.flowIds.has(id));
+  return { entityIds, flowIds, total: entityIds.length + flowIds.length };
+}
+
+export interface RepairState {
+  entityIds: Set<string>;
+  flowIds: Set<string>;
+  /** Damaged items still unaddressed by any active proposal. */
+  remaining: number;
+  repaired: number;
+  total: number;
+  active: boolean;
+}
+
+/**
+ * Which damaged entities/flows the currently previewed or applied proposals put
+ * back in service. Drives the "healed" styling on the landscape.
+ */
+export function useRepairState(): RepairState {
+  const { preview, applied } = useActiveProposalSet();
+  const impact = useScenarioImpact();
+  return useMemo(() => {
+    const proposals = preview && !applied.some((p) => p.id === preview.id)
+      ? [...applied, preview]
+      : applied;
+    const entityIds = new Set<string>();
+    const flowIds = new Set<string>();
+    for (const p of proposals) {
+      const r = repairedByProposal(p, impact);
+      r.entityIds.forEach((id) => entityIds.add(id));
+      r.flowIds.forEach((id) => flowIds.add(id));
+    }
+    const repaired = entityIds.size + flowIds.size;
+    return {
+      entityIds,
+      flowIds,
+      repaired,
+      total: impact.total,
+      remaining: Math.max(0, impact.total - repaired),
+      active: repaired > 0,
+    };
+  }, [preview, applied, impact]);
+}
+
+/** Every conflict in play, including ones an overlay has already resolved. */
+export function useAllConflicts(): Conflict[] {
+  const baseline = useEcoStore((s) => s.patient.baselineConflicts);
+  const scenario = useActiveScenario();
+  return useMemo(
+    () => [...baseline, ...(scenario?.addsConflicts ?? [])],
+    [baseline, scenario],
+  );
 }
 
 /** Compatibility wrapper: ids whose disruption has begun (strength > 0). */
@@ -759,9 +1197,13 @@ export function useConflictResolvers(): Map<string, EcologyProposal> {
 export function useActiveHighlight(): EcologyHighlight | null {
   const activeHighlightId = useEcoStore((s) => s.activeHighlightId);
   const messages = useEcoStore((s) => s.messages);
+  const suggestPanel = useEcoStore((s) => s.suggestPanel);
   return useMemo(
-    () => (activeHighlightId ? findHighlightInMessages(messages, activeHighlightId) : null),
-    [activeHighlightId, messages],
+    () =>
+      activeHighlightId
+        ? findHighlight(messages, suggestPanel, activeHighlightId)
+        : null,
+    [activeHighlightId, messages, suggestPanel],
   );
 }
 
@@ -781,4 +1223,83 @@ export function useHighlightedIds(): HighlightedIdSets {
       active: !!highlight,
     };
   }, [highlight]);
+}
+
+/**
+ * Entity/flow ids matching the hovered legend row. Empty sets with
+ * `active: false` when nothing in the legend is hovered.
+ */
+export function useLegendFocusIds(): HighlightedIdSets {
+  const legendHover = useEcoStore((s) => s.legendHover);
+  const patient = useEffectivePatient();
+  const entityStrengths = useEntityDisruptionStrengths();
+  const flowStrengths = useFlowBreakStrengths();
+  const overlayTags = useOverlayTagMap();
+  const repair = useRepairState();
+
+  return useMemo(() => {
+    if (!legendHover) {
+      return { entityIds: new Set<string>(), flowIds: new Set<string>(), active: false };
+    }
+
+    const entityIds = new Set<string>();
+    const flowIds = new Set<string>();
+
+    if (legendHover.kind === 'category') {
+      for (const e of patient.entities) {
+        if (e.category === legendHover.category) entityIds.add(e.id);
+      }
+      for (const f of patient.flows) {
+        if (entityIds.has(f.source) || entityIds.has(f.target)) flowIds.add(f.id);
+      }
+    } else if (legendHover.kind === 'flow') {
+      for (const f of patient.flows) {
+        if (f.kind === legendHover.flowKind) {
+          flowIds.add(f.id);
+          entityIds.add(f.source);
+          entityIds.add(f.target);
+        }
+      }
+    } else if (legendHover.kind === 'broken') {
+      entityStrengths.forEach((v, id) => {
+        if (v > 0.02) entityIds.add(id);
+      });
+      flowStrengths.forEach((v, id) => {
+        if (v > 0.02) {
+          flowIds.add(id);
+          const f = patient.flows.find((x) => x.id === id);
+          if (f) {
+            entityIds.add(f.source);
+            entityIds.add(f.target);
+          }
+        }
+      });
+    } else if (legendHover.kind === 'repaired') {
+      repair.entityIds.forEach((id) => entityIds.add(id));
+      repair.flowIds.forEach((id) => {
+        flowIds.add(id);
+        const f = patient.flows.find((x) => x.id === id);
+        if (f) {
+          entityIds.add(f.source);
+          entityIds.add(f.target);
+        }
+      });
+    } else if (legendHover.kind === 'added') {
+      overlayTags.forEach((tag, id) => {
+        if (tag !== 'preview' && tag !== 'applied') return;
+        if (patient.entities.some((e) => e.id === id) || id === 'patient') {
+          entityIds.add(id);
+        } else {
+          flowIds.add(id);
+          const f = patient.flows.find((x) => x.id === id);
+          if (f) {
+            entityIds.add(f.source);
+            entityIds.add(f.target);
+          }
+        }
+      });
+    }
+
+    return { entityIds, flowIds, active: true };
+  }, [legendHover, patient, entityStrengths, flowStrengths, overlayTags, repair]);
 }
