@@ -2,6 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .map-fab {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-stone-200/80 bg-white/95 backdrop-blur-xl text-slate-500 hover:text-slate-800 hover:border-stone-300 pointer-events-auto;
+    box-shadow: 0 4px 14px rgba(28, 25, 23, 0.08), 0 1px 3px rgba(28, 25, 23, 0.05);
+    transition: background-color 160ms, border-color 160ms, color 160ms, box-shadow 160ms;
+  }
+  .map-panel {
+    @apply rounded-2xl border border-stone-200/80 bg-white/95 backdrop-blur-xl overflow-hidden;
+    box-shadow: 0 12px 40px rgba(28, 25, 23, 0.12);
+  }
+  .map-panel-header {
+    @apply flex items-center justify-between gap-2 px-4 py-3 border-b border-stone-200/80 shrink-0;
+  }
+  .map-panel-title {
+    @apply text-xs text-slate-500 font-semibold;
+    letter-spacing: 0;
+  }
+  .map-panel-action {
+    @apply p-1.5 rounded-lg text-slate-400 hover:bg-stone-100 hover:text-slate-700 transition min-h-[36px] min-w-[36px] flex items-center justify-center shrink-0;
+  }
+  .detail-section {
+    @apply border-t border-stone-200/70 pt-3;
+  }
+  .detail-label {
+    @apply text-[11px] font-semibold text-slate-500;
+  }
+}
+
+.panel-enter { animation: panelExpand 240ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.panel-exit { animation: panelFold 180ms cubic-bezier(0.4, 0, 1, 1) both; pointer-events: none; }
+@keyframes panelExpand {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes panelFold {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.94); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel-motion { animation: none; }
+  .panel-exit { visibility: hidden; }
+  .map-fab { transition: none; }
+}
+
 html,
 body,
 #root {
@@ -162,4 +206,3 @@ body,
     animation: none !important;
   }
 }
-

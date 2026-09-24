@@ -18,6 +18,20 @@ import { EasyItemOverlay } from './components/EasyGuide/EasyItemCard';
 import { useActiveScenario, useEcoStore } from './store/useEcoStore';
 import { useUiText } from './lib/uiText';
 
+// Keep panels mounted during their exit animation; cancel pending exits on reopen.
+function usePanelPresence(open: boolean) {
+  const [present, setPresent] = useState(open);
+  useEffect(() => {
+    if (open) {
+      setPresent(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setPresent(false), 180);
+    return () => window.clearTimeout(timer);
+  }, [open]);
+  return open || present;
+}
+
 export default function App() {
   const entitySearchQuery = useEcoStore((s) => s.entitySearchQuery);
   const setEntitySearchQuery = useEcoStore((s) => s.setEntitySearchQuery);
@@ -37,6 +51,22 @@ export default function App() {
   const [legendMinimized, setLegendMinimized] = useState(false);
   const [searchMinimized, setSearchMinimized] = useState(true);
   const [legendExpanded, setLegendExpanded] = useState(false);
+  const inspectorPresent = usePanelPresence(!inspectorMinimized);
+  const legendPresent = usePanelPresence(easy ? legendExpanded : !legendMinimized);
+  const searchPresent = usePanelPresence(!searchMinimized);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const inspectorTriggerRef = useRef<HTMLButtonElement>(null);
+  const legendTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const closeSearch = () => {
+    setSearchMinimized(true);
+    searchTriggerRef.current?.focus();
+  };
+
+  useEffect(() => {
+    if (!searchMinimized) searchInputRef.current?.focus();
+  }, [searchMinimized]);
 
   useEffect(() => {
     if (easy) {
@@ -46,58 +76,64 @@ export default function App() {
 
   const fabCls = easy
     ? 'flex h-11 items-center justify-center gap-2 rounded-full bg-white/90 border border-stone-200 shadow-md backdrop-blur text-slate-600 hover:bg-white hover:border-slate-300 hover:text-slate-800 transition pointer-events-auto px-4 text-sm font-medium'
-    : 'flex h-10 w-10 items-center justify-center rounded-full bg-white/90 border border-stone-200 shadow-md backdrop-blur text-slate-600 hover:bg-white hover:border-slate-300 hover:text-slate-800 transition pointer-events-auto';
+    : 'map-fab';
 
   const mapChrome = (
     <>
       {/* Standard mode keeps map-corner search; Easy uses the top-bar field */}
       {!easy && (
-        <div className="absolute top-3 right-3 z-20 inline-flex flex-col items-end pointer-events-none gap-2">
-          {searchMinimized ? (
+        <div className="absolute top-3 right-3 z-20 inline-flex flex-col items-end pointer-events-none gap-2 max-w-[calc(100%-1.5rem)]">
             <button
+              ref={searchTriggerRef}
               type="button"
-              className={fabCls}
+              className={`${fabCls} ${searchPresent ? 'absolute top-0 right-0 opacity-0 pointer-events-none' : ''}`}
+              tabIndex={searchPresent ? -1 : 0}
+              aria-expanded={!searchMinimized}
+              aria-controls="entity-search-panel"
               onClick={() => setSearchMinimized(false)}
               title="Show entity search"
               aria-label="Show entity search"
             >
               <Search className="w-5 h-5 shrink-0" aria-hidden />
             </button>
-          ) : (
-            <div className="pointer-events-auto relative flex w-max shrink-0 items-center gap-1.5 bg-white/90 border border-stone-200 shadow-sm backdrop-blur rounded-lg pl-2 pr-9 py-1.5">
+          {searchPresent && (
+            <section id="entity-search-panel" aria-label="Entity search" className={`map-panel panel-motion origin-top-right pointer-events-auto w-72 max-w-full ${searchMinimized ? 'panel-exit' : 'panel-enter'}`} onKeyDown={(event) => { if (event.key === 'Escape') closeSearch(); }}>
+              <div className="map-panel-header">
+                <h2 className="map-panel-title flex items-center gap-2"><Search className="w-4 h-4" aria-hidden />Find an entity</h2>
+                <button type="button" onClick={closeSearch} className="map-panel-action" title="Minimize search" aria-label="Minimize search"><ChevronDown className="w-4 h-4" aria-hidden /></button>
+              </div>
+              <div className="p-3">
+              <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/70 px-3 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-100 transition">
+              <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden />
               <input
+                ref={searchInputRef}
+                aria-label="Search entities"
                 type="text"
                 value={entitySearchQuery}
                 onChange={(e) => setEntitySearchQuery(e.target.value)}
                 placeholder={t('searchPlaceholder')}
-                className="rounded-md border border-stone-300 bg-white text-slate-700 focus:outline-none focus:border-slate-500 shrink-0 text-xs px-2 py-1 w-44"
+                className="min-w-0 w-full bg-transparent text-slate-700 placeholder:text-slate-400 focus:outline-none text-sm py-2.5"
               />
               {entitySearchQuery.trim() ? (
                 <button
                   type="button"
-                  onClick={() => setEntitySearchQuery('')}
-                  className="shrink-0 rounded-md border border-stone-300 text-slate-600 hover:border-slate-400 bg-white text-xs px-2 py-1"
+                  onClick={() => { setEntitySearchQuery(''); searchInputRef.current?.focus(); }}
+                  className="shrink-0 p-1 rounded-md text-slate-400 hover:bg-stone-200 hover:text-slate-700 transition"
                   title="Clear search"
+                  aria-label="Clear search"
                 >
-                  ×
+                  <X className="w-4 h-4" aria-hidden />
                 </button>
               ) : null}
-              <button
-                type="button"
-                onClick={() => setSearchMinimized(true)}
-                className="absolute right-1.5 p-1 rounded-md text-slate-500 hover:bg-stone-100 hover:text-slate-700 transition"
-                title="Minimize search"
-                aria-label="Minimize search"
-              >
-                <ChevronDown className="w-4 h-4" aria-hidden />
-              </button>
-            </div>
+              </div>
+              </div>
+            </section>
           )}
         </div>
       )}
 
       {!easy && scenario && (
-        <div className="absolute top-14 right-3 z-10 max-w-sm bg-rose-50 border border-rose-200 shadow-sm rounded-lg p-3">
+        <div className={`absolute ${searchPresent ? 'top-40' : 'top-14'} right-3 z-10 max-w-sm bg-rose-50 border border-rose-200 shadow-sm rounded-lg p-3 transition-[top] duration-200 motion-reduce:transition-none`}>
           <div className="uppercase tracking-wider text-rose-600 font-medium text-[10px] mb-1">
             Active life-changing event
           </div>
@@ -106,12 +142,15 @@ export default function App() {
         </div>
       )}
 
-      {!easy &&
-        (inspectorMinimized ? (
+      {!easy && <>
           <div className="absolute top-3 left-3 z-20 pointer-events-none">
             <button
               type="button"
-              className={fabCls}
+              ref={inspectorTriggerRef}
+              className={`${fabCls} ${inspectorPresent ? 'opacity-0 pointer-events-none' : ''}`}
+              tabIndex={inspectorPresent ? -1 : 0}
+              aria-expanded={!inspectorMinimized}
+              aria-controls="inspector-panel"
               onClick={() => setInspectorMinimized(false)}
               title="Show inspector"
               aria-label="Show inspector"
@@ -119,23 +158,25 @@ export default function App() {
               <ClipboardList className="w-5 h-5 shrink-0" aria-hidden />
             </button>
           </div>
-        ) : (
-          <div className="absolute top-3 left-3 z-10 bg-white/85 border border-stone-200 backdrop-blur shadow-sm w-72 rounded-lg pr-10 pl-3 pt-2 pb-3">
-            <div className="uppercase tracking-wider text-slate-500 font-medium pr-10 text-[10px] mb-1">
-              {t('inspector')}
-            </div>
+        {inspectorPresent && (
+          <section id="inspector-panel" aria-label="Inspector" className={`map-panel panel-motion origin-top-left ${inspectorMinimized ? 'panel-exit' : 'panel-enter'} inspector-panel absolute top-3 left-3 z-10 flex flex-col w-72 max-w-[calc(100%-4.5rem)] max-h-[calc(100%-7rem)]`}>
+            <div className="map-panel-header">
+            <h2 className="map-panel-title flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" aria-hidden />{t('inspector')}
+            </h2>
             <button
               type="button"
-              onClick={() => setInspectorMinimized(true)}
-              className="absolute top-2 right-2 p-1 rounded-md text-slate-500 hover:bg-stone-100 hover:text-slate-700 transition"
+              onClick={() => { setInspectorMinimized(true); inspectorTriggerRef.current?.focus(); }}
+              className="map-panel-action"
               title="Minimize inspector"
               aria-label="Minimize inspector"
             >
               <ChevronDown className="w-4 h-4" aria-hidden />
             </button>
-            <EntityDetail />
-          </div>
-        ))}
+            </div>
+            <div className="overflow-y-auto scrollbar-thin min-h-0 px-4 py-4"><EntityDetail /></div>
+          </section>
+        )}</>}
 
       <EcoLandscape viewMode={viewMode} />
       <OverlayBanner />
@@ -146,7 +187,7 @@ export default function App() {
         <SuggestStrategiesTrigger />
       </div>
 
-      <div className="absolute bottom-4 right-4 z-[15] pointer-events-none flex flex-col items-end gap-2">
+      <div className="absolute bottom-20 right-4 z-[15] pointer-events-none flex flex-col items-end gap-2 max-w-[calc(100%-2rem)] max-h-[calc(100%-6rem)]">
         {!easy && (
           <button
             type="button"
@@ -164,8 +205,8 @@ export default function App() {
         )}
 
         {easy ? (
-          legendExpanded ? (
-            <div className="pointer-events-auto flex flex-col items-end gap-2">
+          legendPresent ? (
+            <div className={`panel-motion origin-bottom-right ${legendExpanded ? 'panel-enter' : 'panel-exit'} pointer-events-auto flex flex-col items-end gap-2 min-h-0 max-w-full`}>
               <Legend onMinimize={() => setLegendExpanded(false)} />
             </div>
           ) : (
@@ -173,21 +214,25 @@ export default function App() {
               <EasyMiniLegend onExpand={() => setLegendExpanded(true)} />
             </div>
           )
-        ) : legendMinimized ? (
+        ) : <>
           <button
+            ref={legendTriggerRef}
             type="button"
-            className={fabCls}
+            className={`${fabCls} ${legendPresent ? 'absolute bottom-0 right-0 opacity-0 pointer-events-none' : ''}`}
+            tabIndex={legendPresent ? -1 : 0}
+            aria-expanded={!legendMinimized}
+            aria-controls="legend-panel"
             onClick={() => setLegendMinimized(false)}
             title="Show legend"
             aria-label="Show legend"
           >
             <Layers className="w-5 h-5 shrink-0" aria-hidden />
             </button>
-        ) : (
-          <div className="pointer-events-auto">
-            <Legend onMinimize={() => setLegendMinimized(true)} />
+        {legendPresent && (
+          <div id="legend-panel" className={`panel-motion origin-bottom-right ${legendMinimized ? 'panel-exit' : 'panel-enter'} pointer-events-auto min-h-0 max-w-full flex`}>
+            <Legend onMinimize={() => { setLegendMinimized(true); legendTriggerRef.current?.focus(); }} />
           </div>
-        )}
+        )}</>}
       </div>
 
       {easy && (
@@ -222,14 +267,16 @@ export default function App() {
       {easy ? (
         <div className="flex-1 flex flex-col min-h-0 bg-white relative">
           <div
-            className={`relative flex-1 min-h-0 transition-[padding] duration-300 ease-in-out ${
+            className={`flex flex-col flex-1 min-h-0 transition-[padding] duration-300 ease-in-out motion-reduce:transition-none ${
+              guideOpen ? 'pl-[min(364px,calc(100%-0.75rem))]' : 'pl-0'
+            } ${
               helperOpen ? 'pr-[min(404px,calc(100%-0.75rem))]' : 'pr-0'
             }`}
           >
-            {mapChrome}
+            <div className="relative flex-1 min-h-0">{mapChrome}</div>
           </div>
 
-          {/* Guide overlay — floats over the map */}
+          {/* The map reserves the guide's width plus its outer gutters. */}
           {guideOpen && (
             <aside className="absolute top-3 left-3 bottom-3 z-20 w-[min(340px,calc(100%-1.5rem))] flex flex-col rounded-2xl border border-stone-200/80 bg-white/95 shadow-[0_12px_40px_rgba(28,25,23,0.12)] backdrop-blur-xl overflow-hidden">
               <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-stone-200/80 shrink-0">

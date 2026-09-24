@@ -13,6 +13,7 @@ import {
   LAYER_LABEL,
 } from '../../types/ecology';
 import { useUiText } from '../../lib/uiText';
+import { Pencil, Trash2 } from 'lucide-react';
 
 export function EntityDetail() {
   const patient = useEffectivePatient();
@@ -30,7 +31,7 @@ export function EntityDetail() {
 
   const focusEntityId =
     hoveredEntityId ??
-    selection.find((s) => s.kind === 'entity')?.id ??
+    (hoveredFlowId ? null : selection.find((s) => s.kind === 'entity')?.id) ??
     null;
 
   const focusFlowId = !focusEntityId
@@ -38,14 +39,17 @@ export function EntityDetail() {
     : null;
 
   const smallLabel = easy
-    ? 'text-xs uppercase tracking-wider text-slate-500 font-semibold'
-    : 'text-[10px] uppercase tracking-wider text-slate-500 font-medium';
-  const bodyText = easy ? 'text-sm' : 'text-xs';
+    ? 'text-xs text-slate-500 font-semibold mb-2'
+    : 'detail-label mb-2';
 
   if (!focusEntityId && !focusFlowId) {
     return (
       <div className={easy ? 'text-sm text-slate-500 leading-relaxed' : 'text-xs text-slate-500 leading-relaxed'}>
-        {t('inspectorHint')}
+        <p className="font-medium text-slate-800 mb-3">No item selected</p>
+        <dl className="grid grid-cols-2 gap-4 detail-section">
+          <div><dt className="detail-label">Entities</dt><dd className="mt-1 text-lg font-semibold text-slate-800">{patient.entities.length}</dd></div>
+          <div><dt className="detail-label">Information flows</dt><dd className="mt-1 text-lg font-semibold text-slate-800">{patient.flows.length}</dd></div>
+        </dl>
       </div>
     );
   }
@@ -56,11 +60,11 @@ export function EntityDetail() {
     const src = patient.entities.find((e) => e.id === flow.source);
     const tgt = patient.entities.find((e) => e.id === flow.target);
     return (
-      <div className="space-y-2">
+      <div className="space-y-3 break-words">
         <div className="flex items-center gap-2 flex-wrap">
           <span
-            className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-medium"
-            style={{ background: FLOW_COLOR[flow.kind] + '22', color: FLOW_COLOR[flow.kind] }}
+            className="border-l-2 pl-2 text-xs text-slate-600 font-medium"
+            style={{ borderColor: FLOW_COLOR[flow.kind] }}
           >
             {FLOW_LABEL[flow.kind]}
           </span>
@@ -70,14 +74,14 @@ export function EntityDetail() {
             </span>
           )}
         </div>
-        <div className={easy ? 'text-base text-slate-800' : 'text-sm text-slate-800'}>
-          <span className="text-slate-700">{src?.label}</span>
-          <span className="mx-1 text-slate-400">→</span>
-          <span className="text-slate-700">{tgt?.label}</span>
-        </div>
+        <h3 className="text-sm font-semibold text-slate-900">{flow.label}</h3>
+        <dl className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs text-slate-700">
+          <dt className="detail-label">From</dt><dd>{src?.label ?? flow.source}</dd>
+          <dt className="detail-label">To</dt><dd>{tgt?.label ?? flow.target}</dd>
+        </dl>
         {flow.content && (
-          <div className="rounded-md border border-stone-200 bg-stone-50 px-2 py-1.5">
-            <div className={smallLabel}>Information content</div>
+          <div className="detail-section">
+            <div className={smallLabel}>Information carried</div>
             <div className={`text-slate-800 ${easy ? 'text-sm' : 'text-xs'}`}>{flow.content}</div>
           </div>
         )}
@@ -92,7 +96,7 @@ export function EntityDetail() {
               }}
               className="text-[11px] px-2 py-1 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50"
             >
-              Delete flow
+              <Trash2 className="inline w-3 h-3 mr-1" aria-hidden />Delete flow
             </button>
           </div>
         )}
@@ -109,18 +113,17 @@ export function EntityDetail() {
   const isPatientCenter = entity.id === 'patient';
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 break-words">
       <div className="flex items-center gap-2 flex-wrap">
         <span
-          className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-medium"
+          className="border-l-2 pl-2 text-xs font-medium text-slate-600"
           style={{
-            background: CATEGORY_COLOR[entity.category] + '33',
-            color: '#7a4a2e',
+            borderColor: CATEGORY_COLOR[entity.category],
           }}
         >
           {CATEGORY_LABEL[entity.category]}
         </span>
-        <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wider bg-stone-200 text-slate-700">
+        <span className="text-xs text-slate-500">
           {LAYER_LABEL[entity.layer]}
         </span>
         {disrupted.has(entity.id) && (
@@ -142,7 +145,7 @@ export function EntityDetail() {
             onClick={() => openEntityForm(entity.id)}
             className="text-[11px] px-2 py-1 rounded-md border border-stone-300 text-slate-700 hover:bg-stone-50"
           >
-            Edit
+            <Pencil className="inline w-3 h-3 mr-1" aria-hidden />Edit
           </button>
           <button
             onClick={() => {
@@ -150,7 +153,7 @@ export function EntityDetail() {
             }}
             className="text-[11px] px-2 py-1 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50"
           >
-            Delete
+            <Trash2 className="inline w-3 h-3 mr-1" aria-hidden />Delete
           </button>
         </div>
       )}
@@ -158,20 +161,20 @@ export function EntityDetail() {
       {(incoming.length > 0 || outgoing.length > 0) && (
         <div className={`space-y-2 ${easy ? 'text-sm' : 'text-xs'}`}>
           {outgoing.length > 0 && (
-            <div>
-              <div className={smallLabel}>{t('sendsTo')}</div>
-              <ul className="space-y-1.5">
+            <div className="detail-section">
+              <div className={`${smallLabel} flex justify-between`}><span>{t('sendsTo')}</span><span>{outgoing.length}</span></div>
+              <ul className="divide-y divide-stone-100">
                 {outgoing.map((f) => {
                   const tgt = patient.entities.find((e) => e.id === f.target);
                   return (
-                    <li key={f.id} className="text-slate-700 leading-tight">
+                    <li key={f.id} className="text-slate-700 leading-relaxed py-2 first:pt-0">
                       <div>
-                        <span style={{ color: FLOW_COLOR[f.kind] }}>{f.label}</span>{' '}
-                        <span className="text-slate-400">→</span> {tgt?.label}
+                        <p className="font-medium text-slate-800">{tgt?.label}</p>
+                        <p className="text-slate-500 flex items-center gap-1.5"><span className="w-3 border-t-2 shrink-0" style={{ borderColor: FLOW_COLOR[f.kind] }} aria-hidden />{f.label}</p>
                       </div>
                       {f.content && (
-                        <div className={`text-slate-500 italic pl-2 mt-0.5 ${easy ? 'text-xs' : 'text-[11px]'}`}>
-                          carries: {f.content}
+                        <div className="text-slate-600 mt-1 text-xs">
+                          {f.content}
                         </div>
                       )}
                     </li>
@@ -181,20 +184,20 @@ export function EntityDetail() {
             </div>
           )}
           {incoming.length > 0 && (
-            <div>
-              <div className={smallLabel}>{t('receivesFrom')}</div>
-              <ul className="space-y-1.5">
+            <div className="detail-section">
+              <div className={`${smallLabel} flex justify-between`}><span>{t('receivesFrom')}</span><span>{incoming.length}</span></div>
+              <ul className="divide-y divide-stone-100">
                 {incoming.map((f) => {
                   const src = patient.entities.find((e) => e.id === f.source);
                   return (
-                    <li key={f.id} className="text-slate-700 leading-tight">
+                    <li key={f.id} className="text-slate-700 leading-relaxed py-2 first:pt-0">
                       <div>
-                        {src?.label} <span className="text-slate-400">→</span>{' '}
-                        <span style={{ color: FLOW_COLOR[f.kind] }}>{f.label}</span>
+                        <p className="font-medium text-slate-800">{src?.label}</p>
+                        <p className="text-slate-500 flex items-center gap-1.5"><span className="w-3 border-t-2 shrink-0" style={{ borderColor: FLOW_COLOR[f.kind] }} aria-hidden />{f.label}</p>
                       </div>
                       {f.content && (
-                        <div className={`text-slate-500 italic pl-2 mt-0.5 ${easy ? 'text-xs' : 'text-[11px]'}`}>
-                          carries: {f.content}
+                        <div className="text-slate-600 mt-1 text-xs">
+                          {f.content}
                         </div>
                       )}
                     </li>
@@ -207,8 +210,8 @@ export function EntityDetail() {
       )}
 
       {inConflicts.length > 0 && (
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 font-medium">
+        <div className="detail-section">
+          <div className={smallLabel}>
             Active conflicts
           </div>
           <ul className="space-y-1">
