@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, HeartCrack, Pencil, Plus, RotateCcw, Route, Upload } from 'lucide-react';
+import { Download, HeartCrack, MoreHorizontal, Pencil, Plus, RotateCcw, Route, Upload } from 'lucide-react';
 import { useEcoStore } from '../../store/useEcoStore';
 import { useUiText } from '../../lib/uiText';
 
@@ -94,28 +94,31 @@ export function EditToolbar() {
   return (
     <div className="relative flex items-center" ref={listRef}>
       <div
-        className="flex h-12 shrink-0 items-center gap-0.5 p-1 rounded-full bg-white/95 border border-stone-200/70 shadow-[0_8px_30px_rgba(28,25,23,0.1),0_1px_2px_rgba(28,25,23,0.05)] backdrop-blur-xl"
+        className="edit-dock flex h-12 shrink-0 items-center gap-0.5 p-1 rounded-full bg-white/95 border border-stone-200/70 shadow-[0_8px_30px_rgba(28,25,23,0.1),0_1px_2px_rgba(28,25,23,0.05)] backdrop-blur-xl"
         role="toolbar"
         aria-label="Edit map"
       >
-        <button type="button" onClick={() => openEntityForm()} className={primaryIdle}>
+        <button type="button" title={t('addEntity')} aria-label={t('addEntity')} onClick={() => openEntityForm()} className={primaryIdle}>
           <Plus className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />
-          {t('addEntity').replace(/^\+\s*/, '')}
+          <span className="dock-label">{t('addEntity').replace(/^\+\s*/, '')}</span>
         </button>
 
         <button
           type="button"
           onClick={() => startConnectMode()}
+          title={t('addFlow')}
+          aria-label={t('addFlow')}
           aria-pressed={connectMode.active}
           className={connectMode.active ? primaryActive : primaryIdle}
         >
           <Route className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />
-          {t('addFlow').replace(/^\+\s*/, '')}
+          <span className="dock-label">{t('addFlow').replace(/^\+\s*/, '')}</span>
         </button>
 
         <button
           type="button"
           onClick={onMarkImpact}
+          aria-label={t('markImpact')}
           disabled={!hasLce}
           aria-pressed={impactPickMode}
           title={hasLce ? t('markImpact') : t('markImpactHint')}
@@ -124,7 +127,7 @@ export function EditToolbar() {
           }
         >
           <HeartCrack className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />
-          {t('markImpact')}
+          <span className="dock-label">{t('markImpact')}</span>
           {marked.size > 0 ? (
             <span className="ml-0.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-rose-600/90 px-1 text-[10px] font-semibold text-white">
               {marked.size}
@@ -135,16 +138,18 @@ export function EditToolbar() {
         <button
           type="button"
           onClick={() => setEditMode(!editMode)}
+          title={editMode ? t('editing') : t('edit')}
+          aria-label={editMode ? t('editing') : t('edit')}
           aria-pressed={editMode}
           className={editMode ? primaryActive : primaryIdle}
         >
           <Pencil className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />
-          {editMode ? t('editing') : t('edit')}
+          <span className="dock-label">{editMode ? t('editing') : t('edit')}</span>
         </button>
 
         <div className="shrink-0 bg-stone-200/80 h-5 w-px mx-1" aria-hidden />
 
-        <div className="flex items-center gap-0.5 pr-0.5">
+        <div className="dock-file-actions flex items-center gap-0.5 pr-0.5">
           <IconAction
             title="Export ecology as JSON"
             label="Export"
@@ -165,6 +170,17 @@ export function EditToolbar() {
             icon={<RotateCcw className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />}
           />
         </div>
+
+        <details className="dock-more relative" onKeyDown={(event) => {
+          if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); }
+        }}>
+          <summary aria-label="More map actions" title="More map actions" className="list-none cursor-pointer w-10 h-10 flex items-center justify-center rounded-full hover:bg-stone-100 text-slate-600"><MoreHorizontal className="w-4 h-4" /><span className="dock-label text-[13px] font-medium">More actions</span></summary>
+          <div className="map-panel absolute bottom-full right-0 mb-3 w-44 p-1">
+            {[{ label: 'Export', Icon: Download, action: onExport }, { label: 'Import', Icon: Upload, action: () => fileRef.current?.click() }, { label: 'Reset ecology', Icon: RotateCcw, action: onReset }].map(({ label, Icon, action }) => (
+              <button key={label} type="button" className="flex items-center gap-2 w-full p-2.5 text-xs text-left rounded-lg hover:bg-stone-100" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); action(); }}><Icon className="w-4 h-4" />{label}</button>
+            ))}
+          </div>
+        </details>
 
         <input
           ref={fileRef}

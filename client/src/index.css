@@ -2,6 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+.map-workspace { container-type: inline-size; }
+.dock-more { display: none; }
+.dock-more summary::-webkit-details-marker { display: none; }
+@container (max-width: 900px) {
+  .edit-dock .dock-file-actions { display: none; }
+  .edit-dock > button, .edit-dock .dock-more summary {
+    width: auto; min-width: 40px; height: 40px; padding: 0 12px;
+    gap: 0; justify-content: center; position: relative;
+  }
+  .edit-dock > button > svg, .edit-dock .dock-more summary > svg { flex-shrink: 0; }
+  .edit-dock .dock-label {
+    display: inline-block; max-width: 0; opacity: 0; overflow: hidden;
+    white-space: nowrap; margin-left: 0;
+    transition: max-width 240ms cubic-bezier(.22,1,.36,1), opacity 180ms ease, margin-left 240ms ease;
+  }
+  .edit-dock > button:is(:hover, :focus-visible) .dock-label,
+  .edit-dock .dock-more summary:is(:hover, :focus-visible) .dock-label,
+  .edit-dock .dock-more[open] .dock-label {
+    max-width: 190px; opacity: 1; margin-left: 8px;
+  }
+  .edit-dock .dock-more { display: block; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .edit-dock .dock-label { transition: none; }
+}
+.ecology-dialog > form {
+  border-radius: 16px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(28,25,23,.12);
+}
+.ecology-dialog form > div:first-child { padding-bottom: 16px; border-bottom: 1px solid #e7e5e4; }
+.ecology-dialog form > div:last-child { padding-top: 16px; border-top: 1px solid #e7e5e4; }
+.ecology-dialog :is(input:not([type=checkbox]), textarea, select) { border-radius: 8px; border-color: #e7e5e4; min-height: 40px; }
+.ecology-dialog :is(input, textarea, select):focus-visible { outline: 2px solid #bae6fd; outline-offset: 1px; border-color: #0284c7; }
+.ecology-dialog button { border-radius: 8px; min-height: 36px; }
+.ecology-dialog button[type=submit] { background: #0284c7; color: white; }
+.strategy-card .strategy-actions button { border-radius: 8px; min-height: 36px; padding: 8px 12px; font-weight: 600; }
+.strategy-card .uppercase, .ecology-status .uppercase, .ecology-timeline .uppercase { text-transform: none; letter-spacing: 0; font-size: 11px; }
+.ecology-status > div { max-width: 100%; flex-wrap: wrap; justify-content: center; border-radius: 12px; box-shadow: 0 4px 14px rgba(28,25,23,.08); }
+.ecology-status button { min-height: 28px; border-radius: 8px; }
+.ecology-timeline button { border-radius: 8px; }
+.mode-easy .strategy-card .strategy-actions button { min-height: 44px; }
+
 @layer components {
   .map-fab {
     @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-stone-200/80 bg-white/95 backdrop-blur-xl text-slate-500 hover:text-slate-800 hover:border-stone-300 pointer-events-auto;
@@ -31,6 +75,24 @@
 }
 
 .panel-enter { animation: panelExpand 240ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.mediation-panel .markdown-body {
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.mediation-panel .markdown-body :is(h1, h2, h3, h4) {
+  font-size: 13px;
+  line-height: 1.5;
+  text-transform: none;
+  letter-spacing: 0;
+  margin: 20px 0 10px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(231, 229, 228, 0.7);
+}
+.mediation-panel .markdown-body > :first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.mediation-panel .markdown-body li { line-height: 1.7; margin-top: 10px; padding-left: 2px; }
+.mediation-panel .markdown-body li::marker { color: #94a3b8; }
+.mediation-panel .markdown-body p { margin: 8px 0; }
 .panel-exit { animation: panelFold 180ms cubic-bezier(0.4, 0, 1, 1) both; pointer-events: none; }
 @keyframes panelExpand {
   from { opacity: 0; transform: scale(0.94); }

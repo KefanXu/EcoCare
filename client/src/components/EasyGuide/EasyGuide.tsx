@@ -303,12 +303,12 @@ function StepCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border p-3.5 transition ${
+      className={`border-t pt-4 transition ${
         muted
-          ? 'opacity-40 pointer-events-none select-none border-stone-100 bg-stone-50'
+          ? 'opacity-60 pointer-events-none select-none border-stone-200'
           : active
-            ? 'border-slate-300 bg-white shadow-sm ring-1 ring-slate-200/80'
-            : 'border-stone-200 bg-white'
+            ? 'border-slate-300'
+            : 'border-stone-200'
       }`}
     >
       {children}

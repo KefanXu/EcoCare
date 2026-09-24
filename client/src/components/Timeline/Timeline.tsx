@@ -78,7 +78,7 @@ export function Timeline() {
   const atStart = simulationTime <= 1e-4 && !simulationPlaying;
 
   return (
-    <div className="bg-white px-4 py-3">
+    <div className="ecology-timeline bg-white px-4 py-3 border-t border-stone-200/70">
       <div className="flex items-center gap-3">
         <button
           onClick={() => (simulationPlaying ? pauseSimulation() : playSimulation())}

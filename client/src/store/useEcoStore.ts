@@ -433,11 +433,11 @@ export const useEcoStore = create<EcoState>()(
           appliedOverlay: [],
           activeHighlightId: null,
         }),
-      requestChatPrompt: (text) => set({ pendingChatPrompt: text, helperOpen: true }),
+      requestChatPrompt: (text) => set((s) => ({ pendingChatPrompt: text, helperOpen: true, ...(s.uiMode === 'easy' ? { guideOpen: false } : {}) })),
       clearPendingChatPrompt: () => set({ pendingChatPrompt: null }),
-      openHelper: () => set({ helperOpen: true }),
+      openHelper: () => set((s) => ({ helperOpen: true, ...(s.uiMode === 'easy' ? { guideOpen: false } : {}) })),
       closeHelper: () => set({ helperOpen: false }),
-      openGuide: () => set({ guideOpen: true }),
+      openGuide: () => set((s) => ({ guideOpen: true, ...(s.uiMode === 'easy' ? { helperOpen: false } : {}) })),
       closeGuide: () => set({ guideOpen: false }),
 
       setActiveHighlight: (highlightId) => set({ activeHighlightId: highlightId }),
@@ -540,6 +540,7 @@ export const useEcoStore = create<EcoState>()(
             error: null,
           },
           guideOpen: true,
+          ...(s.uiMode === 'easy' ? { helperOpen: false } : {}),
         })),
       clearPendingUserStrategy: () =>
         set((s) => ({

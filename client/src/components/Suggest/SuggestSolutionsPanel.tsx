@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { GripHorizontal, RefreshCw, Sparkles, X } from 'lucide-react';
+import { ArrowUp, GripHorizontal, RefreshCw, Sparkles, X } from 'lucide-react';
 import { useEcoStore } from '../../store/useEcoStore';
 import { useSuggestStrategies } from '../../lib/useSuggestStrategies';
 import { InterleavedAssistantBody } from '../ChatPanel/InterleavedAssistantBody';
@@ -29,6 +29,7 @@ function SuggestSolutionsPanelStandard() {
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const followOutputRef = useRef(true);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -51,7 +52,9 @@ function SuggestSolutionsPanelStandard() {
 
   useEffect(() => {
     if (!panel.open) return;
-    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: 'smooth' });
+    if (followOutputRef.current) {
+      bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: 'auto' });
+    }
   }, [panel.content, panel.open, panel.proposals.length]);
 
   // Generate as soon as the panel opens empty.
@@ -154,31 +157,33 @@ function SuggestSolutionsPanelStandard() {
       {panel.open && (
         <div
           ref={panelRef}
-          className="absolute z-40 flex flex-col bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden"
+          role="region"
+          aria-label="Mediation ideas"
+          className="map-panel mediation-panel absolute z-40 flex flex-col"
           style={{
             left: panel.position.x,
             top: panel.position.y,
             width: PANEL_WIDTH,
+            maxWidth: 'calc(100% - 24px)',
             maxHeight: 'min(560px, calc(100% - 24px))',
           }}
         >
           <div
-            className="flex items-center gap-2 px-3 py-2 border-b border-stone-200 bg-stone-50 cursor-grab active:cursor-grabbing select-none touch-none"
+            className="map-panel-header cursor-grab active:cursor-grabbing select-none touch-none"
             onPointerDown={handleHeaderPointerDown}
           >
-            <GripHorizontal className="w-4 h-4 text-slate-400 shrink-0" aria-hidden />
             <div className="min-w-0 flex-1">
-              <div className="font-semibold text-slate-800 truncate flex items-center gap-1.5 text-xs">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" aria-hidden />
+              <h2 className="map-panel-title flex items-center gap-2">
+                <Sparkles className="w-4 h-4 shrink-0" aria-hidden />
                 Mediation ideas
-              </div>
-              <div className="text-slate-500 truncate text-[10px]">{activeScenario.name}</div>
+              </h2>
             </div>
+            <GripHorizontal className="w-4 h-4 text-slate-300 shrink-0" aria-hidden />
             <button
               type="button"
               onClick={() => void runSuggest()}
               disabled={panel.streaming}
-              className="p-1.5 rounded-md text-slate-500 hover:bg-stone-200 hover:text-slate-700 disabled:opacity-40 transition"
+              className="map-panel-action disabled:opacity-40"
               title="Regenerate"
               aria-label="Regenerate strategies"
             >
@@ -190,7 +195,7 @@ function SuggestSolutionsPanelStandard() {
             <button
               type="button"
               onClick={handleClose}
-              className="p-1.5 rounded-md text-slate-500 hover:bg-stone-200 hover:text-slate-700 transition"
+              className="map-panel-action"
               title="Close"
               aria-label="Close strategies panel"
             >
@@ -200,8 +205,17 @@ function SuggestSolutionsPanelStandard() {
 
           <div
             ref={bodyRef}
-            className="flex-1 overflow-y-auto scrollbar-thin px-3 py-3 space-y-3 min-h-0"
+            className="flex-1 overflow-y-auto scrollbar-thin px-4 py-4 space-y-4 min-h-0"
+            onScroll={(event) => {
+              const el = event.currentTarget;
+              followOutputRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+            }}
           >
+            <section className="border-b border-stone-200/70 pb-4">
+              <div className="detail-label mb-1">Life-changing event</div>
+              <h3 className="text-sm font-semibold text-slate-800 leading-relaxed">{activeScenario.name}</h3>
+              <p className="text-xs text-slate-500 mt-1">{panel.streaming ? 'Developing ideas' : 'AI-generated exploration'}</p>
+            </section>
             {panel.streaming && !panel.content && (
               <div className="flex items-center gap-2 text-slate-500 py-6 justify-center text-xs">
                 <span className="inline-block w-3.5 h-3.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
@@ -210,7 +224,7 @@ function SuggestSolutionsPanelStandard() {
             )}
 
             {panel.error && (
-              <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-2.5 py-2">
+              <div role="alert" className="text-xs text-rose-700 border-l-2 border-rose-300 pl-3 py-1">
                 {panel.error}
               </div>
             )}
@@ -235,24 +249,26 @@ function SuggestSolutionsPanelStandard() {
               )}
           </div>
 
-          <div className="shrink-0 border-t border-stone-200 bg-stone-50/80 px-3 py-2.5 space-y-2">
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-              Or describe your own strategy
-            </div>
+          <div className="shrink-0 border-t border-stone-200/80 bg-white/95 px-4 py-3 space-y-2">
+            <label htmlFor="own-strategy" className="block text-xs font-semibold text-slate-600">
+              Your strategy
+            </label>
             <textarea
+              id="own-strategy"
               value={ownDraft}
               onChange={(e) => setOwnDraft(e.target.value)}
               rows={2}
               disabled={panel.streaming}
               placeholder="e.g. Ask a neighbor to drive Jordan to the pharmacy…"
-              className="w-full rounded-lg border border-stone-300 bg-white text-xs text-slate-800 placeholder:text-slate-400 px-2.5 py-2 resize-none focus:outline-none focus:border-slate-500 disabled:opacity-60"
+              className="block w-full rounded-lg border border-stone-200 bg-stone-50/70 text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 px-3 py-2 resize-none focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:opacity-60 transition"
             />
             <button
               type="button"
               disabled={!ownDraft.trim() || panel.streaming}
               onClick={submitOwnStrategy}
-              className="w-full rounded-lg bg-slate-900 text-white text-xs font-medium px-3 py-2 hover:bg-slate-800 disabled:opacity-50 transition"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-sky-600 text-white text-xs font-semibold px-3 py-2.5 hover:bg-sky-700 disabled:bg-stone-100 disabled:text-slate-400 disabled:cursor-not-allowed transition"
             >
+              <ArrowUp className="w-4 h-4" aria-hidden />
               Interpret my strategy
             </button>
           </div>

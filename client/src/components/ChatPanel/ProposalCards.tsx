@@ -56,7 +56,7 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
 
   return (
     <div
-      className={`rounded-lg border bg-white p-3 shadow-sm transition ${flush ? '' : 'mr-2'} ${
+      className={`strategy-card rounded-lg border bg-white p-4 shadow-sm transition ${flush ? '' : 'mr-2'} ${
         isApplied
           ? 'border-emerald-300 ring-1 ring-emerald-200'
           : isPreviewing
@@ -205,7 +205,7 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 mt-3">
+      <div className="strategy-actions flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-stone-200/70">
         {!isApplied && (
           <button
             onClick={() => (isPreviewing ? cancelPreview() : startPreview(p.id))}

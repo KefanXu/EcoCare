@@ -100,7 +100,7 @@ export function FlowForm() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm">
+    <div className="ecology-dialog fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4">
       <form
         onSubmit={step === 'input' ? submitInput : submitConfirm}
         className="bg-white border border-stone-200 rounded-xl shadow-xl w-full max-w-md p-5 space-y-4"

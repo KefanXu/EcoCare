@@ -1055,6 +1055,11 @@ function EntityNode({
   const Icon = iconFor(p.id, p.category);
   const R = easy ? NODE_BEZEL_R * 1.25 : NODE_BEZEL_R;
   const shownLabel = displayLabel ?? p.label;
+  const labelWords = shownLabel.split(' ');
+  const splitAt = Math.ceil(labelWords.length / 2);
+  const labelLines = shownLabel.length > 16 && labelWords.length > 1
+    ? [labelWords.slice(0, splitAt).join(' '), labelWords.slice(splitAt).join(' ')]
+    : [shownLabel];
   const baseStroke = categoryStrokeColor(p.category);
   const isOverlayNode = overlayTag === 'preview' || overlayTag === 'applied';
   const nodeBaseStroke = isOverlayNode || isRepaired ? OVERLAY_COLOR : baseStroke;
@@ -1064,13 +1069,13 @@ function EntityNode({
   const highlightOpacity = highlightActive ? (isHighlighted ? 1 : 0.18) : 1;
   const legendOpacity = legendActive ? (isLegendMatch ? 1 : 0.18) : 1;
   const spotlightOpacity = spotlightDim ? 0.3 : 1;
-  const opacity = Math.min(
+  const opacity = Math.max(0.45, Math.min(
     hoverOpacity,
     searchOpacity,
     highlightOpacity,
     legendOpacity,
     spotlightOpacity,
-  );
+  ));
   const showDisruptionGlow = disruption > 0.02;
 
   // Label placement: above when on top half, below when on bottom half.
@@ -1080,6 +1085,8 @@ function EntityNode({
   const isBottomHalf = labelBelow || (normAngle > 0 && normAngle < 180);
   const labelDy = isBottomHalf ? R + 16 : -(R + 6);
   const labelBaseline = isBottomHalf ? 'hanging' : 'auto';
+  const nearVerticalAxis = !labelBelow && Math.abs(Math.cos(p.angleDeg * Math.PI / 180)) < 0.3 && Math.abs(p.x) > 1;
+  const labelX = nearVerticalAxis ? (p.x < 0 ? -8 : 8) : 0;
   const nudgeX = offset?.dx ?? 0;
   const nudgeY = offset?.dy ?? 0;
   const nodeCursor =
@@ -1243,24 +1250,24 @@ function EntityNode({
       </g>
 
       <text
-        y={labelDy}
-        textAnchor="middle"
+        y={labelDy - (!isBottomHalf && labelLines.length > 1 ? 14 : 0)}
+        textAnchor={nearVerticalAxis ? (p.x < 0 ? 'end' : 'start') : 'middle'}
         dominantBaseline={labelBaseline}
         fontSize={easy ? 13 : 11}
         fill={isOverlayNode || isRepaired ? '#065f46' : 'rgba(30,41,59,0.92)'}
-        style={{ pointerEvents: 'none', fontWeight: easy ? 600 : 500 }}
+        style={{ pointerEvents: 'none', fontWeight: easy ? 600 : 500, paintOrder: 'stroke', stroke: 'white', strokeWidth: 3, strokeLinejoin: 'round' }}
       >
-        {shownLabel}
+        {labelLines.map((line, index) => <tspan key={index} x={labelX} dy={index === 0 ? 0 : 14}>{line}</tspan>)}
       </text>
       {isOverlayNode ? (
         <OverlayPill
           tag={overlayTag!}
-          dy={isBottomHalf ? labelDy + 14 : labelDy - 14}
+          dy={isBottomHalf ? labelDy + 14 * labelLines.length : labelDy - 14 * labelLines.length}
           baseline={labelBaseline}
         />
       ) : isRepaired ? (
         <RepairPill
-          dy={isBottomHalf ? labelDy + 14 : labelDy - 14}
+          dy={isBottomHalf ? labelDy + 14 * labelLines.length : labelDy - 14 * labelLines.length}
           baseline={labelBaseline}
         />
       ) : null}
@@ -1444,7 +1451,7 @@ function PatientCenter({
   const highlightOpacity = highlightActive ? (isHighlighted ? 1 : 0.18) : 1;
   const legendOpacity = legendActive ? (isLegendMatch ? 1 : 0.18) : 1;
   const spotlightOpacity = spotlightDim ? 0.3 : 1;
-  const opacity = Math.min(searchOpacity, highlightOpacity, legendOpacity, spotlightOpacity);
+  const opacity = Math.max(0.45, Math.min(searchOpacity, highlightOpacity, legendOpacity, spotlightOpacity));
   const nudgeX = offset?.dx ?? 0;
   const nudgeY = offset?.dy ?? 0;
   const nodeCursor =

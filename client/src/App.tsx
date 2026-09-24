@@ -133,13 +133,18 @@ export default function App() {
       )}
 
       {!easy && scenario && (
-        <div className={`absolute ${searchPresent ? 'top-40' : 'top-14'} right-3 z-10 max-w-sm bg-rose-50 border border-rose-200 shadow-sm rounded-lg p-3 transition-[top] duration-200 motion-reduce:transition-none`}>
-          <div className="uppercase tracking-wider text-rose-600 font-medium text-[10px] mb-1">
-            Active life-changing event
+        <section aria-labelledby="active-event-title" className={`map-panel absolute ${searchPresent ? 'top-40' : 'top-16'} right-3 z-10 w-80 max-w-[calc(100%-1.5rem)] transition-[top] duration-200 motion-reduce:transition-none`}>
+          <div className="map-panel-header">
+            <div className="map-panel-title flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-rose-400 shrink-0" aria-hidden />
+              Active life-changing event
+            </div>
           </div>
-          <div className="font-semibold text-rose-900 text-sm">{scenario.name}</div>
-          <div className="text-rose-700/80 mt-1 leading-relaxed text-xs">{scenario.description}</div>
-        </div>
+          <div className="px-4 py-4 break-words">
+            <h2 id="active-event-title" className="font-semibold text-slate-900 text-sm leading-relaxed">{scenario.name}</h2>
+            <p className="text-slate-600 mt-2 leading-relaxed text-xs">{scenario.description}</p>
+          </div>
+        </section>
       )}
 
       {!easy && <>
@@ -273,7 +278,7 @@ export default function App() {
               helperOpen ? 'pr-[min(404px,calc(100%-0.75rem))]' : 'pr-0'
             }`}
           >
-            <div className="relative flex-1 min-h-0">{mapChrome}</div>
+            <div className="map-workspace relative flex-1 min-h-0">{mapChrome}</div>
           </div>
 
           {/* The map reserves the guide's width plus its outer gutters. */}
@@ -319,7 +324,7 @@ export default function App() {
               helperOpen ? 'pr-[min(404px,calc(100%-0.75rem))]' : 'pr-0'
             }`}
           >
-            <div className="relative flex-1 min-h-0">{mapChrome}</div>
+            <div className="map-workspace relative flex-1 min-h-0">{mapChrome}</div>
             <Timeline />
           </div>
           <AssistantOverlay open={helperOpen} onClose={closeHelper} />

@@ -26,7 +26,7 @@ export function OverlayBanner() {
   const healedPct = repair.total > 0 ? Math.round((repair.repaired / repair.total) * 100) : 0;
 
   return (
-    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2">
+    <div className="ecology-status absolute top-3 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 max-w-[calc(100%-7rem)]">
       {repair.total > 0 && (preview || appliedOverlay.length > 0) && (
         <div className="flex items-center gap-2.5 bg-white border border-stone-200 rounded-full pl-3 pr-3 py-1 shadow-md text-xs">
           <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
