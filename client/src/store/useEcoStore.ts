@@ -346,13 +346,15 @@ export const useEcoStore = create<EcoState>()(
       hoveredFlowId: null,
       legendHover: null,
       entitySearchQuery: '',
-      uiMode: 'standard',
+      // Easy mode is the default for first-time visitors; the chosen mode is remembered.
+      uiMode: 'easy',
       showLegend: true,
       showInformationFlows: true,
       messages: [],
       isStreaming: false,
       pendingChatPrompt: null,
-      helperOpen: true,
+      // Easy starts with the guide open and the AI helper closed (Standard does the reverse).
+      helperOpen: false,
       guideOpen: true,
       guideWidth: GUIDE_WIDTH_DEFAULT,
 
