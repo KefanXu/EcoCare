@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { HeartCrack, Map as MapIcon, Users, Wrench, type LucideIcon } from 'lucide-react';
+import { HeartCrack, Map as MapIcon, Users, Wrench } from 'lucide-react';
 import {
   useActiveConflicts,
   useActiveScenario,
@@ -18,44 +18,7 @@ import { findPreviewProposal } from '../Overlay/findPreviewProposal';
 import { InterleavedAssistantBody } from './InterleavedAssistantBody';
 import { SpeakButton } from '../common/SpeakButton';
 import { useUiText } from '../../lib/uiText';
-
-const DEFAULT_PROMPTS = [
-  'Walk me through this care ecology — what stands out as fragile?',
-  'Which information flows depend on a single person?',
-  'What does the selected context mean in this ecology?',
-];
-
-/** Tap-to-ask questions for Easy mode — no typing needed. */
-const EASY_QUICK_QUESTIONS: Array<{
-  label: string;
-  prompt: string;
-  icon: LucideIcon;
-  needsScenario?: boolean;
-}> = [
-  {
-    label: 'What is this map?',
-    prompt: 'Explain this map to me in very simple words. What am I looking at?',
-    icon: MapIcon,
-  },
-  {
-    label: 'Who helps Jordan?',
-    prompt: 'In very simple words, who are the people who help Jordan, and what does each one do?',
-    icon: Users,
-  },
-  {
-    label: 'What broke?',
-    prompt:
-      'In very simple words, what got hurt or broken because of this change, and why does it matter?',
-    icon: HeartCrack,
-    needsScenario: true,
-  },
-  {
-    label: 'How do we fix it?',
-    prompt: SUGGEST_STRATEGIES_PROMPT,
-    icon: Wrench,
-    needsScenario: true,
-  },
-];
+import { startRoleRequest } from '../../lib/roleRequest';
 
 export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' }) {
   const basePatient = useEcoStore((s) => s.patient);
@@ -108,11 +71,26 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
     }
     return list;
   }, [appliedOverlay, previewStrategy]);
-  const { t, easy } = useUiText();
+  const { t, easy, role, profile } = useUiText();
+  const roleRevision = useEcoStore((s) => s.roleRevision);
+  const quickQuestions = profile.quickLabels.map((label, index) => ({
+    label,
+    prompt: index < 2 ? profile.questions[index] : index === 2 ? profile.eventQuestions[0] : `${profile.eventQuestions[1]} ${SUGGEST_STRATEGIES_PROMPT}`,
+    icon: [MapIcon, Users, HeartCrack, Wrench][index],
+    needsScenario: index > 1,
+  }));
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    setInput('');
+    return () => {
+      abortRef.current?.abort();
+      const state = useEcoStore.getState();
+      if (state.roleRevision === roleRevision && state.isStreaming) state.finishStreaming();
+    };
+  }, [roleRevision]);
 
   function autoResizeTextarea() {
     const el = textareaRef.current;
@@ -159,6 +137,8 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
 
   function buildContext() {
     return buildChatContext({
+      participantRole: role,
+      uiMode: easy ? 'easy' : 'standard',
       patient,
       basePatient,
       scenario,
@@ -177,18 +157,22 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
     assistantMsgId: string,
     context: ReturnType<typeof buildContext>,
   ) {
+    const request = startRoleRequest(roleRevision);
     try {
       const res = await fetch('/api/followups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: history, context }),
+        signal: request.controller.signal,
       });
       if (!res.ok) return;
       const data = (await res.json()) as { followUps?: string[] };
       const list = (data?.followUps ?? []).filter((q) => typeof q === 'string' && q.trim());
-      if (list.length > 0) setMessageFollowUps(assistantMsgId, list);
+      if (request.isCurrent() && list.length > 0) setMessageFollowUps(assistantMsgId, list);
     } catch {
       // Best-effort: ignore failures so chat stays usable.
+    } finally {
+      request.dispose();
     }
   }
 
@@ -208,8 +192,10 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
     setStreaming(true);
 
     const history = [...messages, userMsg].map((m) => ({ role: m.role, content: m.content }));
-    const ctrl = new AbortController();
+    const request = startRoleRequest(roleRevision);
+    const ctrl = request.controller;
     abortRef.current = ctrl;
+    const current = () => request.isCurrent() && abortRef.current === ctrl;
     const context = buildContext();
 
     let streamErrored = false;
@@ -218,11 +204,13 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
       { messages: history, context },
       {
         onDelta: (d) => {
+          if (!current()) return;
           streamedAny = true;
           appendToLast(d);
         },
-        onDone: () => finishStreaming(),
+        onDone: () => { if (current()) finishStreaming(); },
         onError: (msg) => {
+          if (!current()) return;
           streamErrored = true;
           appendToLast(`\n\n*Error: ${msg}*`);
           finishStreaming();
@@ -230,10 +218,11 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
       },
       ctrl.signal,
     );
+    request.dispose();
 
-    if (!streamErrored && streamedAny) {
+    if (current() && !streamErrored && streamedAny) {
       const latest = useEcoStore.getState().messages;
-      const last = latest[latest.length - 1];
+      const last = latest.find((message) => message.id === assistantMsg.id);
       const rawContent = last?.role === 'assistant' ? last.content : '';
 
       let cleanedContent = rawContent;
@@ -363,11 +352,10 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
         {messages.length === 0 && easy && (
           <div className="text-base text-slate-700 leading-relaxed space-y-4">
             <p>
-              Hi! I can answer questions about <span className="font-semibold">Jordan</span> and
-              this map. Tap a big question below — no typing needed.
+              {profile.intro}
             </p>
             <div className="space-y-2">
-              {EASY_QUICK_QUESTIONS.filter((q) => !q.needsScenario || !!scenario).map((q) => {
+              {quickQuestions.filter((q) => !q.needsScenario || !!scenario).map((q) => {
                 const Icon = q.icon;
                 return (
                   <button
@@ -390,17 +378,15 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
         {messages.length === 0 && !easy && (
           <div className="space-y-5">
             <p className="text-[13px] text-slate-600 leading-relaxed">
-              Click any node or edge in the visualization to add it as context, then ask a question
-              below. The AI will help you make sense of how the selected items interact and how a
-              Life-Changing Event ripples through the ecology.
+              {profile.intro}
             </p>
-            {scenario && scenario.suggestedPrompts.length > 0 && (
+            {scenario && (
               <div className="space-y-2">
                 <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
                   Suggested for “{scenario.name}”
                 </div>
                 <div className="space-y-1.5">
-                  {scenario.suggestedPrompts.map((p, i) => (
+                  {profile.eventQuestions.map((p, i) => (
                     <button
                       key={`scn-${i}`}
                       type="button"
@@ -416,10 +402,10 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
             )}
             <div className="space-y-2">
               <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
-                Sample questions
+                {profile.label} perspective
               </div>
               <div className="space-y-1.5">
-                {DEFAULT_PROMPTS.map((p, i) => (
+                {profile.questions.map((p, i) => (
                   <button
                     key={`def-${i}`}
                     type="button"
@@ -512,7 +498,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
       >
         {easy && messages.length > 0 && (
           <div className={`flex flex-wrap gap-1.5 ${variant === 'drawer' ? 'px-4' : ''}`}>
-            {EASY_QUICK_QUESTIONS.filter((q) => !q.needsScenario || !!scenario).map((q) => {
+            {quickQuestions.filter((q) => !q.needsScenario || !!scenario).map((q) => {
               const Icon = q.icon;
               return (
                 <button

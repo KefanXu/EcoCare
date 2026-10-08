@@ -1,5 +1,6 @@
 import type { Conflict, LCE, Patient, SelectionRef } from '../types/ecology';
 import type { EcologyProposal } from '../types/proposals';
+import type { ParticipantRole } from './participantRoles';
 
 export interface ContextStrategy {
   id: string;
@@ -14,6 +15,8 @@ export interface ContextStrategy {
 }
 
 export interface ChatContextPayload {
+  participantRole: ParticipantRole;
+  uiMode: 'standard' | 'easy';
   patient: { name: string; condition: string; background: string };
   scenario: { name: string; description: string } | null;
   selectedEntities: Array<{
@@ -35,6 +38,10 @@ export interface ChatContextPayload {
   }>;
   activeConflicts: Array<{ id: string; title: string; description: string }>;
   activeStrategies: ContextStrategy[];
+  careEcology: {
+    entities: Array<{ id: string; label: string; category: string; layer: string; description: string }>;
+    flows: Array<{ id: string; source: string; target: string; label: string; kind: string; description: string; content: string }>;
+  };
   ecologyIndex: {
     entityIds: string[];
     flowIds: string[];
@@ -65,6 +72,8 @@ function summarizeStrategy(
 
 /** Build the context payload sent with /api/chat and /api/proposals. */
 export function buildChatContext(args: {
+  participantRole: ParticipantRole;
+  uiMode: 'standard' | 'easy';
   /** Effective patient (may include overlay entities/flows). */
   patient: Patient;
   /** Base patient without overlays — used for known-id lists. */
@@ -136,6 +145,8 @@ export function buildChatContext(args: {
   }
 
   return {
+    participantRole: args.participantRole,
+    uiMode: args.uiMode,
     patient: {
       name: patient.name,
       condition: patient.condition,
@@ -152,6 +163,10 @@ export function buildChatContext(args: {
       description: c.description,
     })),
     activeStrategies,
+    careEcology: {
+      entities: patient.entities.map(({ id, label, category, layer, description }) => ({ id, label, category, layer, description })),
+      flows: patient.flows.map(({ id, source, target, label, kind, description, content }) => ({ id, source, target, label, kind, description, content })),
+    },
     ecologyIndex: {
       entityIds: basePatient.entities.map((e) => e.id),
       flowIds: basePatient.flows.map((f) => f.id),
@@ -192,7 +207,7 @@ export const EASY_SUGGEST_STRATEGIES_PROMPT = `Suggest up to 3 concrete strategi
 Rules for this answer (Easy mode):
 - Use Mode B (strategies).
 - At most 3 strategies.
-- Each strategy title: max 6 words, plain language a child could understand.
+- Each strategy title: max 6 words, respectful adult plain language.
 - Under each heading write ONE short sentence (max 18 words) explaining what it does. No bullet lists, no "Ask your care team" section.
 - Still emit one ecology-proposal JSON block per strategy so the map can show the fix.
 - Prefer restoring broken things over adding many new ones.`;
@@ -229,7 +244,7 @@ ${userText.trim()}
 
 Rules (Easy mode):
 - Use Mode B with EXACTLY ONE strategy and EXACTLY ONE ecology-proposal block.
-- Title: max 6 words, plain language a child could understand, matching their idea.
+- Title: max 6 words, respectful adult plain language, matching their idea.
 - ONE short sentence (max 20 words) explaining what it does on the map.
 - Prefer restoring broken things; add new people/tools only if their idea needs them.
 - Use removeEntityIds / removeFlowIds only if they clearly drop or stop something. Never remove patient.

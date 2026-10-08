@@ -1,5 +1,6 @@
 import {
   useActiveConflicts,
+  useActiveScenario,
   useBrokenFlowIds,
   useDisruptedEntityIds,
   useEcoStore,
@@ -13,7 +14,8 @@ import {
   LAYER_LABEL,
 } from '../../types/ecology';
 import { useUiText } from '../../lib/uiText';
-import { Pencil, Trash2 } from 'lucide-react';
+import { describeEntityImpact } from '../../lib/entityImpact';
+import { AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 
 export function EntityDetail() {
   const patient = useEffectivePatient();
@@ -27,7 +29,10 @@ export function EntityDetail() {
   const disrupted = useDisruptedEntityIds();
   const broken = useBrokenFlowIds();
   const conflicts = useActiveConflicts();
-  const { t, easy } = useUiText();
+  const scenario = useActiveScenario();
+  const userImpactEntityIds = useEcoStore((s) => s.userImpactEntityIds);
+  const { t, easy, profile } = useUiText();
+  const requestChatPrompt = useEcoStore((s) => s.requestChatPrompt);
 
   const focusEntityId =
     hoveredEntityId ??
@@ -61,6 +66,7 @@ export function EntityDetail() {
     const tgt = patient.entities.find((e) => e.id === flow.target);
     return (
       <div className="space-y-3 break-words">
+        <p className="detail-label">{profile.label} perspective</p>
         <div className="flex items-center gap-2 flex-wrap">
           <span
             className="border-l-2 pl-2 text-xs text-slate-600 font-medium"
@@ -88,6 +94,7 @@ export function EntityDetail() {
         <div className={`text-slate-500 leading-relaxed ${easy ? 'text-sm' : 'text-xs'}`}>
           {flow.description}
         </div>
+        <button className="text-xs text-sky-700 hover:underline text-left" onClick={() => requestChatPrompt(`Regarding the flow "${flow.label}" from ${src?.label} to ${tgt?.label}: ${profile.itemQuestion}`)}>Explore from the {profile.label.toLowerCase()} perspective</button>
         {editMode && (
           <div className="flex gap-2 pt-1">
             <button
@@ -111,9 +118,19 @@ export function EntityDetail() {
   const outgoing = patient.flows.filter((f) => f.source === entity.id);
   const inConflicts = conflicts.filter((c) => c.entityIds.includes(entity.id));
   const isPatientCenter = entity.id === 'patient';
+  const isDisrupted = disrupted.has(entity.id);
+  const impactText = isDisrupted
+    ? describeEntityImpact({
+        scenario,
+        entityId: entity.id,
+        easy,
+        userMarked: userImpactEntityIds.includes(entity.id),
+      })
+    : null;
 
   return (
     <div className="space-y-3 break-words">
+      <p className="detail-label">{profile.label} perspective</p>
       <div className="flex items-center gap-2 flex-wrap">
         <span
           className="border-l-2 pl-2 text-xs font-medium text-slate-600"
@@ -126,7 +143,7 @@ export function EntityDetail() {
         <span className="text-xs text-slate-500">
           {LAYER_LABEL[entity.layer]}
         </span>
-        {disrupted.has(entity.id) && (
+        {isDisrupted && (
           <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wider bg-rose-100 text-rose-700">
             Disrupted
           </span>
@@ -138,6 +155,21 @@ export function EntityDetail() {
       <div className={`text-slate-500 leading-relaxed ${easy ? 'text-sm' : 'text-xs'}`}>
         {entity.description}
       </div>
+      {impactText && (
+        <div
+          className={`flex items-start gap-2 rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-2 text-rose-900 ${
+            easy ? 'text-sm' : 'text-xs'
+          }`}
+          role="status"
+        >
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-600 mt-0.5" aria-hidden />
+          <div className="min-w-0 leading-relaxed">
+            <span className="font-medium">How it is impacted: </span>
+            {impactText}
+          </div>
+        </div>
+      )}
+      <button className="text-xs text-sky-700 hover:underline text-left" onClick={() => requestChatPrompt(`Regarding "${entity.label}": ${profile.itemQuestion}`)}>Explore from the {profile.label.toLowerCase()} perspective</button>
 
       {editMode && !isPatientCenter && (
         <div className="flex gap-2 pt-1">

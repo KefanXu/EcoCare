@@ -13,6 +13,7 @@ import type {
   SelectionRef,
 } from '../types/ecology';
 import type { EcologyHighlight, EcologyProposal } from '../types/proposals';
+import { isParticipantRole, type ParticipantRole } from '../lib/participantRoles';
 
 export type OverlayTag = 'preview' | 'applied' | 'restored' | 'removed';
 
@@ -82,6 +83,10 @@ export const INITIAL_SUGGEST_PANEL: SuggestPanelState = {
 };
 
 interface EcoState {
+  participantRole: ParticipantRole;
+  roleRevision: number;
+  roleWorkspaces: Partial<Record<ParticipantRole, RoleWorkspace>>;
+  setParticipantRole: (role: ParticipantRole) => void;
   patient: Patient;
   activeScenarioId: string | null;
   selection: SelectionRef[];
@@ -104,6 +109,8 @@ interface EcoState {
 
   /** Easy-mode Guide overlay open state. Session-only. */
   guideOpen: boolean;
+  /** Easy-mode Guide panel width in px (user-resizable; persisted). */
+  guideWidth: number;
 
   // Timeline simulation
   simulationTime: number;
@@ -164,6 +171,7 @@ interface EcoState {
   closeHelper: () => void;
   openGuide: () => void;
   closeGuide: () => void;
+  setGuideWidth: (px: number) => void;
 
   // Highlight actions (session-only)
   setActiveHighlight: (highlightId: string | null) => void;
@@ -226,6 +234,15 @@ interface EcoState {
   importEcology: (json: string) => { ok: boolean; error?: string };
 }
 
+export const GUIDE_WIDTH_MIN = 280;
+export const GUIDE_WIDTH_MAX = 640;
+export const GUIDE_WIDTH_DEFAULT = 340;
+
+export function clampGuideWidth(px: number): number {
+  if (!Number.isFinite(px)) return GUIDE_WIDTH_DEFAULT;
+  return Math.round(Math.min(GUIDE_WIDTH_MAX, Math.max(GUIDE_WIDTH_MIN, px)));
+}
+
 function genId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36).slice(-4)}`;
 }
@@ -278,6 +295,8 @@ function findHighlight(
   return findHighlightInMessages(messages, highlightId);
 }
 
+type RoleWorkspace = Pick<EcoState, 'messages' | 'suggestPanel' | 'appliedOverlay' | 'userImpactEntityIds'>;
+
 interface PersistedShape {
   entities: EcoEntity[];
   flows: InfoFlow[];
@@ -288,6 +307,39 @@ export const useEcoStore = create<EcoState>()(
   persist(
     (set, get) => ({
       patient: samplePatient,
+      participantRole: 'patient',
+      roleRevision: 0,
+      roleWorkspaces: {},
+      setParticipantRole: (participantRole) => set((s) => {
+        if (!isParticipantRole(participantRole) || participantRole === s.participantRole) return s;
+        const saved: RoleWorkspace = {
+          messages: s.messages.filter((message) => !message.pending),
+          suggestPanel: s.suggestPanel.streaming ? { ...INITIAL_SUGGEST_PANEL } : { ...s.suggestPanel, open: false, pendingUserStrategy: null },
+          appliedOverlay: s.appliedOverlay,
+          userImpactEntityIds: s.userImpactEntityIds,
+        };
+        const next = s.roleWorkspaces[participantRole];
+        return {
+          participantRole,
+          roleRevision: s.roleRevision + 1,
+          roleWorkspaces: { ...s.roleWorkspaces, [s.participantRole]: saved },
+          messages: next?.messages ?? [],
+          suggestPanel: next?.suggestPanel ?? { ...INITIAL_SUGGEST_PANEL },
+          appliedOverlay: next?.appliedOverlay ?? [],
+          userImpactEntityIds: next?.userImpactEntityIds ?? [],
+          isStreaming: false,
+          pendingChatPrompt: null,
+          previewProposalId: null,
+          activeHighlightId: null,
+          selection: [],
+          hoveredEntityId: null,
+          hoveredFlowId: null,
+          impactPickMode: false,
+          connectMode: { active: false, sourceId: null },
+          entityForm: { open: false, editingId: null },
+          flowForm: { open: false, sourceId: null, targetId: null },
+        };
+      }),
       activeScenarioId: null,
       selection: [],
       hoveredEntityId: null,
@@ -302,6 +354,7 @@ export const useEcoStore = create<EcoState>()(
       pendingChatPrompt: null,
       helperOpen: true,
       guideOpen: true,
+      guideWidth: GUIDE_WIDTH_DEFAULT,
 
       simulationTime: 0,
       simulationPlaying: false,
@@ -324,6 +377,7 @@ export const useEcoStore = create<EcoState>()(
       setScenario: (id) =>
         set({
           activeScenarioId: id,
+          roleWorkspaces: {},
           selection: [],
           // Land on the fully-rippled state (t=1) immediately when an LCE is picked.
           // Play rewinds to 0 to replay the unfolding; Reset rewinds to 0 to scrub manually.
@@ -351,10 +405,14 @@ export const useEcoStore = create<EcoState>()(
       resetSimulation: () =>
         set({ simulationTime: 0, simulationPlaying: false }),
       reset: () =>
-        set({
+        set((s) => ({
           activeScenarioId: null,
+          roleRevision: s.roleRevision + 1,
+          roleWorkspaces: {},
           selection: [],
           messages: [],
+          isStreaming: false,
+          pendingChatPrompt: null,
           simulationTime: 0,
           simulationPlaying: false,
           previewProposalId: null,
@@ -364,7 +422,7 @@ export const useEcoStore = create<EcoState>()(
           connectMode: { active: false, sourceId: null },
           userImpactEntityIds: [],
           impactPickMode: false,
-        }),
+        })),
       toggleSelection: (ref) =>
         set((s) => {
           const exists = s.selection.find((r) => r.id === ref.id && r.kind === ref.kind);
@@ -439,6 +497,7 @@ export const useEcoStore = create<EcoState>()(
       closeHelper: () => set({ helperOpen: false }),
       openGuide: () => set((s) => ({ guideOpen: true, ...(s.uiMode === 'easy' ? { helperOpen: false } : {}) })),
       closeGuide: () => set({ guideOpen: false }),
+      setGuideWidth: (px) => set({ guideWidth: clampGuideWidth(px) }),
 
       setActiveHighlight: (highlightId) => set({ activeHighlightId: highlightId }),
 
@@ -703,11 +762,15 @@ export const useEcoStore = create<EcoState>()(
           hoveredFlowId: s.hoveredFlowId === id ? null : s.hoveredFlowId,
         })),
       resetEcology: () =>
-        set({
+        set((s) => ({
           patient: samplePatient,
+          roleRevision: s.roleRevision + 1,
+          roleWorkspaces: {},
           selection: [],
           activeScenarioId: null,
           messages: [],
+          isStreaming: false,
+          pendingChatPrompt: null,
           simulationTime: 0,
           simulationPlaying: false,
           previewProposalId: null,
@@ -717,7 +780,9 @@ export const useEcoStore = create<EcoState>()(
           connectMode: { active: false, sourceId: null },
           entityForm: { open: false, editingId: null },
           flowForm: { open: false, sourceId: null, targetId: null },
-        }),
+          userImpactEntityIds: [],
+          impactPickMode: false,
+        })),
       exportEcology: () => {
         const { patient } = get();
         const payload: PersistedShape = {
@@ -753,6 +818,14 @@ export const useEcoStore = create<EcoState>()(
               flows,
               baselineConflicts: (parsed.baselineConflicts as Conflict[]) ?? [],
             },
+            roleRevision: s.roleRevision + 1,
+            roleWorkspaces: {},
+            messages: [],
+            isStreaming: false,
+            pendingChatPrompt: null,
+            suggestPanel: { ...INITIAL_SUGGEST_PANEL },
+            userImpactEntityIds: [],
+            impactPickMode: false,
             selection: [],
             activeScenarioId: null,
             simulationTime: 0,
@@ -784,6 +857,8 @@ export const useEcoStore = create<EcoState>()(
         showLegend: s.showLegend,
         showInformationFlows: s.showInformationFlows,
         uiMode: s.uiMode,
+        participantRole: s.participantRole,
+        guideWidth: s.guideWidth,
       }),
       merge: (persisted, current) => {
         if (!persisted) return current;
@@ -792,6 +867,8 @@ export const useEcoStore = create<EcoState>()(
           showLegend?: boolean;
           showInformationFlows?: boolean;
           uiMode?: UiMode;
+          participantRole?: unknown;
+          guideWidth?: unknown;
         };
         const persistedPatient = p.patient;
         const mergedEntities = Array.isArray(persistedPatient?.entities)
@@ -813,11 +890,15 @@ export const useEcoStore = create<EcoState>()(
         });
         return {
           ...current,
+          participantRole: isParticipantRole(p.participantRole) ? p.participantRole : 'patient',
           ...(p.showLegend !== undefined ? { showLegend: p.showLegend } : {}),
           ...(p.showInformationFlows !== undefined
             ? { showInformationFlows: p.showInformationFlows }
             : {}),
           ...(p.uiMode !== undefined ? { uiMode: p.uiMode } : {}),
+          ...(typeof p.guideWidth === 'number'
+            ? { guideWidth: clampGuideWidth(p.guideWidth) }
+            : {}),
           // Assistant is open by default in Standard; stay closed when restoring Easy.
           helperOpen: (p.uiMode ?? current.uiMode) === 'standard',
           patient: {

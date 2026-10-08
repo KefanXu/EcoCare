@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { AlertTriangle, CheckCircle2, MessageCircleQuestion, ThumbsUp, X } from 'lucide-react';
 import {
+  useActiveScenario,
   useBrokenFlowIds,
   useDisruptedEntityIds,
   useEcoStore,
@@ -9,7 +10,9 @@ import {
 } from '../../store/useEcoStore';
 import { CATEGORY_COLOR, type EcoEntity, type FlowKind } from '../../types/ecology';
 import { iconFor } from '../../lib/entityIcons';
+import { describeEntityImpact } from '../../lib/entityImpact';
 import { SpeakButton } from '../common/SpeakButton';
+import { useUiText } from '../../lib/uiText';
 
 const EASY_KIND: Record<FlowKind, string> = {
   data: 'facts',
@@ -31,6 +34,7 @@ function easyName(e: EcoEntity | undefined): string {
  * Renders as a floating overlay on the map (call via EasyItemOverlay).
  */
 export function EasyItemCard() {
+  const { profile } = useUiText();
   const patient = useEffectivePatient();
   const hoveredEntityId = useEcoStore((s) => s.hoveredEntityId);
   const hoveredFlowId = useEcoStore((s) => s.hoveredFlowId);
@@ -43,6 +47,8 @@ export function EasyItemCard() {
   const disrupted = useDisruptedEntityIds();
   const broken = useBrokenFlowIds();
   const repair = useRepairState();
+  const scenario = useActiveScenario();
+  const userImpactEntityIds = useEcoStore((s) => s.userImpactEntityIds);
 
   const focusEntityId =
     hoveredEntityId ?? selection.find((s) => s.kind === 'entity')?.id ?? null;
@@ -100,7 +106,7 @@ export function EasyItemCard() {
             type="button"
             onClick={() =>
               requestChatPrompt(
-                `In very simple words, explain the connection from "${src?.label ?? flow.source}" to "${tgt?.label ?? flow.target}". What travels along it, and why does it matter for Jordan?`,
+                `Explain the connection from "${src?.label ?? flow.source}" to "${tgt?.label ?? flow.target}" in plain language. ${profile.itemQuestion}`,
               )
             }
             className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 text-white text-sm px-3 py-1.5 min-h-[36px] hover:bg-sky-700 transition"
@@ -144,13 +150,23 @@ export function EasyItemCard() {
     ...new Set(incoming.map((f) => easyName(patient.entities.find((e) => e.id === f.source)))),
   ].filter(Boolean);
 
+  const impactText =
+    isHurt || isRepaired
+      ? describeEntityImpact({
+          scenario,
+          entityId: entity.id,
+          easy: true,
+          userMarked: userImpactEntityIds.includes(entity.id),
+        })
+      : null;
+
   const spoken = `${name}. ${description} ${
     isRepaired
       ? 'It was having trouble, but an idea is helping it.'
       : isHurt
         ? 'It is having trouble right now because of what changed.'
         : 'It is doing OK right now.'
-  }`;
+  }${impactText ? ` ${impactText}` : ''}`;
 
   return (
     <div className="space-y-3">
@@ -173,6 +189,7 @@ export function EasyItemCard() {
         hurtText="Having trouble right now."
         repairedText="Was hurt — an idea is helping it."
         okText="Doing OK right now."
+        detail={impactText ?? undefined}
       />
 
       <p className="text-sm text-slate-700 leading-relaxed">{description}</p>
@@ -194,7 +211,7 @@ export function EasyItemCard() {
           type="button"
           onClick={() =>
             requestChatPrompt(
-              `In very simple words, tell me about "${entity.label}". What does it do for Jordan, and why does it matter right now?`,
+              `Explain "${entity.label}" in plain language. ${profile.itemQuestion}`,
             )
           }
           className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 text-white text-sm px-3 py-1.5 min-h-[36px] hover:bg-sky-700 transition"
@@ -233,31 +250,46 @@ function StatusLine({
   hurtText,
   repairedText,
   okText,
+  detail,
 }: {
   state: 'hurt' | 'repaired' | 'ok';
   hurtText: string;
   repairedText: string;
   okText: string;
+  /** Optional second line explaining how the item is affected. */
+  detail?: string;
 }) {
   if (state === 'hurt') {
     return (
       <div
-        className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-sm font-medium text-rose-800"
+        className="flex items-start gap-2 rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-800"
         role="status"
       >
-        <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" aria-hidden />
-        {hurtText}
+        <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" aria-hidden />
+        <div className="min-w-0">
+          <div className="font-medium">{hurtText}</div>
+          {detail ? (
+            <div className="mt-0.5 font-normal leading-relaxed text-rose-900/90">{detail}</div>
+          ) : null}
+        </div>
       </div>
     );
   }
   if (state === 'repaired') {
     return (
       <div
-        className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm font-medium text-emerald-800"
+        className="flex items-start gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800"
         role="status"
       >
-        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" aria-hidden />
-        {repairedText}
+        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" aria-hidden />
+        <div className="min-w-0">
+          <div className="font-medium">{repairedText}</div>
+          {detail ? (
+            <div className="mt-0.5 font-normal leading-relaxed text-emerald-900/90">
+              {detail}
+            </div>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -313,9 +345,8 @@ export function EasyItemOverlay() {
   }
 
   // When the guide is open, park the card to its right; otherwise sit under the Guide chip.
-  const positionCls = guideOpen
-    ? 'top-3 left-[min(356px,calc(100%-1.5rem))]'
-    : 'top-16 left-3';
+  // The map workspace is already padded past the guide, so "left-3" clears it.
+  const positionCls = guideOpen ? 'top-3 left-3' : 'top-16 left-3';
 
   return (
     <div

@@ -1,4 +1,5 @@
 import { useEcoStore } from '../store/useEcoStore';
+import { ROLE_PROFILES } from './participantRoles';
 
 /**
  * Plain-language copy for the two UI modes. Standard strings are the app's
@@ -91,7 +92,15 @@ export type UiTextKey = keyof typeof UI_TEXT;
 /** Returns the copy for the active UI mode. */
 export function useUiText() {
   const uiMode = useEcoStore((s) => s.uiMode);
+  const role = useEcoStore((s) => s.participantRole);
+  const profile = ROLE_PROFILES[role];
   const easy = uiMode === 'easy';
-  const t = (key: UiTextKey): string => UI_TEXT[key][easy ? 'easy' : 'standard'];
-  return { t, easy };
+  const t = (key: UiTextKey): string => {
+    if (key === 'suggestCta') return profile.strategyLabel;
+    if (key === 'chatPlaceholder') return profile.chatPlaceholder;
+    if (key === 'markImpact') return easy ? 'What is affected?' : 'Mark impact';
+    if (key === 'aiStrategy') return easy ? 'Possible changes' : 'What-if strategy';
+    return UI_TEXT[key][easy ? 'easy' : 'standard'];
+  };
+  return { t, easy, role, profile };
 }

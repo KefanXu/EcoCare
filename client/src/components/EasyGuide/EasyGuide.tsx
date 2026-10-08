@@ -1,5 +1,5 @@
 import { createElement, useState } from 'react';
-import { Check, Lightbulb, MessageCircle, PenLine, Play, RotateCcw } from 'lucide-react';
+import { Check, Lightbulb, MessageCircle, PenLine, RotateCcw } from 'lucide-react';
 import {
   useBrokenFlowIds,
   useDisruptedEntityIds,
@@ -8,6 +8,7 @@ import {
 import { iconFor, iconForScenario } from '../../lib/entityIcons';
 import { SpeakButton } from '../common/SpeakButton';
 import { EasyIdeasView } from './EasyIdeasView';
+import { useUiText } from '../../lib/uiText';
 
 /**
  * Easy-mode helper panel body: guide steps, or ideas results.
@@ -46,11 +47,10 @@ export function EasyHelper({ hideTitle = false }: { hideTitle?: boolean }) {
  * 1) pick what changed, 2) see what got hurt, 3) get ideas to help.
  */
 export function EasyGuide() {
+  const { profile } = useUiText();
   const patient = useEcoStore((s) => s.patient);
   const activeScenarioId = useEcoStore((s) => s.activeScenarioId);
   const setScenario = useEcoStore((s) => s.setScenario);
-  const playSimulation = useEcoStore((s) => s.playSimulation);
-  const simulationPlaying = useEcoStore((s) => s.simulationPlaying);
   const openSuggestPanel = useEcoStore((s) => s.openSuggestPanel);
   const requestUserStrategy = useEcoStore((s) => s.requestUserStrategy);
   const openHelper = useEcoStore((s) => s.openHelper);
@@ -70,8 +70,7 @@ export function EasyGuide() {
 
   const hurtEntities = patient.entities.filter((e) => disrupted.has(e.id));
 
-  const introText =
-    'This map shows everyone and everything that helps Jordan stay healthy. Follow the steps: pick what changed, see what got hurt, then get ideas to help.';
+  const introText = profile.guideIntro;
 
   const damageText = scenario
     ? `${scenario.easyName ?? scenario.name}. ${scenario.easyStory ?? scenario.description} Right now ${hurtCount} ${
@@ -93,8 +92,7 @@ export function EasyGuide() {
       {/* Intro */}
       <div className="flex items-start gap-2">
         <p className="text-base text-slate-700 leading-relaxed flex-1">
-          This map shows everyone and everything that helps{' '}
-          <span className="font-semibold">Jordan</span> stay healthy. Follow the steps below.
+          {introText}
         </p>
         <SpeakButton text={introText} size="sm" className="shrink-0 mt-0.5" />
       </div>
@@ -149,7 +147,7 @@ export function EasyGuide() {
 
       {/* Step 2 — see what got hurt */}
       <StepCard active={step === 2} muted={!scenario}>
-        <StepHeading n={2} done={!!scenario && hurtCount >= 0} label="See what got hurt" />
+        <StepHeading n={2} done={!!scenario && hurtCount >= 0} label="Explore what is affected" />
         {scenario ? (
           <div className="mt-3 space-y-3">
             <p className="text-base text-slate-700 leading-relaxed">
@@ -204,16 +202,7 @@ export function EasyGuide() {
               </div>
             )}
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => playSimulation()}
-                disabled={simulationPlaying}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-800 text-white text-base font-medium px-3 py-3 min-h-[48px] hover:bg-slate-900 disabled:opacity-60 transition"
-              >
-                <Play className="w-5 h-5" aria-hidden />
-                {simulationPlaying ? 'Watching…' : 'Watch it happen'}
-              </button>
+            <div className="flex items-center justify-end gap-2">
               <SpeakButton text={damageText} size="md" className="shrink-0" />
             </div>
           </div>
@@ -224,7 +213,7 @@ export function EasyGuide() {
 
       {/* Step 3 — get ideas */}
       <StepCard active={step === 3} muted={!scenario}>
-        <StepHeading n={3} done={suggestOpen} label="Get ideas to help" />
+        <StepHeading n={3} done={suggestOpen} label={profile.strategyLabel} />
         {scenario ? (
           <div className="mt-3 space-y-3">
             <button
@@ -233,7 +222,7 @@ export function EasyGuide() {
               className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 text-white text-base font-medium px-3 py-3 min-h-[48px] hover:bg-emerald-700 transition"
             >
               <Lightbulb className="w-5 h-5" aria-hidden />
-              Get ideas to fix this
+              {profile.strategyLabel}
             </button>
 
             <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-3 space-y-2">
@@ -248,7 +237,7 @@ export function EasyGuide() {
                 value={myIdea}
                 onChange={(e) => setMyIdea(e.target.value)}
                 rows={3}
-                placeholder="Example: Ask grandma to help pick up insulin…"
+                placeholder={profile.strategyPlaceholder}
                 className="w-full rounded-xl border border-stone-300 bg-white text-base text-slate-800 placeholder:text-slate-400 px-3 py-2.5 resize-none focus:outline-none focus:border-slate-500"
               />
               <button
@@ -271,7 +260,7 @@ export function EasyGuide() {
               onClick={() => {
                 openHelper();
                 requestChatPrompt(
-                  'In very simple words, what got hurt or broken because of this change, and what is one kind thing we could try to help Jordan?',
+                  profile.eventQuestions[0],
                 );
               }}
               className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-sky-300 bg-sky-50 text-sky-800 text-base font-medium px-3 py-3 min-h-[48px] hover:bg-sky-100 transition"

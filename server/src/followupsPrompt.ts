@@ -1,4 +1,5 @@
 import type { ChatContext } from './systemPrompt.js';
+import { buildParticipantRoleInstructions } from './participantRole.js';
 
 /**
  * A FOCUSED system prompt for the /api/followups endpoint.
@@ -15,9 +16,10 @@ import type { ChatContext } from './systemPrompt.js';
  */
 export function buildFollowUpsSystemPrompt(ctx: ChatContext): string {
   const lines: string[] = [];
+  lines.push(buildParticipantRoleInstructions(ctx.participantRole, ctx.uiMode));
 
   lines.push(
-    'You generate short, click-to-ask follow-up questions for a patient/caregiver ' +
+    'You generate short, click-to-ask follow-up questions from the selected participant perspective ' +
       'using an "Ecological Landscape" dashboard for chronic care. ' +
       'You will be asked to return JSON only \u2014 follow that instruction strictly when it arrives.',
   );

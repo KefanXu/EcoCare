@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Lightbulb, PenLine, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Lightbulb, MessageCircleQuestion, PenLine, RefreshCw } from 'lucide-react';
 import {
   repairedByProposal,
   useEcoStore,
@@ -10,12 +10,14 @@ import { useSuggestStrategies } from '../../lib/useSuggestStrategies';
 import { proposalImpactSummary } from '../../lib/proposalImpact';
 import type { EcologyProposal } from '../../types/proposals';
 import { SpeakButton } from '../common/SpeakButton';
+import { useUiText } from '../../lib/uiText';
 
 /**
  * Easy-mode ideas view — lives inside the Guide column.
  * Short, scannable cards (not verbose chat markdown).
  */
 export function EasyIdeasView() {
+  const { profile } = useUiText();
   const closeSuggestPanel = useEcoStore((s) => s.closeSuggestPanel);
   const basePatient = useEcoStore((s) => s.patient);
   const { runSuggest, runUserStrategy, abortSuggest, scenario, panel } = useSuggestStrategies({
@@ -104,7 +106,7 @@ export function EasyIdeasView() {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Lightbulb className="w-5 h-5 text-emerald-600 shrink-0" aria-hidden />
-          <h2 className="text-lg font-semibold text-slate-900">Ideas to help</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{profile.strategyLabel}</h2>
         </div>
         <p className="text-sm text-slate-600 leading-snug">
           For <span className="font-medium text-slate-800">{scenarioName}</span>. Tap an idea to see
@@ -122,7 +124,7 @@ export function EasyIdeasView() {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={2}
-          placeholder="What would you try?"
+          placeholder={profile.strategyPlaceholder}
           disabled={panel.streaming}
           className="w-full rounded-xl border border-stone-300 bg-white text-sm text-slate-800 placeholder:text-slate-400 px-3 py-2 resize-none focus:outline-none focus:border-slate-500 disabled:opacity-60"
         />
@@ -217,8 +219,17 @@ function EasyIdeaCard({
   const cancelPreview = useEcoStore((s) => s.cancelPreview);
   const applyProposalAsOverlay = useEcoStore((s) => s.applyProposalAsOverlay);
   const discardOverlay = useEcoStore((s) => s.discardOverlay);
+  const requestChatPrompt = useEcoStore((s) => s.requestChatPrompt);
   const patient = useEffectivePatient();
   const impact = useScenarioImpact();
+
+  function askAboutIdea() {
+    // Put the idea in the AI's context (as a preview) so the answer stays grounded in it.
+    if (!isApplied && !isPreviewing) startPreview(p.id);
+    requestChatPrompt(
+      `Help me understand the idea "${p.title}" in very simple words. What would change for ${patient.name}, what could go wrong, and what should we ask the care team?`,
+    );
+  }
 
   const isPreviewing = previewProposalId === p.id;
   const isApplied = appliedOverlay.some((x) => x.id === p.id);
@@ -345,6 +356,14 @@ function EasyIdeaCard({
             Try this idea
           </button>
         )}
+        <button
+          type="button"
+          onClick={askAboutIdea}
+          className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 text-sky-800 text-sm font-medium px-3 py-2.5 min-h-[44px] hover:bg-sky-100 hover:border-sky-300 transition"
+        >
+          <MessageCircleQuestion className="w-4 h-4" aria-hidden />
+          Ask AI about this idea
+        </button>
       </div>
     </div>
   );

@@ -19,6 +19,7 @@ export function SuggestSolutionsPanel() {
 }
 
 function SuggestSolutionsPanelStandard() {
+  const { profile } = useUiText();
   const panel = useEcoStore((s) => s.suggestPanel);
   const closeSuggestPanel = useEcoStore((s) => s.closeSuggestPanel);
   const setSuggestPanelPosition = useEcoStore((s) => s.setSuggestPanelPosition);
@@ -158,7 +159,7 @@ function SuggestSolutionsPanelStandard() {
         <div
           ref={panelRef}
           role="region"
-          aria-label="Mediation ideas"
+          aria-label={profile.strategyLabel}
           className="map-panel mediation-panel absolute z-40 flex flex-col"
           style={{
             left: panel.position.x,
@@ -175,7 +176,7 @@ function SuggestSolutionsPanelStandard() {
             <div className="min-w-0 flex-1">
               <h2 className="map-panel-title flex items-center gap-2">
                 <Sparkles className="w-4 h-4 shrink-0" aria-hidden />
-                Mediation ideas
+                {profile.strategyLabel}
               </h2>
             </div>
             <GripHorizontal className="w-4 h-4 text-slate-300 shrink-0" aria-hidden />
@@ -214,7 +215,7 @@ function SuggestSolutionsPanelStandard() {
             <section className="border-b border-stone-200/70 pb-4">
               <div className="detail-label mb-1">Life-changing event</div>
               <h3 className="text-sm font-semibold text-slate-800 leading-relaxed">{activeScenario.name}</h3>
-              <p className="text-xs text-slate-500 mt-1">{panel.streaming ? 'Developing ideas' : 'AI-generated exploration'}</p>
+              <p className="text-xs text-slate-500 mt-1">{profile.label} perspective · {panel.streaming ? 'Developing ideas' : 'AI-generated exploration'}</p>
             </section>
             {panel.streaming && !panel.content && (
               <div className="flex items-center gap-2 text-slate-500 py-6 justify-center text-xs">
@@ -259,7 +260,7 @@ function SuggestSolutionsPanelStandard() {
               onChange={(e) => setOwnDraft(e.target.value)}
               rows={2}
               disabled={panel.streaming}
-              placeholder="e.g. Ask a neighbor to drive Jordan to the pharmacy…"
+              placeholder={profile.strategyPlaceholder}
               className="block w-full rounded-lg border border-stone-200 bg-stone-50/70 text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 px-3 py-2 resize-none focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:opacity-60 transition"
             />
             <button

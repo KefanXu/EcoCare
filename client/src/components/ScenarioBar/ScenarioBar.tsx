@@ -3,6 +3,7 @@ import { Check, ChevronDown, MessageCircle, RotateCcw, Search, Sparkles, X } fro
 import { useEcoStore } from '../../store/useEcoStore';
 import { useUiText } from '../../lib/uiText';
 import { iconForScenario } from '../../lib/entityIcons';
+import { RoleSwitcher } from './RoleSwitcher';
 
 export function ScenarioBar() {
   const patient = useEcoStore((s) => s.patient);
@@ -24,22 +25,17 @@ export function ScenarioBar() {
 
   return (
     <header className="relative z-40 shrink-0 px-5 py-3 border-b border-stone-200/80 bg-white/90 backdrop-blur-xl shadow-[0_1px_0_rgba(28,25,23,0.04)]">
-      <div className="flex items-center gap-4 min-h-[40px]">
+      <div className="flex items-center flex-wrap gap-3 min-h-[40px]">
         {/* Brand */}
-        <div className="flex flex-col min-w-0 shrink-0">
+        <RoleSwitcher />
+        <div className="flex flex-col min-w-0 max-w-[220px]">
           <div
-            className={`font-semibold tracking-tight text-slate-900 ${
-              easy ? 'text-xl' : 'text-[15px] leading-tight'
-            }`}
-          >
-            EcoCare
-          </div>
-          <div
+            title={`${patient.name}: ${patient.condition}`}
             className={`text-slate-500 truncate ${
               easy ? 'text-sm' : 'text-[11px] leading-tight mt-0.5'
             }`}
           >
-            {patient.name}
+            Case: {patient.name}
             <span className="text-stone-300 mx-1.5">·</span>
             {patient.condition}
           </div>
@@ -48,8 +44,8 @@ export function ScenarioBar() {
         {/* Standard mode: life-event dropdown */}
         {!easy && (
           <>
-            <div className="h-7 w-px bg-stone-200/90 shrink-0" aria-hidden />
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="hidden sm:block h-7 w-px bg-stone-200/90 shrink-0" aria-hidden />
+            <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 min-w-[220px]">
               <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400 shrink-0">
                 {t('lifeEvent')}
               </span>
@@ -66,11 +62,41 @@ export function ScenarioBar() {
           </>
         )}
 
-        {/* Easy: spacer so right actions stay flush right (search is absolutely centered) */}
-        {easy && <div className="flex-1 min-w-0" aria-hidden />}
+        {/* Easy mode: search pill sits on the same row, centered between the groups. */}
+        {easy && (
+          <div className="flex flex-1 min-w-[160px] items-center justify-center px-2">
+            <label className="relative block h-10 w-full max-w-[360px]">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                <Search className="w-4 h-4" aria-hidden />
+              </span>
+              <input
+                type="text"
+                value={entitySearchQuery}
+                onChange={(e) => setEntitySearchQuery(e.target.value)}
+                placeholder={t('searchPlaceholder')}
+                aria-label={t('searchPlaceholder')}
+                className="box-border h-10 w-full rounded-full border border-stone-200/90 bg-stone-50/90 pl-10 pr-10 text-sm text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-200/80"
+              />
+              <button
+                type="button"
+                onClick={() => setEntitySearchQuery('')}
+                disabled={!entitySearchQuery.trim()}
+                className={`absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition ${
+                  entitySearchQuery.trim()
+                    ? 'opacity-100 hover:bg-stone-200/80 hover:text-slate-700'
+                    : 'pointer-events-none opacity-0'
+                }`}
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" aria-hidden />
+              </button>
+            </label>
+          </div>
+        )}
 
         {/* Mode + assistant + reset */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 max-w-full">
           <button
             type="button"
             onClick={() => (helperOpen ? closeHelper() : openHelper())}
@@ -88,7 +114,8 @@ export function ScenarioBar() {
             }`}
           >
             <MessageCircle className={`shrink-0 ${easy ? 'w-4 h-4' : 'w-3.5 h-3.5'}`} aria-hidden />
-            <span className={easy ? 'hidden xl:inline whitespace-nowrap' : 'whitespace-nowrap'}>
+            {!easy && <span className="hidden sm:inline xl:hidden whitespace-nowrap">AI assistant</span>}
+            <span className="hidden xl:inline whitespace-nowrap">
               AI Sense-Making Assistant
             </span>
           </button>
@@ -138,39 +165,6 @@ export function ScenarioBar() {
           )}
         </div>
       </div>
-
-      {/* Easy mode: truly centered fixed-size search pill */}
-      {easy && (
-        <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 flex -translate-x-1/2 items-center">
-          <label className="pointer-events-auto relative block h-10 w-[min(320px,42vw)] shrink-0">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-              <Search className="w-4 h-4" aria-hidden />
-            </span>
-            <input
-              type="text"
-              value={entitySearchQuery}
-              onChange={(e) => setEntitySearchQuery(e.target.value)}
-              placeholder={t('searchPlaceholder')}
-              aria-label={t('searchPlaceholder')}
-              className="box-border h-10 w-full rounded-full border border-stone-200/90 bg-stone-50/90 pl-10 pr-10 text-sm text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-200/80"
-            />
-            <button
-              type="button"
-              onClick={() => setEntitySearchQuery('')}
-              disabled={!entitySearchQuery.trim()}
-              className={`absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition ${
-                entitySearchQuery.trim()
-                  ? 'opacity-100 hover:bg-stone-200/80 hover:text-slate-700'
-                  : 'pointer-events-none opacity-0'
-              }`}
-              title="Clear search"
-              aria-label="Clear search"
-            >
-              <X className="w-3.5 h-3.5" aria-hidden />
-            </button>
-          </label>
-        </div>
-      )}
     </header>
   );
 }

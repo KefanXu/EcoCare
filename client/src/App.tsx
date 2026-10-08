@@ -15,8 +15,15 @@ import { OverlayBanner } from './components/Overlay/OverlayBanner';
 import { SuggestSolutionsPanel, SuggestStrategiesTrigger } from './components/Suggest/SuggestSolutionsPanel';
 import { EasyHelper } from './components/EasyGuide/EasyGuide';
 import { EasyItemOverlay } from './components/EasyGuide/EasyItemCard';
-import { useActiveScenario, useEcoStore } from './store/useEcoStore';
+import {
+  GUIDE_WIDTH_MAX,
+  GUIDE_WIDTH_MIN,
+  clampGuideWidth,
+  useActiveScenario,
+  useEcoStore,
+} from './store/useEcoStore';
 import { useUiText } from './lib/uiText';
+import { CATEGORY_COLOR } from './types/ecology';
 
 // Keep panels mounted during their exit animation; cancel pending exits on reopen.
 function usePanelPresence(open: boolean) {
@@ -41,10 +48,54 @@ export default function App() {
   const guideOpen = useEcoStore((s) => s.guideOpen);
   const openGuide = useEcoStore((s) => s.openGuide);
   const closeGuide = useEcoStore((s) => s.closeGuide);
+  const guideWidth = useEcoStore((s) => s.guideWidth);
+  const setGuideWidth = useEcoStore((s) => s.setGuideWidth);
+  const [guideResizing, setGuideResizing] = useState(false);
+  const guideResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  function onGuideResizeStart(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    guideResizeRef.current = { startX: e.clientX, startWidth: guideWidth };
+    setGuideResizing(true);
+  }
+  function onGuideResizeMove(e: React.PointerEvent<HTMLDivElement>) {
+    const r = guideResizeRef.current;
+    if (!r) return;
+    setGuideWidth(clampGuideWidth(r.startWidth + (e.clientX - r.startX)));
+  }
+  function onGuideResizeEnd(e: React.PointerEvent<HTMLDivElement>) {
+    if (!guideResizeRef.current) return;
+    guideResizeRef.current = null;
+    setGuideResizing(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }
+  function onGuideResizeKey(e: React.KeyboardEvent<HTMLDivElement>) {
+    const step = e.shiftKey ? 40 : 16;
+    // Read the live value so held/repeated keys accumulate instead of using a stale closure.
+    const current = useEcoStore.getState().guideWidth;
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setGuideWidth(current + step);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setGuideWidth(current - step);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setGuideWidth(GUIDE_WIDTH_MIN);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setGuideWidth(GUIDE_WIDTH_MAX);
+    }
+  }
   const suggestOpen = useEcoStore((s) => s.suggestPanel.open);
   const reset = useEcoStore((s) => s.reset);
   const scenario = useActiveScenario();
-  const { t, easy } = useUiText();
+  const { t, easy, profile } = useUiText();
+  const roleRevision = useEcoStore((s) => s.roleRevision);
 
   const [viewMode, setViewMode] = useState<'ring' | 'row'>('ring');
   const [inspectorMinimized, setInspectorMinimized] = useState(false);
@@ -185,7 +236,7 @@ export default function App() {
 
       <EcoLandscape viewMode={viewMode} />
       <OverlayBanner />
-      <SuggestSolutionsPanel />
+      <SuggestSolutionsPanel key={roleRevision} />
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 max-w-[calc(100%-2rem)]">
         <EditToolbar />
@@ -272,21 +323,53 @@ export default function App() {
       {easy ? (
         <div className="flex-1 flex flex-col min-h-0 bg-white relative">
           <div
-            className={`flex flex-col flex-1 min-h-0 transition-[padding] duration-300 ease-in-out motion-reduce:transition-none ${
-              guideOpen ? 'pl-[min(364px,calc(100%-0.75rem))]' : 'pl-0'
-            } ${
-              helperOpen ? 'pr-[min(404px,calc(100%-0.75rem))]' : 'pr-0'
-            }`}
+            className={`flex flex-col flex-1 min-h-0 ease-in-out motion-reduce:transition-none ${
+              guideResizing ? '' : 'transition-[padding] duration-300'
+            } ${helperOpen ? 'pr-[min(404px,calc(100%-0.75rem))]' : 'pr-0'}`}
+            style={{
+              // The map reserves the guide's width plus its outer gutters.
+              paddingLeft: guideOpen ? `min(${guideWidth + 24}px, calc(100% - 0.75rem))` : 0,
+            }}
           >
             <div className="map-workspace relative flex-1 min-h-0">{mapChrome}</div>
           </div>
 
-          {/* The map reserves the guide's width plus its outer gutters. */}
           {guideOpen && (
-            <aside className="absolute top-3 left-3 bottom-3 z-20 w-[min(340px,calc(100%-1.5rem))] flex flex-col rounded-2xl border border-stone-200/80 bg-white/95 shadow-[0_12px_40px_rgba(28,25,23,0.12)] backdrop-blur-xl overflow-hidden">
+            <aside
+              className="absolute top-3 left-3 bottom-3 z-20 flex flex-col rounded-2xl border border-stone-200/80 bg-white/95 shadow-[0_12px_40px_rgba(28,25,23,0.12)] backdrop-blur-xl overflow-hidden"
+              style={{ width: `min(${guideWidth}px, calc(100% - 1.5rem))` }}
+            >
+              {/* Resize handle on the guide's right edge */}
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize guide"
+                aria-valuemin={GUIDE_WIDTH_MIN}
+                aria-valuemax={GUIDE_WIDTH_MAX}
+                aria-valuenow={guideWidth}
+                tabIndex={0}
+                title="Drag to resize"
+                onPointerDown={onGuideResizeStart}
+                onPointerMove={onGuideResizeMove}
+                onPointerUp={onGuideResizeEnd}
+                onPointerCancel={onGuideResizeEnd}
+                onKeyDown={onGuideResizeKey}
+                className={`group absolute inset-y-0 right-0 z-10 w-3 cursor-col-resize touch-none select-none focus:outline-none ${
+                  guideResizing ? 'bg-sky-100/70' : 'hover:bg-stone-100/80 focus-visible:bg-sky-50'
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors ${
+                    guideResizing
+                      ? 'bg-sky-500'
+                      : 'bg-stone-300 group-hover:bg-stone-400 group-focus-visible:bg-sky-400'
+                  }`}
+                />
+              </div>
               <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-stone-200/80 shrink-0">
                 <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
-                  {suggestOpen ? 'Ideas' : 'Your guide'}
+                  {suggestOpen ? profile.strategyLabel : `${profile.label} guide`}
                 </div>
                 <button
                   type="button"
@@ -299,7 +382,7 @@ export default function App() {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-4 min-h-0">
-                <EasyHelper hideTitle />
+                <EasyHelper key={roleRevision} hideTitle />
               </div>
               <div className="shrink-0 border-t border-stone-200/80 px-4 py-3">
                 <button
@@ -339,6 +422,7 @@ export default function App() {
 
 /** Floating AI Sense-Making Assistant window (Easy + Standard). */
 function AssistantOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { profile } = useUiText();
   const [rendered, setRendered] = useState(open);
   const [visible, setVisible] = useState(open);
   const skipEnterAnim = useRef(open);
@@ -373,7 +457,8 @@ function AssistantOverlay({ open, onClose }: { open: boolean; onClose: () => voi
     >
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-stone-200/80 shrink-0">
         <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
-          AI Sense-Making Assistant
+          <div>AI Sense-Making Assistant</div>
+          <div className="mt-1 text-[11px] font-normal normal-case tracking-normal">{profile.label} perspective</div>
         </div>
         <button
           type="button"
@@ -392,27 +477,87 @@ function AssistantOverlay({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
-/** Compact 3-row picture legend for Easy mode. */
+/**
+ * Compact picture legend for Easy mode. Each glyph mirrors how the map draws
+ * that state: white node with a colored ring; hurt = rose glow + red "!" badge;
+ * fixed = green glow + check badge; broken = rose line with a circled ✕.
+ */
 function EasyMiniLegend({ onExpand }: { onExpand: () => void }) {
+  const ROSE = '#fb7185';
+  const RED = '#e11d48';
+  const GREEN = '#10b981';
   return (
     <div className="bg-white/95 border border-stone-200 rounded-2xl shadow-md p-3 space-y-2 text-sm">
       <div className="flex items-center gap-2.5">
-        <svg width="18" height="18" viewBox="-8 -8 16 16" aria-hidden>
-          <circle r={6} fill="white" stroke="#64748b" strokeWidth={2} />
+        <svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden>
+          <circle r={8} fill="white" stroke={CATEGORY_COLOR.stakeholder} strokeWidth={2} />
+          <circle r={2.2} cy={-2} fill="#64748b" />
+          <path d="M-4.2 4.5 a4.2 3.6 0 0 1 8.4 0 Z" fill="#64748b" />
         </svg>
         <span className="text-slate-700 font-medium">OK</span>
       </div>
       <div className="flex items-center gap-2.5">
-        <svg width="18" height="18" viewBox="-8 -8 16 16" aria-hidden>
-          <circle r={6} fill="#fff1f2" stroke="#fb7185" strokeWidth={2} />
-          <path d="M0,-3.5 L3,3.5 L-3,3.5 Z" fill="#e11d48" />
+        <svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden>
+          <circle r={11} fill="none" stroke={ROSE} strokeWidth={2} opacity={0.55} />
+          <circle r={8} fill="white" stroke={ROSE} strokeWidth={2} />
+          <circle r={2.2} cy={-2} fill="#64748b" />
+          <path d="M-4.2 4.5 a4.2 3.6 0 0 1 8.4 0 Z" fill="#64748b" />
+          <g transform="translate(-7.5,-7.5)">
+            <circle r={5} fill={RED} stroke="white" strokeWidth={1.25} />
+            <text
+              y={0.4}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={7}
+              fontWeight={800}
+              fill="white"
+            >
+              !
+            </text>
+          </g>
         </svg>
         <span className="text-slate-700 font-medium">Hurt</span>
       </div>
       <div className="flex items-center gap-2.5">
-        <svg width="28" height="12" viewBox="0 0 28 12" aria-hidden>
-          <line x1={2} y1={6} x2={26} y2={6} stroke="#fb7185" strokeWidth={2} strokeDasharray="4 3" />
-          <path d="M11,3 L17,9 M17,3 L11,9" stroke="#e11d48" strokeWidth={1.75} />
+        <svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden>
+          <circle r={11} fill="none" stroke={GREEN} strokeWidth={2} opacity={0.6} />
+          <circle r={8} fill="#ecfdf5" stroke={GREEN} strokeWidth={2} />
+          <circle r={2.2} cy={-2} fill="#64748b" />
+          <path d="M-4.2 4.5 a4.2 3.6 0 0 1 8.4 0 Z" fill="#64748b" />
+          <g transform="translate(7.5,-7.5)">
+            <circle r={5} fill={GREEN} stroke="white" strokeWidth={1.25} />
+            <path
+              d="M-2.2 0.2 L-0.7 1.7 L2.3 -1.4"
+              fill="none"
+              stroke="white"
+              strokeWidth={1.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </g>
+        </svg>
+        <span className="text-slate-700 font-medium">Fixed</span>
+      </div>
+      <div className="flex items-center gap-2.5">
+        <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden>
+          <line
+            x1={2}
+            y1={15}
+            x2={28}
+            y2={15}
+            stroke={ROSE}
+            strokeWidth={7}
+            strokeDasharray="4 4"
+            opacity={0.28}
+          />
+          <line x1={2} y1={15} x2={28} y2={15} stroke={ROSE} strokeWidth={2.4} />
+          <circle cx={15} cy={15} r={5.5} fill="#fff1f2" stroke={RED} strokeWidth={1.4} />
+          <path
+            d="M12.6 12.6 L17.4 17.4 M17.4 12.6 L12.6 17.4"
+            stroke={RED}
+            strokeWidth={1.6}
+            strokeLinecap="round"
+          />
         </svg>
         <span className="text-slate-700 font-medium">Broken</span>
       </div>

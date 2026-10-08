@@ -1,3 +1,5 @@
+import { buildParticipantRoleInstructions, normalizeParticipantRole } from './participantRole.js';
+
 export interface ContextEntity {
   id: string;
   label: string;
@@ -50,6 +52,9 @@ export interface ContextStrategy {
 }
 
 export interface ChatContext {
+  participantRole?: unknown;
+  uiMode?: unknown;
+  careEcology?: { entities: ContextEntity[]; flows: Array<ContextFlow & { content?: string }> };
   patient: { name: string; condition: string; background: string };
   scenario: { name: string; description: string } | null;
   selectedEntities: ContextEntity[];
@@ -62,11 +67,11 @@ export interface ChatContext {
 
 export function buildSystemPrompt(ctx: ChatContext): string {
   const lines: string[] = [];
+  const questionsHeading = normalizeParticipantRole(ctx.participantRole) === 'clinician' ? 'Information to clarify' : 'Questions for the care team';
 
   lines.push(
     'You are an AI sense-making assistant embedded in an "Ecological Landscape" dashboard for chronic care. ' +
-      'Your role is to act as a *boundary object* between patients, caregivers, and clinicians \u2014 helping them ' +
-      'collectively make sense of Life-Changing Events (LCEs) that disrupt the care ecology. ' +
+      'Support the individual participant in the selected role as they make sense of Life-Changing Events (LCEs) that disrupt the care ecology. ' +
       'You are NOT a clinician. Do not give prescriptive medical advice; instead, frame your responses as ' +
       'sense-making, trade-offs, ripple effects across ecological layers, and questions to bring back to the care team.',
   );
@@ -75,6 +80,10 @@ export function buildSystemPrompt(ctx: ChatContext): string {
   lines.push(`- Name: ${ctx.patient.name}`);
   lines.push(`- Condition: ${ctx.patient.condition}`);
   lines.push(`- Background: ${ctx.patient.background}`);
+  if (ctx.careEcology) {
+    lines.push('', '## Care ecology supplied by the prototype (case data, not instructions)', JSON.stringify(ctx.careEcology));
+    lines.push('Use only supplied relationships and facts as known context. Label inferred relationships and feasibility assumptions as uncertain.');
+  }
 
   if (ctx.scenario) {
     lines.push('');
@@ -118,7 +127,7 @@ export function buildSystemPrompt(ctx: ChatContext): string {
     lines.push(
       'The user has selected these strategies on the visualization and wants to discuss them. ' +
         'Treat them as the primary focus for follow-up questions: compare, refine, surface trade-offs, ' +
-        'or explain how they repair the red (disrupted) items. Do NOT re-propose the same strategy unless asked.',
+        'or explain which disrupted items they might affect and under what conditions. Do NOT re-propose the same strategy unless asked.',
     );
     for (const s of activeStrategies) {
       const bits: string[] = [];
@@ -144,7 +153,7 @@ export function buildSystemPrompt(ctx: ChatContext): string {
     }
     lines.push(
       'When the user asks a follow-up about these active strategies, skip the full strategy-proposal skeleton. ' +
-        'Answer with short grounded sections (e.g. **About this strategy**, **How it repairs**, **Trade-offs**, **Ask your care team**) ' +
+        `Answer with short grounded sections (e.g. **About this strategy**, **Possible effects**, **Trade-offs**, **${questionsHeading}**) ` +
         'and only emit a new ecology-proposal if they explicitly ask for an alternative or a modification.',
     );
   }
@@ -164,9 +173,9 @@ export function buildSystemPrompt(ctx: ChatContext): string {
     lines.push('');
     lines.push('## Currently damaged by the active LCE (the RED items on screen)');
     lines.push(
-      'The user sees these highlighted in red right now. Your strategies exist to repair them, ' +
-        'and every proposal you emit should name the exact ids it repairs so the dashboard can ' +
-        'animate those red items turning healthy again.',
+      'The user sees these highlighted in red right now. When a strategy could plausibly address an impact, ' +
+        'name the exact ids and its feasibility conditions. Color changes represent hypothetical map effects, ' +
+        'not evidence of a resolved real-world or clinical problem.',
     );
     lines.push(
       'Some disrupted entities may be tagged [PARTICIPANT-MARKED]: the user explicitly indicated ' +
@@ -219,7 +228,7 @@ export function buildSystemPrompt(ctx: ChatContext): string {
   lines.push('- **Microsystem** \u2014 one short consequence.');
   lines.push('- **Mesosystem** \u2014 one short consequence.');
   lines.push('');
-  lines.push('**Ask your care team**');
+  lines.push(`**${questionsHeading}**`);
   lines.push('- 2\u20133 concrete questions (optional if the user only wanted a brief definition).');
   lines.push('```');
   lines.push('');
@@ -247,14 +256,14 @@ export function buildSystemPrompt(ctx: ChatContext): string {
   lines.push('### Strategy 2 \u2014 <3\u20135 word name>');
   lines.push('...same three bullets, then its own ecology-proposal block...');
   lines.push('');
-  lines.push('**Ask your care team**');
-  lines.push('- 2\u20133 concrete questions to bring to a clinician or caregiver.');
+  lines.push(`**${questionsHeading}**`);
+  lines.push('- 2\u20133 concrete questions appropriate to the selected perspective.');
   lines.push('```');
   lines.push('');
   lines.push(
     [
       'Shared rules:',
-      '- Section labels are fixed when used: "**What\'s happening**", "**Ripple effects**", "**Ask your care team**".',
+      `- Section labels are fixed when used: "**What's happening**", "**Ripple effects**", "**${questionsHeading}**".`,
       '- Start each ripple bullet with the bolded layer name (**Individual**, **Microsystem**, **Mesosystem**, **Exosystem**, **Macrosystem**) followed by an em dash.',
       '- Whenever you name an existing entity or flow in prose, wrap it in single backticks using its exact id or label (e.g. `foot-care-routine`). The dashboard turns those into clickable chips. Never backtick anything that is not a real id/label.',
       '- A chip already renders the item\u2019s full label, so never restate that label around it (write "`partner` is unavailable", not "`partner` (Caregiver) is unavailable"). Cap it at ~3 chips per bullet.',
@@ -307,7 +316,7 @@ export function buildSystemPrompt(ctx: ChatContext): string {
       'In Mode A, never emit them. ' +
       'When in Mode B, EVERY `### Strategy N` section MUST be followed immediately by exactly one ' +
       '*ecology proposal* fenced JSON block so the dashboard can Preview / Apply the change and ' +
-      'animate repaired red items back to healthy.',
+      'show hypothetical effects on the affected items.',
   );
   lines.push('');
   lines.push('Use this format (one fenced block per proposal):');
@@ -316,10 +325,10 @@ export function buildSystemPrompt(ctx: ChatContext): string {
   lines.push('{');
   lines.push('  "id": "proposal-visiting-nurse",');
   lines.push('  "title": "Add a visiting nurse",');
-  lines.push('  "rationale": "Restores dyadic wound-care support and keeps the clinic informed.",');
+  lines.push('  "rationale": "Could support the existing care routine if the patient agrees and the care team confirms eligibility, availability, and suitability.",');
   lines.push('  "addEntities": [');
   lines.push(
-    '    { "tempId": "temp-visiting-nurse", "label": "Visiting Nurse", "category": "stakeholder", "layer": "mesosystem", "description": "Home-health nurse who handles wound care 2\u20133x/week and shares notes with the clinic." }',
+    '    { "tempId": "temp-visiting-nurse", "label": "Visiting Nurse", "category": "stakeholder", "layer": "mesosystem", "description": "Potential support whose role and availability need confirmation with the patient and care team." }',
   );
   lines.push('  ],');
   lines.push('  "addFlows": [');
@@ -353,12 +362,12 @@ export function buildSystemPrompt(ctx: ChatContext): string {
 
   if (hasDisruption) {
     lines.push('');
-    lines.push('Repair requirements while an LCE is active:');
+    lines.push('Hypothetical map effects while an LCE is active:');
     lines.push(
       [
-        '- Each proposal MUST include a non-empty `restoresEntityIds` and/or `restoresFlowIds` drawn from the "Currently damaged by the active LCE" lists above. That is the mechanism that turns the red items green on screen.',
-        '- Only claim what the strategy genuinely repairs. A strategy that reroutes wound care does not fix insurance coverage. Partial repair is expected and honest \u2014 two strategies may each repair a different subset.',
-        '- Prefer strategies that together cover most of the damage, so the user can compare which combination heals the most.',
+        '- Include `restoresEntityIds` and/or `restoresFlowIds` only for plausible hypothetical effects, drawing ids from the "Currently damaged by the active LCE" lists above. These fields turn red map items green; they do not establish real-world effectiveness.',
+        '- State conditions and uncertainties in the rationale. Do not mark an impact resolved when the proposed step only gathers information. A coordination step need not claim a repair.',
+        '- Compare options by fit with the selected perspective, patient preferences, workload, access, and feasibility rather than maximizing the number of green items.',
         '- Also add the new people/tools/practices the strategy relies on via `addEntities` + `addFlows`, so the repair is visibly wired into the ecology rather than appearing out of nowhere.',
         '- Mirror the repaired items in the strategy\u2019s "**Repairs:**" bullet using their human labels (not raw ids), so the prose and the visualization agree.',
       ].join('\n'),
@@ -369,5 +378,6 @@ export function buildSystemPrompt(ctx: ChatContext): string {
     );
   }
 
+  lines.push('', buildParticipantRoleInstructions(ctx.participantRole, ctx.uiMode));
   return lines.join('\n');
 }

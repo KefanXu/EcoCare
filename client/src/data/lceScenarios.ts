@@ -26,6 +26,33 @@ export const lceScenarios: LCE[] = [
       'What coping strategies could bridge the gap until prior authorization clears?',
       'How should I prioritize a conversation with my primary-care clinician about this?',
     ],
+    impactNotes: {
+      insurance: {
+        standard:
+          'The new formulary no longer covers the current insulin pen; coverage now hinges on a prior authorization that may take weeks.',
+        easy: 'The insurance company stopped paying for the insulin pen.',
+      },
+      'insulin-pen': {
+        standard:
+          'Out-of-pocket cost makes the pen hard to obtain, so supply becomes unreliable until an alternative is approved.',
+        easy: 'The pen costs too much now, so it is hard to get.',
+      },
+      'med-routine': {
+        standard:
+          'Daily dosing depends on a steady insulin supply; gaps or a switch to a different pen disrupt the established routine.',
+        easy: 'Taking medicine every day gets harder without the pen.',
+      },
+      pharmacy: {
+        standard:
+          'The pharmacy cannot dispense the current pen under the new plan and must wait on the prior authorization.',
+        easy: 'The pharmacy cannot hand out the pen like before.',
+      },
+      'treatment-plan': {
+        standard:
+          'The plan assumes the current insulin; the care team must revise dosing and product while coverage is sorted out.',
+        easy: 'The care plan has to change to a different medicine.',
+      },
+    },
   },
   {
     id: 'lce-relocation',
@@ -75,6 +102,38 @@ export const lceScenarios: LCE[] = [
       'How can my partner and I redistribute the caregiving load now that my daughter is far away?',
       'Which ecological entities should I reestablish first in the new location?',
     ],
+    impactNotes: {
+      daughter: {
+        standard:
+          'Now two hours away, the daughter can no longer drop in; everyday check-ins and hands-on help are lost.',
+        easy: 'The daughter lives far away now and cannot stop by to help.',
+      },
+      'primary-care': {
+        standard:
+          'The established primary-care relationship is left behind; a new clinician must be found and brought up to speed.',
+        easy: 'The main doctor is far away now. Jordan needs a new one.',
+      },
+      podiatrist: {
+        standard:
+          'Ongoing foot-ulcer follow-up is interrupted until a new podiatrist is found and records are transferred.',
+        easy: 'The foot doctor is far away now, so foot checkups stop.',
+      },
+      pharmacy: {
+        standard:
+          'The pharmacy that filled insulin and dressings is out of reach; refills must be re-established elsewhere.',
+        easy: 'The old pharmacy is too far away to pick up medicine.',
+      },
+      transportation: {
+        standard:
+          'Familiar routes and rides no longer apply; getting to any clinic now requires new arrangements.',
+        easy: 'The usual rides to the clinic do not work in the new town.',
+      },
+      'clinic-visits': {
+        standard:
+          'Scheduled visits with the old care team lapse, breaking the feedback loop that updates the treatment plan.',
+        easy: 'The regular doctor visits stop until new ones are set up.',
+      },
+    },
   },
   {
     id: 'lce-caregiver-surgery',
@@ -109,5 +168,22 @@ export const lceScenarios: LCE[] = [
       'How can I keep the clinic informed about my foot care during my partner\u2019s recovery?',
       'Which simpler routines could reduce the wound-care burden temporarily?',
     ],
+    impactNotes: {
+      partner: {
+        standard:
+          'Recovering from hand surgery for about six weeks, the partner cannot wrap the foot ulcer or keep up the caregiver notes.',
+        easy: 'The partner hurt their hand and cannot help with care for six weeks.',
+      },
+      'caregiver-notes': {
+        standard:
+          'No one is maintaining the between-visit notes, so the clinic loses its richest day-to-day context.',
+        easy: 'Nobody is writing the care notes right now.',
+      },
+      'foot-care-routine': {
+        standard:
+          'Jordan must do wound care alone, which adds time, cognitive load, and infection risk.',
+        easy: 'Jordan has to do the foot bandages alone now.',
+      },
+    },
   },
 ];

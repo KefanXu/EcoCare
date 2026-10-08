@@ -17,6 +17,7 @@ import {
 } from './chatContext';
 import { parseProposalsFromContent } from './proposalParser';
 import { findPreviewProposal } from '../components/Overlay/findPreviewProposal';
+import { startRoleRequest } from './roleRequest';
 
 /**
  * Shared logic for generating LCE mediation strategies into `suggestPanel`.
@@ -24,6 +25,8 @@ import { findPreviewProposal } from '../components/Overlay/findPreviewProposal';
  */
 export function useSuggestStrategies(opts?: { easy?: boolean }) {
   const easy = opts?.easy ?? false;
+  const participantRole = useEcoStore((s) => s.participantRole);
+  const roleRevision = useEcoStore((s) => s.roleRevision);
   const scenario = useActiveScenario();
   const panel = useEcoStore((s) => s.suggestPanel);
   const beginSuggestStream = useEcoStore((s) => s.beginSuggestStream);
@@ -50,13 +53,15 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
     return () => {
       abortRef.current?.abort();
     };
-  }, []);
+  }, [roleRevision]);
 
   function buildContext() {
     const previewStrategy = previewProposalId
       ? findPreviewProposal(messages, previewProposalId, panel)
       : null;
     return buildChatContext({
+      participantRole,
+      uiMode: easy ? 'easy' : 'standard',
       patient,
       basePatient,
       scenario,
@@ -72,7 +77,7 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
 
   /** Clear streaming without treating cancel as an error (Strict Mode remount, Back, regen). */
   function clearStreamingIfCurrent(ctrl: AbortController) {
-    if (abortRef.current !== ctrl) return;
+    if (abortRef.current !== ctrl || useEcoStore.getState().roleRevision !== roleRevision) return;
     const s = useEcoStore.getState().suggestPanel;
     if (!s.streaming) return;
     finishSuggestStream({
@@ -85,7 +90,8 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
   async function runSuggest() {
     if (!scenario) return;
     abortRef.current?.abort();
-    const ctrl = new AbortController();
+    const request = startRoleRequest(roleRevision);
+    const ctrl = request.controller;
     abortRef.current = ctrl;
 
     beginSuggestStream();
@@ -105,7 +111,7 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
       },
       {
         onDelta: (d) => {
-          if (abortRef.current !== ctrl) return;
+          if (abortRef.current !== ctrl || ctrl.signal.aborted || useEcoStore.getState().roleRevision !== roleRevision) return;
           raw += d;
           appendSuggestContent(d);
         },
@@ -113,19 +119,20 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
           /* finished below */
         },
         onError: (msg) => {
-          if (abortRef.current !== ctrl || ctrl.signal.aborted) return;
+          if (abortRef.current !== ctrl || ctrl.signal.aborted || useEcoStore.getState().roleRevision !== roleRevision) return;
           errored = true;
           failSuggestStream(msg);
         },
       },
       ctrl.signal,
     );
+    request.dispose();
 
     if (ctrl.signal.aborted) {
       clearStreamingIfCurrent(ctrl);
       return;
     }
-    if (errored || abortRef.current !== ctrl) return;
+    if (errored || abortRef.current !== ctrl || useEcoStore.getState().roleRevision !== roleRevision) return;
 
     const latest = useEcoStore.getState().suggestPanel.content || raw;
     const parsed = parseProposalsFromContent(latest);
@@ -143,7 +150,8 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
     if (!trimmed) return;
 
     abortRef.current?.abort();
-    const ctrl = new AbortController();
+    const request = startRoleRequest(roleRevision);
+    const ctrl = request.controller;
     abortRef.current = ctrl;
 
     beginUserStrategyStream();
@@ -159,7 +167,7 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
       },
       {
         onDelta: (d) => {
-          if (abortRef.current !== ctrl) return;
+          if (abortRef.current !== ctrl || ctrl.signal.aborted || useEcoStore.getState().roleRevision !== roleRevision) return;
           raw += d;
           appendSuggestContent(d);
         },
@@ -167,19 +175,20 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
           /* finished below */
         },
         onError: (msg) => {
-          if (abortRef.current !== ctrl || ctrl.signal.aborted) return;
+          if (abortRef.current !== ctrl || ctrl.signal.aborted || useEcoStore.getState().roleRevision !== roleRevision) return;
           errored = true;
           failSuggestStream(msg);
         },
       },
       ctrl.signal,
     );
+    request.dispose();
 
     if (ctrl.signal.aborted) {
       clearStreamingIfCurrent(ctrl);
       return;
     }
-    if (errored || abortRef.current !== ctrl) return;
+    if (errored || abortRef.current !== ctrl || useEcoStore.getState().roleRevision !== roleRevision) return;
 
     const latest = useEcoStore.getState().suggestPanel.content || raw;
     const parsed = parseProposalsFromContent(latest);

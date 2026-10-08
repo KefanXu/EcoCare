@@ -55,6 +55,15 @@ export interface LCE {
   breaksFlowIds: string[];
   addsConflicts: Conflict[];
   suggestedPrompts: string[];
+  /** How this LCE impacts each disrupted entity, keyed by entity id. */
+  impactNotes?: Record<string, ImpactNote>;
+}
+
+export interface ImpactNote {
+  /** Standard-mode explanation of the impact. */
+  standard: string;
+  /** Plain-language Easy-mode explanation. */
+  easy: string;
 }
 
 export interface Patient {

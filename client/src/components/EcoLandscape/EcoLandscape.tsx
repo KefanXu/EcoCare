@@ -17,6 +17,7 @@ import {
   FLOW_COLOR,
   LAYER_RING_FILL,
   type EntityCategory,
+  type Layer,
 } from '../../types/ecology';
 import { iconFor } from '../../lib/entityIcons';
 import {
@@ -27,6 +28,8 @@ import {
   computeRowLayout,
   ringTextPath,
 } from './layout';
+import { LayerExplorer } from './LayerExplorer';
+import { LAYER_EASY_NAMES } from './layerDetails';
 
 const NODE_BEZEL_R = 22;
 const PATIENT_BEZEL_R = 36;
@@ -68,14 +71,7 @@ function ringFill(name: string): string {
   return LAYER_RING_FILL[name as keyof typeof LAYER_RING_FILL] ?? '#ffffff';
 }
 
-const LAYER_EASY_NAMES: Record<string, string> = {
-  microsystem: 'Home circle',
-  mesosystem: 'Care team',
-  exosystem: 'Services',
-  macrosystem: 'Wider world',
-};
-
-function ringDisplayLabel(name: string, label: string, easy: boolean): string {
+function ringDisplayLabel(name: Layer, label: string, easy: boolean): string {
   if (easy) return LAYER_EASY_NAMES[name] ?? label;
   return label;
 }
@@ -115,6 +111,8 @@ function mixHex(a: string, b: string, t: number): string {
 export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const gRef = useRef<SVGGElement | null>(null);
+  const [expandedLayer, setExpandedLayer] = useState<Layer | null>(null);
+  const closeLayer = useCallback(() => setExpandedLayer(null), []);
 
   const patient = useEffectivePatient();
   const selection = useEcoStore((s) => s.selection);
@@ -448,7 +446,33 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
   const pickModeActive = connectMode.active || impactPickMode;
   const userImpactSet = useMemo(() => new Set(userImpactEntityIds), [userImpactEntityIds]);
 
+  function layerInteraction(layer: Layer, active: boolean) {
+    const open = (event: React.SyntheticEvent<SVGGElement>) => {
+      if (!active || pickModeActive) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.focus({ preventScroll: true });
+      setHoveredEntity(null);
+      setHoveredFlow(null);
+      setExpandedLayer(layer);
+    };
+    return {
+      role: 'button',
+      tabIndex: active && !pickModeActive ? 0 : -1,
+      'aria-label': `Expand ${easy ? LAYER_EASY_NAMES[layer] : layer} layer`,
+      'aria-haspopup': 'dialog' as const,
+      'aria-disabled': pickModeActive,
+      'data-system-layer': layer,
+      className: 'system-layer-target',
+      onClick: open,
+      onKeyDown: (event: React.KeyboardEvent<SVGGElement>) => {
+        if (event.key === 'Enter' || event.key === ' ') open(event);
+      },
+    };
+  }
+
   return (
+    <>
     <svg
       ref={svgRef}
       viewBox={`${-width / 2} ${-height / 2} ${width} ${height}`}
@@ -537,12 +561,13 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
 
       <g ref={gRef}>
         {/* Ring view backgrounds — fade out during transition */}
-        <g opacity={1 - transitionProgress}>
+        <g opacity={1 - transitionProgress} pointerEvents={viewMode === 'ring' ? 'auto' : 'none'} aria-hidden={viewMode !== 'ring'}>
         {/* Render rings outer-to-inner so the inner microsystem sits on top */}
         {[...rings].reverse().map((ring) => {
           const isMicro = ring.isMicrosystem;
           return (
-            <g key={ring.name} filter={isMicro ? 'url(#microsystem-shadow)' : undefined}>
+            <g key={ring.name} filter={isMicro ? 'url(#microsystem-shadow)' : undefined} {...layerInteraction(ring.name, viewMode === 'ring')}>
+              <title>{`Expand ${ringDisplayLabel(ring.name, ring.label, easy)}`}</title>
               {/* Outer disc */}
               <circle
                 cx={0}
@@ -584,11 +609,16 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
           );
         })}
 
+        <g {...layerInteraction('individual', viewMode === 'ring')}>
+          <title>Expand individual layer</title>
+          <circle r={rings[0].innerRadius} fill="transparent" />
+        </g>
+
         {/* Microsystem category wedge dividers + labels */}
         {(() => {
           const ring = rings[0];
           return (
-            <g>
+            <g pointerEvents="none">
               {wedges.map((w) => {
                 const startRad = (w.startDeg * Math.PI) / 180;
                 const x1 = Math.cos(startRad) * ring.innerRadius;
@@ -640,9 +670,10 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
 
         {/* Row view backgrounds — fade in during transition */}
         {transitionProgress > 0 && (
-          <g opacity={transitionProgress}>
+          <g opacity={transitionProgress} pointerEvents={viewMode === 'row' ? 'auto' : 'none'} aria-hidden={viewMode !== 'row'}>
             {rowLayout.bands.map((band) => (
-              <g key={`row-${band.name}`}>
+              <g key={`row-${band.name}`} {...layerInteraction(band.name, viewMode === 'row')}>
+                <title>{`Expand ${ringDisplayLabel(band.name, band.label, easy)}`}</title>
                 <rect
                   x={-580}
                   y={band.y - band.height / 2}
@@ -977,6 +1008,8 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
           })()}
       </g>
     </svg>
+    {expandedLayer && <LayerExplorer layer={expandedLayer} anchorRef={svgRef} onClose={closeLayer} />}
+    </>
   );
 }
 
