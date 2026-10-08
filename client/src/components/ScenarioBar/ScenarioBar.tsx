@@ -18,17 +18,54 @@ export function ScenarioBar() {
   const entitySearchQuery = useEcoStore((s) => s.entitySearchQuery);
   const setEntitySearchQuery = useEcoStore((s) => s.setEntitySearchQuery);
   const { t, easy } = useUiText();
+  // Phone (Easy): the search field lives on a second row behind a toggle.
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (mobileSearchOpen) mobileSearchRef.current?.focus();
+  }, [mobileSearchOpen]);
 
   const activeScenario =
     patient.scenarios.find((sc) => sc.id === activeScenarioId) ?? null;
   const ActiveIcon = activeScenario ? iconForScenario(activeScenario.id) : null;
 
+  const searchField = (inputRef?: React.RefObject<HTMLInputElement>) => (
+    <label className="relative block h-10 w-full max-w-[360px]">
+      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+        <Search className="w-4 h-4" aria-hidden />
+      </span>
+      <input
+        ref={inputRef}
+        type="text"
+        value={entitySearchQuery}
+        onChange={(e) => setEntitySearchQuery(e.target.value)}
+        placeholder={t('searchPlaceholder')}
+        aria-label={t('searchPlaceholder')}
+        className="box-border h-10 w-full rounded-full border border-stone-200/90 bg-stone-50/90 pl-10 pr-10 text-sm text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-200/80"
+      />
+      <button
+        type="button"
+        onClick={() => setEntitySearchQuery('')}
+        disabled={!entitySearchQuery.trim()}
+        className={`absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition ${
+          entitySearchQuery.trim()
+            ? 'opacity-100 hover:bg-stone-200/80 hover:text-slate-700'
+            : 'pointer-events-none opacity-0'
+        }`}
+        title="Clear search"
+        aria-label="Clear search"
+      >
+        <X className="w-3.5 h-3.5" aria-hidden />
+      </button>
+    </label>
+  );
+
   return (
-    <header className="relative z-40 shrink-0 px-5 py-3 border-b border-stone-200/80 bg-white/90 backdrop-blur-xl shadow-[0_1px_0_rgba(28,25,23,0.04)]">
-      <div className="flex items-center flex-wrap gap-3 min-h-[40px]">
+    <header className="relative z-40 shrink-0 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-stone-200/80 bg-white/90 backdrop-blur-xl shadow-[0_1px_0_rgba(28,25,23,0.04)]">
+      <div className="flex items-center flex-wrap gap-2 sm:gap-3 min-h-[40px]">
         {/* Brand */}
         <RoleSwitcher />
-        <div className="flex flex-col min-w-0 max-w-[220px]">
+        <div className={`flex-col min-w-0 max-w-[220px] ${easy ? 'hidden sm:flex' : 'flex'}`}>
           <div
             title={`${patient.name}: ${patient.condition}`}
             className={`text-slate-500 truncate ${
@@ -64,35 +101,26 @@ export function ScenarioBar() {
 
         {/* Easy mode: search pill sits on the same row, centered between the groups. */}
         {easy && (
-          <div className="flex flex-1 min-w-[160px] items-center justify-center px-2">
-            <label className="relative block h-10 w-full max-w-[360px]">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                <Search className="w-4 h-4" aria-hidden />
-              </span>
-              <input
-                type="text"
-                value={entitySearchQuery}
-                onChange={(e) => setEntitySearchQuery(e.target.value)}
-                placeholder={t('searchPlaceholder')}
-                aria-label={t('searchPlaceholder')}
-                className="box-border h-10 w-full rounded-full border border-stone-200/90 bg-stone-50/90 pl-10 pr-10 text-sm text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-200/80"
-              />
-              <button
-                type="button"
-                onClick={() => setEntitySearchQuery('')}
-                disabled={!entitySearchQuery.trim()}
-                className={`absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition ${
-                  entitySearchQuery.trim()
-                    ? 'opacity-100 hover:bg-stone-200/80 hover:text-slate-700'
-                    : 'pointer-events-none opacity-0'
-                }`}
-                title="Clear search"
-                aria-label="Clear search"
-              >
-                <X className="w-3.5 h-3.5" aria-hidden />
-              </button>
-            </label>
-          </div>
+          <>
+            <div className="hidden sm:flex flex-1 min-w-[160px] items-center justify-center px-2">
+              {searchField()}
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen((v) => !v)}
+              aria-expanded={mobileSearchOpen}
+              aria-controls="easy-mobile-search"
+              aria-label={mobileSearchOpen ? 'Hide search' : 'Search the map'}
+              title={mobileSearchOpen ? 'Hide search' : 'Search the map'}
+              className={`sm:hidden ml-auto inline-flex items-center justify-center rounded-full border transition min-h-[40px] min-w-[40px] ${
+                mobileSearchOpen || entitySearchQuery.trim()
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-stone-50 text-slate-600 border-stone-200 hover:bg-stone-100'
+              }`}
+            >
+              <Search className="w-4 h-4" aria-hidden />
+            </button>
+          </>
         )}
 
         {/* Mode + assistant + reset */}
@@ -129,7 +157,7 @@ export function ScenarioBar() {
               type="button"
               onClick={() => setUiMode('standard')}
               aria-pressed={uiMode === 'standard'}
-              className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-150 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-150 ${
                 uiMode === 'standard'
                   ? 'bg-white text-slate-900 shadow-sm border border-stone-200/60'
                   : 'text-slate-500 hover:text-slate-700 border border-transparent'
@@ -141,7 +169,7 @@ export function ScenarioBar() {
               type="button"
               onClick={() => setUiMode('easy')}
               aria-pressed={uiMode === 'easy'}
-              className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-150 flex items-center gap-1 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-150 flex items-center gap-1 ${
                 uiMode === 'easy'
                   ? 'bg-white text-slate-900 shadow-sm border border-stone-200/60'
                   : 'text-slate-500 hover:text-slate-700 border border-transparent'
@@ -165,6 +193,12 @@ export function ScenarioBar() {
           )}
         </div>
       </div>
+
+      {easy && mobileSearchOpen && (
+        <div id="easy-mobile-search" className="sm:hidden mt-2 flex justify-center">
+          {searchField(mobileSearchRef)}
+        </div>
+      )}
     </header>
   );
 }

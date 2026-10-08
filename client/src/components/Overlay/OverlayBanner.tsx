@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useActiveHighlight, useEcoStore, useRepairState } from '../../store/useEcoStore';
 import { findPreviewProposal } from './findPreviewProposal';
 import { useUiText } from '../../lib/uiText';
+import { useIsMobile } from '../../lib/useMediaQuery';
 
 export function OverlayBanner() {
   const { easy } = useUiText();
+  const isMobile = useIsMobile();
   const previewProposalId = useEcoStore((s) => s.previewProposalId);
   const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
   const messages = useEcoStore((s) => s.messages);
@@ -26,11 +28,19 @@ export function OverlayBanner() {
   if (!preview && appliedOverlay.length === 0 && !activeHighlight) return null;
 
   const healedPct = repair.total > 0 ? Math.round((repair.repaired / repair.total) * 100) : 0;
+  // Phones: thin full-width strips along the top edge so the ring stays visible.
+  const pill = isMobile ? 'flex-wrap rounded-2xl' : 'rounded-full';
 
   return (
-    <div className="ecology-status absolute top-3 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 max-w-[calc(100%-7rem)]">
+    <div
+      className={`ecology-status absolute z-30 flex flex-col gap-2 ${
+        isMobile
+          ? 'top-2 inset-x-2 items-stretch'
+          : 'top-3 left-1/2 -translate-x-1/2 items-center max-w-[calc(100%-7rem)]'
+      }`}
+    >
       {repair.total > 0 && (preview || appliedOverlay.length > 0) && (
-        <div className="flex items-center gap-2.5 bg-white border border-stone-200 rounded-full pl-3 pr-3 py-1 shadow-md text-xs">
+        <div className={`flex items-center gap-2.5 bg-white border border-stone-200 ${pill} pl-3 pr-3 py-1 shadow-md text-xs`}>
           <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
             {easy ? 'Affected' : 'Damage'}
           </span>
@@ -55,7 +65,7 @@ export function OverlayBanner() {
         </div>
       )}
       {activeHighlight && (
-        <div className="flex items-center gap-2 bg-white border border-amber-300 ring-1 ring-amber-200 rounded-full pl-3 pr-1.5 py-1 shadow-md text-xs">
+        <div className={`flex items-center gap-2 bg-white border border-amber-300 ring-1 ring-amber-200 ${pill} pl-3 pr-1.5 py-1 shadow-md text-xs`}>
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
           <span className="text-slate-700">
             <span className="text-amber-700 font-semibold">{easy ? 'Showing:' : 'Highlighting:'}</span>{' '}
@@ -70,9 +80,9 @@ export function OverlayBanner() {
         </div>
       )}
       {preview && (
-        <div className="flex items-center gap-2 bg-white border border-emerald-300 ring-1 ring-emerald-200 rounded-full pl-3 pr-1.5 py-1 shadow-md text-xs">
+        <div className={`flex items-center gap-2 bg-white border border-emerald-300 ring-1 ring-emerald-200 ${pill} pl-3 pr-1.5 py-1 shadow-md text-xs`}>
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-slate-700">
+          <span className="text-slate-700 min-w-0 flex-1">
             <span className="text-emerald-700 font-semibold">{easy ? 'Trying out:' : 'Previewing:'}</span>{' '}
             {preview.title}
           </span>
@@ -94,7 +104,9 @@ export function OverlayBanner() {
         <div className="relative">
           <button
             onClick={() => setManagerOpen((v) => !v)}
-            className="flex items-center gap-2 bg-white border border-emerald-300 rounded-full px-3 py-1 shadow-sm text-xs hover:border-emerald-400"
+            className={`flex items-center gap-2 bg-white border border-emerald-300 ${pill} px-3 py-1 shadow-sm text-xs hover:border-emerald-400 ${
+              isMobile ? 'w-full' : ''
+            }`}
           >
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
             <span className="text-slate-700">

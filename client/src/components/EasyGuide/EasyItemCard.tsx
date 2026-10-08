@@ -13,6 +13,7 @@ import { iconFor } from '../../lib/entityIcons';
 import { describeEntityImpact } from '../../lib/entityImpact';
 import { SpeakButton } from '../common/SpeakButton';
 import { useUiText } from '../../lib/uiText';
+import { useIsMobile } from '../../lib/useMediaQuery';
 
 function easyName(e: EcoEntity | undefined): string {
   if (!e) return '';
@@ -26,7 +27,12 @@ function easyName(e: EcoEntity | undefined): string {
  *
  * Renders as a floating overlay on the map (call via EasyItemOverlay).
  */
-export function EasyItemCard() {
+export function EasyItemCard({
+  preferSelection = false,
+}: {
+  /** Touch layouts: show the tapped item even if a stale hover is still set. */
+  preferSelection?: boolean;
+} = {}) {
   const { t, profile } = useUiText();
   const patient = useEffectivePatient();
   const hoveredEntityId = useEcoStore((s) => s.hoveredEntityId);
@@ -43,10 +49,15 @@ export function EasyItemCard() {
   const scenario = useActiveScenario();
   const userImpactEntityIds = useEcoStore((s) => s.userImpactEntityIds);
 
-  const focusEntityId =
-    hoveredEntityId ?? selection.find((s) => s.kind === 'entity')?.id ?? null;
+  const selectedEntityId = selection.find((s) => s.kind === 'entity')?.id ?? null;
+  const selectedFlowId = selection.find((s) => s.kind === 'flow')?.id ?? null;
+  const focusEntityId = preferSelection
+    ? selectedEntityId ?? (selectedFlowId ? null : hoveredEntityId)
+    : hoveredEntityId ?? selectedEntityId;
   const focusFlowId = !focusEntityId
-    ? hoveredFlowId ?? selection.find((s) => s.kind === 'flow')?.id ?? null
+    ? preferSelection
+      ? selectedFlowId ?? hoveredFlowId
+      : hoveredFlowId ?? selectedFlowId
     : null;
 
   if (!focusEntityId && !focusFlowId) return null;
@@ -320,6 +331,7 @@ export function EasyItemOverlay() {
   const hoveredFlowId = useEcoStore((s) => s.hoveredFlowId);
   const selection = useEcoStore((s) => s.selection);
   const guideOpen = useEcoStore((s) => s.guideOpen);
+  const isMobile = useIsMobile();
   const clearSelection = useEcoStore((s) => s.clearSelection);
   const setHoveredEntity = useEcoStore((s) => s.setHoveredEntity);
   const setHoveredFlow = useEcoStore((s) => s.setHoveredFlow);
@@ -329,7 +341,8 @@ export function EasyItemOverlay() {
     !!hoveredFlowId ||
     selection.some((s) => s.kind === 'entity' || s.kind === 'flow');
 
-  if (!hasFocus) return null;
+  // On phones the guide sheet shows the item card instead (see GuideSheet).
+  if (!hasFocus || isMobile) return null;
 
   function dismiss() {
     clearSelection();
@@ -337,8 +350,8 @@ export function EasyItemOverlay() {
     setHoveredFlow(null);
   }
 
-  // When the guide is open, park the card to its right; otherwise sit under the Guide chip.
-  // The map workspace is already padded past the guide, so "left-3" clears it.
+  // When the guide is open, park the card to its right; otherwise sit under the
+  // Guide chip. The workspace is already padded past the guide, so "left-3" clears it.
   const positionCls = guideOpen ? 'top-3 left-3' : 'top-16 left-3';
 
   return (

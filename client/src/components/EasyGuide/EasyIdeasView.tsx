@@ -16,7 +16,12 @@ import { useUiText } from '../../lib/uiText';
  * Easy-mode ideas view — lives inside the Guide column.
  * Short, scannable cards (not verbose chat markdown).
  */
-export function EasyIdeasView() {
+export function EasyIdeasView({
+  compact = false,
+}: {
+  /** Phone sheet: the sheet header already names this view, so skip the inner title. */
+  compact?: boolean;
+} = {}) {
   const { profile } = useUiText();
   const closeSuggestPanel = useEcoStore((s) => s.closeSuggestPanel);
   const basePatient = useEcoStore((s) => s.patient);
@@ -104,10 +109,12 @@ export function EasyIdeasView() {
       </div>
 
       <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Lightbulb className="w-5 h-5 text-emerald-600 shrink-0" aria-hidden />
-          <h2 className="text-lg font-semibold text-slate-900">{profile.strategyLabel}</h2>
-        </div>
+        {!compact && (
+          <div className="flex items-center gap-2 mb-1">
+            <Lightbulb className="w-5 h-5 text-emerald-600 shrink-0" aria-hidden />
+            <h2 className="text-lg font-semibold text-slate-900">{profile.strategyLabel}</h2>
+          </div>
+        )}
         <p className="text-sm text-slate-600 leading-snug">
           Ideas for coping with <span className="font-medium text-slate-800">{scenarioName}</span>.
           Tap “Show on map” under an idea to see what it fixes, or ask the AI helper about its

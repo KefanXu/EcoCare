@@ -15,6 +15,8 @@ import { OverlayBanner } from './components/Overlay/OverlayBanner';
 import { SuggestSolutionsPanel, SuggestStrategiesTrigger } from './components/Suggest/SuggestSolutionsPanel';
 import { EasyHelper } from './components/EasyGuide/EasyGuide';
 import { EasyItemOverlay } from './components/EasyGuide/EasyItemCard';
+import { GuideSheet, sheetMapInset, type SheetSnap } from './components/EasyGuide/GuideSheet';
+import { useIsMobile } from './lib/useMediaQuery';
 import {
   GUIDE_WIDTH_MAX,
   GUIDE_WIDTH_MIN,
@@ -96,6 +98,10 @@ export default function App() {
   const scenario = useActiveScenario();
   const { t, easy, profile } = useUiText();
   const roleRevision = useEcoStore((s) => s.roleRevision);
+
+  // Phone layout (Easy mode): the guide becomes a bottom sheet and the map keeps full width.
+  const isMobile = useIsMobile();
+  const [sheetSnap, setSheetSnap] = useState<SheetSnap>('half');
 
   const [viewMode, setViewMode] = useState<'ring' | 'row'>('ring');
   const [inspectorMinimized, setInspectorMinimized] = useState(false);
@@ -243,7 +249,11 @@ export default function App() {
         <SuggestStrategiesTrigger />
       </div>
 
-      <div className="absolute bottom-20 right-4 z-[15] pointer-events-none flex flex-col items-end gap-2 max-w-[calc(100%-2rem)] max-h-[calc(100%-6rem)]">
+      <div
+        className={`absolute z-[15] pointer-events-none flex flex-col items-end gap-2 max-w-[calc(100%-2rem)] max-h-[calc(100%-6rem)] ${
+          easy && isMobile ? 'bottom-[4.5rem] right-3' : 'bottom-20 right-4'
+        }`}
+      >
         {!easy && (
           <button
             type="button"
@@ -265,6 +275,17 @@ export default function App() {
             <div className={`panel-motion origin-bottom-right ${legendExpanded ? 'panel-enter' : 'panel-exit'} pointer-events-auto flex flex-col items-end gap-2 min-h-0 max-w-full`}>
               <Legend onMinimize={() => setLegendExpanded(false)} />
             </div>
+          ) : isMobile ? (
+            <button
+              type="button"
+              onClick={() => setLegendExpanded(true)}
+              className={fabCls}
+              title="Show the map key"
+              aria-label="Show the map key"
+            >
+              <Layers className="w-5 h-5 shrink-0" aria-hidden />
+              Key
+            </button>
           ) : (
             <div className="pointer-events-auto">
               <EasyMiniLegend onExpand={() => setLegendExpanded(true)} />
@@ -294,7 +315,7 @@ export default function App() {
       {easy && (
         <>
           <EasyItemOverlay />
-          {!guideOpen && (
+          {!guideOpen && !isMobile && (
             <button
               type="button"
               onClick={() => openGuide()}
@@ -320,7 +341,25 @@ export default function App() {
     >
       <ScenarioBar />
 
-      {easy ? (
+      {easy && isMobile ? (
+        <div className="flex-1 min-h-0 bg-white relative overflow-hidden">
+          {/* The map keeps the full width; its bottom edge follows the sheet's snapped
+              height (not the live drag) so the ring recenters without jitter. */}
+          <div
+            className="map-workspace absolute inset-x-0 top-0 pb-[4.5rem] transition-[bottom] duration-300 ease-out motion-reduce:transition-none"
+            style={{ bottom: helperOpen ? sheetMapInset('peek') : sheetMapInset(sheetSnap) }}
+          >
+            {mapChrome}
+          </div>
+          <GuideSheet
+            key={roleRevision}
+            snap={sheetSnap}
+            onSnapChange={setSheetSnap}
+            hidden={helperOpen}
+          />
+          <AssistantOverlay open={helperOpen} onClose={closeHelper} mobile />
+        </div>
+      ) : easy ? (
         <div className="flex-1 flex flex-col min-h-0 bg-white relative">
           <div
             className={`flex flex-col flex-1 min-h-0 ease-in-out motion-reduce:transition-none ${
@@ -421,7 +460,16 @@ export default function App() {
 }
 
 /** Floating AI Sense-Making Assistant window (Easy + Standard). */
-function AssistantOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
+function AssistantOverlay({
+  open,
+  onClose,
+  mobile = false,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Phone layout: full-width sheet sliding up from the bottom. */
+  mobile?: boolean;
+}) {
   const { t, easy, profile } = useUiText();
   const [rendered, setRendered] = useState(open);
   const [visible, setVisible] = useState(open);
@@ -448,11 +496,16 @@ function AssistantOverlay({ open, onClose }: { open: boolean; onClose: () => voi
   if (!rendered) return null;
   return (
     <aside
-      className={`absolute top-3 right-3 bottom-3 z-20 w-[min(380px,calc(100%-1.5rem))] flex flex-col rounded-2xl border border-stone-200/80 bg-white/95 shadow-[0_12px_40px_rgba(28,25,23,0.12)] backdrop-blur-xl overflow-hidden transition-all duration-300 ease-in-out ${
-        visible
-          ? 'opacity-100 translate-x-0'
-          : 'opacity-0 translate-x-4 pointer-events-none'
+      className={`absolute z-30 flex flex-col border border-stone-200/80 bg-white/95 shadow-[0_12px_40px_rgba(28,25,23,0.12)] backdrop-blur-xl overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none ${
+        mobile
+          ? `inset-x-0 bottom-0 h-[calc(100%-12px)] rounded-t-3xl ${
+              visible ? 'translate-y-0' : 'translate-y-full pointer-events-none'
+            }`
+          : `top-3 right-3 bottom-3 w-[min(380px,calc(100%-1.5rem))] rounded-2xl ${
+              visible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'
+            }`
       }`}
+      style={mobile ? { paddingBottom: 'env(safe-area-inset-bottom)' } : undefined}
       aria-hidden={!visible}
     >
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-stone-200/80 shrink-0">
@@ -462,15 +515,27 @@ function AssistantOverlay({ open, onClose }: { open: boolean; onClose: () => voi
             {easy ? `Answering from the ${profile.label.toLowerCase()}'s point of view` : `${profile.label} perspective`}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1.5 rounded-lg text-slate-400 hover:bg-stone-100 hover:text-slate-700 transition min-h-[36px] min-w-[36px] flex items-center justify-center"
-          aria-label={easy ? 'Hide the AI helper' : 'Minimize assistant'}
-          title={easy ? 'Hide the AI helper' : 'Minimize'}
-        >
-          <X className="w-4 h-4" aria-hidden />
-        </button>
+        {mobile ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white text-slate-700 text-sm font-medium px-3 min-h-[40px] hover:bg-stone-50 transition shrink-0"
+            aria-label="Close the AI helper and go back to the guide"
+          >
+            <ChevronDown className="w-4 h-4" aria-hidden />
+            Back to the guide
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:bg-stone-100 hover:text-slate-700 transition min-h-[36px] min-w-[36px] flex items-center justify-center"
+            aria-label={easy ? 'Hide the AI helper' : 'Minimize assistant'}
+            title={easy ? 'Hide the AI helper' : 'Minimize'}
+          >
+            <X className="w-4 h-4" aria-hidden />
+          </button>
+        )}
       </div>
       <div className="flex-1 min-h-0">
         <ChatPanel variant="drawer" />
