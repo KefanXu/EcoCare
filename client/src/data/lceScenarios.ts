@@ -6,9 +6,9 @@ export const lceScenarios: LCE[] = [
     name: 'Insurance Drops Insulin Coverage',
     description:
       "Jordan's employer-sponsored insurance switched formularies. Their current insulin pen is no longer covered, and the alternative requires a prior authorization that may take weeks.",
-    easyName: 'Insulin costs too much now',
+    easyName: 'Insurance stops covering the insulin pen',
     easyStory:
-      'The insurance company stopped paying for Jordan\u2019s insulin pen. Now it is very hard to get the medicine Jordan needs every day.',
+      'Jordan\u2019s insurance stopped paying for the insulin pen Jordan uses every day. A different insulin is covered, but it needs special approval first, and that can take weeks.',
     disruptsEntityIds: ['insurance', 'insulin-pen', 'med-routine', 'pharmacy', 'treatment-plan'],
     breaksFlowIds: ['f-insurance-plan', 'f-pharm-pen', 'f-medroutine-pen'],
     addsConflicts: [
@@ -59,9 +59,9 @@ export const lceScenarios: LCE[] = [
     name: 'Relocation Away From Family',
     description:
       "Jordan and their partner move two hours away for their partner's job. Their daughter, primary-care clinician, podiatrist, and pharmacy are all left behind.",
-    easyName: 'Moved far from family',
+    easyName: 'Moving two hours away from family',
     easyStory:
-      'Jordan moved to a new town, far away from the daughter, the doctors, and the pharmacy that helped every day.',
+      'Jordan and their partner moved two hours away for the partner\u2019s job. Jordan\u2019s daughter, main doctor, foot doctor, and pharmacy are all back in the old town.',
     disruptsEntityIds: [
       'daughter',
       'primary-care',
@@ -140,9 +140,9 @@ export const lceScenarios: LCE[] = [
     name: 'Partner Has Hand Surgery',
     description:
       "Jordan's partner needs hand surgery and a 6-week recovery, and can no longer help wrap their foot ulcer or maintain caregiver notes.",
-    easyName: 'Partner hurt their hand',
+    easyName: 'Partner needs hand surgery',
     easyStory:
-      'Jordan\u2019s partner had hand surgery and cannot help with the foot bandages or the care notes for six weeks.',
+      'Jordan\u2019s partner needs hand surgery and six weeks to recover. During that time the partner cannot help wrap Jordan\u2019s foot sore or keep the care notes.',
     disruptsEntityIds: ['partner', 'caregiver-notes', 'foot-care-routine'],
     breaksFlowIds: ['f-partner-footroutine', 'f-partner-notes', 'f-notes-clinic'],
     addsConflicts: [

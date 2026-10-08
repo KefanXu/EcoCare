@@ -29,7 +29,7 @@ export function ImpactPickOverlay() {
         {t('impactPickHint')}
         {count > 0 ? (
           <span className="ml-2 text-rose-600/80 font-normal">
-            ({count} marked)
+            ({count} marked so far)
           </span>
         ) : null}
       </span>

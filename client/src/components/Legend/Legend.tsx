@@ -1,6 +1,7 @@
 import {
   CATEGORY_COLOR,
   CATEGORY_LABEL,
+  EASY_FLOW_LABEL,
   FLOW_COLOR,
   FLOW_LABEL,
   type EntityCategory,
@@ -17,6 +18,18 @@ export interface LegendProps {
 
 const CATEGORIES: EntityCategory[] = ['stakeholder', 'component', 'practice', 'information'];
 const FLOWS: FlowKind[] = ['data', 'guidance', 'feedback', 'communication'];
+
+/** Legend rows list several items, so use the plural of the shared Easy words. */
+const EASY_CATEGORY_PLURAL: Record<EntityCategory, string> = {
+  stakeholder: 'People',
+  component: 'Things and tools',
+  practice: 'Daily routines',
+  information: 'Information',
+};
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 function CategoryGlyph({ color, size }: { color: string; size: number }) {
   return (
@@ -78,8 +91,8 @@ export function Legend({ onMinimize }: LegendProps) {
             type="button"
             onClick={onMinimize}
             className="map-panel-action"
-            title="Minimize legend"
-            aria-label="Minimize legend"
+            title={easy ? 'Hide the map key' : 'Minimize legend'}
+            aria-label={easy ? 'Hide the map key' : 'Minimize legend'}
           >
             <ChevronDown className={easy ? 'w-5 h-5' : 'w-4 h-4'} aria-hidden />
           </button>
@@ -92,7 +105,7 @@ export function Legend({ onMinimize }: LegendProps) {
             {CATEGORIES.map((c) => (
               <LegendRow key={c} hover={{ kind: 'category', category: c }} easy={easy}>
                 <CategoryGlyph color={CATEGORY_COLOR[c]} size={glyphSize} />
-                <span className={labelCls}>{CATEGORY_LABEL[c]}</span>
+                <span className={labelCls}>{easy ? EASY_CATEGORY_PLURAL[c] : CATEGORY_LABEL[c]}</span>
               </LegendRow>
             ))}
           </div>
@@ -104,10 +117,14 @@ export function Legend({ onMinimize }: LegendProps) {
               type="button"
               role="switch"
               aria-checked={showInformationFlows}
-              aria-label="Show information flows"
+              aria-label={easy ? 'Show the lines on the map' : 'Show information flows'}
               onClick={toggleInformationFlows}
               className="inline-flex items-center justify-center w-10 h-8 shrink-0"
-              title={showInformationFlows ? 'Hide information flows' : 'Show information flows'}
+              title={
+                easy
+                  ? showInformationFlows ? 'Hide the lines on the map' : 'Show the lines on the map'
+                  : showInformationFlows ? 'Hide information flows' : 'Show information flows'
+              }
             >
               <span className={`relative w-8 h-[18px] rounded-full transition-colors ${showInformationFlows ? 'bg-sky-600' : 'bg-stone-300'}`}>
                 <span className={`absolute top-[3px] left-[3px] w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${showInformationFlows ? 'translate-x-[14px]' : ''}`} />
@@ -124,7 +141,7 @@ export function Legend({ onMinimize }: LegendProps) {
                 <svg width={flowLineW} height={flowLineH}>
                   <line x1={0} y1={flowLineH / 2} x2={flowLineW} y2={flowLineH / 2} stroke={FLOW_COLOR[f]} strokeWidth={2} />
                 </svg>
-                <span className={labelCls}>{FLOW_LABEL[f]}</span>
+                <span className={labelCls}>{easy ? capitalize(EASY_FLOW_LABEL[f]) : FLOW_LABEL[f]}</span>
               </LegendRow>
             ))}
             <LegendRow hover={{ kind: 'broken' }} easy={easy}>

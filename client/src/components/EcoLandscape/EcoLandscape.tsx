@@ -19,6 +19,14 @@ import {
   type EntityCategory,
   type Layer,
 } from '../../types/ecology';
+
+/** Sector labels drawn on the ring map. Easy mode uses everyday words. */
+const EASY_SECTOR_LABEL: Record<EntityCategory, string> = {
+  stakeholder: 'People',
+  component: 'Things & tools',
+  practice: 'Daily routines',
+  information: 'Information',
+};
 import { iconFor } from '../../lib/entityIcons';
 import {
   type PositionedEntity,
@@ -656,7 +664,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
                         opacity: 0.85,
                       }}
                     >
-                      {CATEGORY_LABEL[w.category]}s
+                      {easy ? EASY_SECTOR_LABEL[w.category] : `${CATEGORY_LABEL[w.category]}s`}
                     </text>
                   </g>
                 );

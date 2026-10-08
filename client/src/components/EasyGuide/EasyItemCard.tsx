@@ -8,18 +8,11 @@ import {
   useEffectivePatient,
   useRepairState,
 } from '../../store/useEcoStore';
-import { CATEGORY_COLOR, type EcoEntity, type FlowKind } from '../../types/ecology';
+import { CATEGORY_COLOR, EASY_FLOW_LABEL, type EcoEntity } from '../../types/ecology';
 import { iconFor } from '../../lib/entityIcons';
 import { describeEntityImpact } from '../../lib/entityImpact';
 import { SpeakButton } from '../common/SpeakButton';
 import { useUiText } from '../../lib/uiText';
-
-const EASY_KIND: Record<FlowKind, string> = {
-  data: 'facts',
-  guidance: 'advice',
-  feedback: 'updates',
-  communication: 'talking',
-};
 
 function easyName(e: EcoEntity | undefined): string {
   if (!e) return '';
@@ -34,7 +27,7 @@ function easyName(e: EcoEntity | undefined): string {
  * Renders as a floating overlay on the map (call via EasyItemOverlay).
  */
 export function EasyItemCard() {
-  const { profile } = useUiText();
+  const { t, profile } = useUiText();
   const patient = useEffectivePatient();
   const hoveredEntityId = useEcoStore((s) => s.hoveredEntityId);
   const hoveredFlowId = useEcoStore((s) => s.hoveredFlowId);
@@ -68,10 +61,10 @@ export function EasyItemCard() {
     const isRepaired = repair.flowIds.has(flow.id);
 
     const spoken = `A connection from ${easyName(src)} to ${easyName(tgt)}. It carries ${
-      EASY_KIND[flow.kind]
+      EASY_FLOW_LABEL[flow.kind]
     }${flow.content ? `: ${flow.content}` : ''}. ${
       isRepaired
-        ? 'It was broken, but an idea is helping fix it.'
+        ? 'It was broken. An idea is fixing it.'
         : isBroken
           ? 'This connection is broken right now.'
           : 'This connection is working fine.'
@@ -86,12 +79,12 @@ export function EasyItemCard() {
         <StatusLine
           state={isRepaired ? 'repaired' : isBroken ? 'hurt' : 'ok'}
           hurtText="This connection is broken right now."
-          repairedText="It was broken — an idea is fixing it."
+          repairedText="It was broken. An idea is fixing it."
           okText="This connection is working fine."
         />
 
         <p className="text-sm text-slate-700 leading-relaxed">
-          It carries <span className="font-medium">{EASY_KIND[flow.kind]}</span>
+          It carries <span className="font-medium">{EASY_FLOW_LABEL[flow.kind]}</span>
           {flow.content ? (
             <>
               : <span className="font-medium">{flow.content}</span>
@@ -112,7 +105,7 @@ export function EasyItemCard() {
             className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 text-white text-sm px-3 py-1.5 min-h-[36px] hover:bg-sky-700 transition"
           >
             <MessageCircleQuestion className="w-4 h-4" aria-hidden />
-            Ask about this
+            {t('askAi')}
           </button>
         </div>
 
@@ -120,11 +113,11 @@ export function EasyItemCard() {
           <button
             type="button"
             onClick={() => {
-              if (confirm('Delete this connection?')) removeFlow(flow.id);
+              if (confirm('Remove this connection from the map?')) removeFlow(flow.id);
             }}
             className="text-xs px-2.5 py-1.5 rounded-lg border border-rose-300 text-rose-700 hover:bg-rose-50"
           >
-            Delete this connection
+            Remove this connection
           </button>
         )}
       </div>
@@ -162,9 +155,9 @@ export function EasyItemCard() {
 
   const spoken = `${name}. ${description} ${
     isRepaired
-      ? 'It was having trouble, but an idea is helping it.'
+      ? 'It was affected by the event. An idea is helping it.'
       : isHurt
-        ? 'It is having trouble right now because of what changed.'
+        ? 'It is affected by the event right now.'
         : 'It is doing OK right now.'
   }${impactText ? ` ${impactText}` : ''}`;
 
@@ -186,8 +179,8 @@ export function EasyItemCard() {
 
       <StatusLine
         state={isRepaired ? 'repaired' : isHurt ? 'hurt' : 'ok'}
-        hurtText="Having trouble right now."
-        repairedText="Was hurt — an idea is helping it."
+        hurtText="Affected by the event right now."
+        repairedText="Was affected by the event. An idea is helping it."
         okText="Doing OK right now."
         detail={impactText ?? undefined}
       />
@@ -197,10 +190,10 @@ export function EasyItemCard() {
       {(sendNames.length > 0 || hearNames.length > 0) && (
         <div className="space-y-1.5 text-sm">
           {sendNames.length > 0 && (
-            <ConnectionRow label="Shares with" names={sendNames} />
+            <ConnectionRow label={t('sendsTo')} names={sendNames} />
           )}
           {hearNames.length > 0 && (
-            <ConnectionRow label="Hears from" names={hearNames} />
+            <ConnectionRow label={t('receivesFrom')} names={hearNames} />
           )}
         </div>
       )}
@@ -217,7 +210,7 @@ export function EasyItemCard() {
           className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 text-white text-sm px-3 py-1.5 min-h-[36px] hover:bg-sky-700 transition"
         >
           <MessageCircleQuestion className="w-4 h-4" aria-hidden />
-          Ask about this
+          {t('askAi')}
         </button>
       </div>
 
@@ -228,16 +221,16 @@ export function EasyItemCard() {
             onClick={() => openEntityForm(entity.id)}
             className="text-xs px-2.5 py-1.5 rounded-lg border border-stone-300 text-slate-700 hover:bg-stone-50"
           >
-            Change it
+            Edit details
           </button>
           <button
             type="button"
             onClick={() => {
-              if (confirm(`Delete "${entity.label}" and its connections?`)) removeEntity(entity.id);
+              if (confirm(`Remove "${name}" from the map? Its connections will be removed too.`)) removeEntity(entity.id);
             }}
             className="text-xs px-2.5 py-1.5 rounded-lg border border-rose-300 text-rose-700 hover:bg-rose-50"
           >
-            Delete it
+            Remove from map
           </button>
         </div>
       )}
@@ -357,13 +350,13 @@ export function EasyItemOverlay() {
           type="button"
           onClick={dismiss}
           className="absolute top-2 right-2 p-1.5 rounded-lg text-slate-400 hover:bg-stone-100 hover:text-slate-700 transition min-h-[36px] min-w-[36px] flex items-center justify-center"
-          aria-label="Close"
-          title="Close"
+          aria-label="Close this card"
+          title="Close this card"
         >
           <X className="w-4 h-4" aria-hidden />
         </button>
         <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2 pr-1">
-          About this
+          About this item
         </div>
         <EasyItemCard />
       </div>

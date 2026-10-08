@@ -121,6 +121,26 @@ export const FLOW_LABEL: Record<FlowKind, string> = {
   communication: 'Communication',
 };
 
+/**
+ * Everyday words for Easy mode. Standard mode keeps the research terms above;
+ * Easy mode uses these everywhere (legend, cards, lists) so the same thing is
+ * never called two different names.
+ */
+export const EASY_CATEGORY_LABEL: Record<EntityCategory, string> = {
+  stakeholder: 'Person',
+  component: 'Thing or tool',
+  practice: 'Daily routine',
+  information: 'Information',
+};
+
+/** What a line carries, as a short noun phrase: "It carries facts and numbers." */
+export const EASY_FLOW_LABEL: Record<FlowKind, string> = {
+  data: 'facts and numbers',
+  guidance: 'advice',
+  feedback: 'updates',
+  communication: 'messages',
+};
+
 export const FLOW_COLOR: Record<FlowKind, string> = {
   data: '#d4a574',
   guidance: '#a48ac9',

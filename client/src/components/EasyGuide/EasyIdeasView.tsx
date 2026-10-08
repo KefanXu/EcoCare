@@ -70,13 +70,13 @@ export function EasyIdeasView() {
   const userProposals = panel.proposals.filter((p) => userIds.has(p.id));
   const aiProposals = panel.proposals.filter((p) => !userIds.has(p.id));
 
-  const scenarioName = scenario?.easyName ?? scenario?.name ?? 'this change';
+  const scenarioName = scenario?.easyName ?? scenario?.name ?? 'this event';
   const listenText =
     panel.proposals.length > 0
-      ? `Here are ${panel.proposals.length} ideas to help with ${scenarioName}. ${panel.proposals
+      ? `Here are ${panel.proposals.length} ideas for coping with ${scenarioName}. ${panel.proposals
           .map((p, i) => `Idea ${i + 1}: ${p.title}. ${firstSentence(p.rationale)}`)
           .join(' ')}`
-      : `Finding ideas to help with ${scenarioName}.`;
+      : `Finding ideas for coping with ${scenarioName}.`;
 
   return (
     <div className="flex flex-col gap-4 min-h-0">
@@ -96,8 +96,8 @@ export function EasyIdeasView() {
           onClick={() => void runSuggest()}
           disabled={panel.streaming}
           className="p-2 rounded-lg text-slate-500 hover:bg-stone-100 hover:text-slate-800 disabled:opacity-40 min-h-[40px] min-w-[40px] flex items-center justify-center"
-          title="Get new ideas"
-          aria-label="Get new ideas"
+          title="Ask for a new set of ideas"
+          aria-label="Ask for a new set of ideas"
         >
           <RefreshCw className={`w-4 h-4 ${panel.streaming ? 'animate-spin' : ''}`} aria-hidden />
         </button>
@@ -109,8 +109,9 @@ export function EasyIdeasView() {
           <h2 className="text-lg font-semibold text-slate-900">{profile.strategyLabel}</h2>
         </div>
         <p className="text-sm text-slate-600 leading-snug">
-          For <span className="font-medium text-slate-800">{scenarioName}</span>. Tap an idea to see
-          it on the map.
+          Ideas for coping with <span className="font-medium text-slate-800">{scenarioName}</span>.
+          Tap “Show on map” under an idea to see what it fixes, or ask the AI helper about its
+          benefits and risks.
         </p>
       </div>
 
@@ -118,7 +119,7 @@ export function EasyIdeasView() {
       <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-3 space-y-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
           <PenLine className="w-4 h-4 shrink-0" aria-hidden />
-          My idea
+          Have your own idea?
         </div>
         <textarea
           value={draft}
@@ -194,7 +195,7 @@ export function EasyIdeasView() {
           panel.content &&
           panel.proposals.length === 0 && (
             <div className="text-sm text-slate-500 py-4 text-center">
-              No ideas came back. Tap refresh to try again.
+              No ideas came back. Tap the refresh arrow at the top to try again.
             </div>
           )}
       </div>
@@ -227,7 +228,7 @@ function EasyIdeaCard({
     // Put the idea in the AI's context (as a preview) so the answer stays grounded in it.
     if (!isApplied && !isPreviewing) startPreview(p.id);
     requestChatPrompt(
-      `Help me understand the idea "${p.title}" in very simple words. What would change for ${patient.name}, what could go wrong, and what should we ask the care team?`,
+      `Help me understand the idea "${p.title}" in very simple words. What would it change for ${patient.name}? What are the benefits? What are the risks or downsides? What would it take to do it, and what should ${patient.name} ask the care team?`,
     );
   }
 
@@ -296,7 +297,7 @@ function EasyIdeaCard({
       {impact.total > 0 && (
         <div>
           <div className="flex items-baseline justify-between gap-2 text-sm">
-            <span className="text-slate-500">Fixes</span>
+            <span className="text-slate-500">Fixes (of the affected things)</span>
             <span
               className={`font-semibold ${
                 repairs.total > 0 ? 'text-emerald-700' : 'text-slate-400'
@@ -313,7 +314,7 @@ function EasyIdeaCard({
           </div>
           {fixNames.length > 0 && (
             <p className="text-xs text-emerald-800 mt-1.5 leading-snug">
-              Helps: {fixNames.join(', ')}
+              Fixes: {fixNames.join(', ')}
               {repairs.entityIds.length > fixNames.length
                 ? ` +${repairs.entityIds.length - fixNames.length} more`
                 : ''}
@@ -353,7 +354,7 @@ function EasyIdeaCard({
             }}
             className="w-full rounded-xl bg-emerald-600 text-white text-sm font-medium px-3 py-2.5 min-h-[44px] hover:bg-emerald-700 transition"
           >
-            Try this idea
+            Keep this idea on the map
           </button>
         )}
         <button
@@ -362,7 +363,7 @@ function EasyIdeaCard({
           className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 text-sky-800 text-sm font-medium px-3 py-2.5 min-h-[44px] hover:bg-sky-100 hover:border-sky-300 transition"
         >
           <MessageCircleQuestion className="w-4 h-4" aria-hidden />
-          Ask AI about this idea
+          Ask about benefits and risks
         </button>
       </div>
     </div>

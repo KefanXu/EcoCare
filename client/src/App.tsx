@@ -301,7 +301,7 @@ export default function App() {
               className="absolute top-3 left-3 z-30 flex items-center gap-2 rounded-full bg-slate-900 text-white shadow-md px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-slate-800 pointer-events-auto"
             >
               <Sparkles className="w-4 h-4" aria-hidden />
-              Guide
+              Show the guide
             </button>
           )}
         </>
@@ -343,12 +343,12 @@ export default function App() {
               <div
                 role="separator"
                 aria-orientation="vertical"
-                aria-label="Resize guide"
+                aria-label="Change the width of the guide"
                 aria-valuemin={GUIDE_WIDTH_MIN}
                 aria-valuemax={GUIDE_WIDTH_MAX}
                 aria-valuenow={guideWidth}
                 tabIndex={0}
-                title="Drag to resize"
+                title="Drag to make the guide wider or narrower"
                 onPointerDown={onGuideResizeStart}
                 onPointerMove={onGuideResizeMove}
                 onPointerUp={onGuideResizeEnd}
@@ -375,8 +375,8 @@ export default function App() {
                   type="button"
                   onClick={() => closeGuide()}
                   className="p-1.5 rounded-lg text-slate-400 hover:bg-stone-100 hover:text-slate-700 transition min-h-[36px] min-w-[36px] flex items-center justify-center"
-                  aria-label="Close guide"
-                  title="Close guide"
+                  aria-label="Hide the guide"
+                  title="Hide the guide"
                 >
                   <X className="w-4 h-4" aria-hidden />
                 </button>
@@ -388,7 +388,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => reset()}
-                  title={t('reset')}
+                  title={t('resetTitle')}
                   className="w-full inline-flex items-center justify-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-stone-100/80 hover:bg-stone-200/80 border border-transparent hover:border-stone-200/80 rounded-xl px-4 py-2.5 min-h-[44px] transition"
                 >
                   <RotateCcw className="w-4 h-4" strokeWidth={2} aria-hidden />
@@ -422,7 +422,7 @@ export default function App() {
 
 /** Floating AI Sense-Making Assistant window (Easy + Standard). */
 function AssistantOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { profile } = useUiText();
+  const { t, easy, profile } = useUiText();
   const [rendered, setRendered] = useState(open);
   const [visible, setVisible] = useState(open);
   const skipEnterAnim = useRef(open);
@@ -457,15 +457,17 @@ function AssistantOverlay({ open, onClose }: { open: boolean; onClose: () => voi
     >
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-stone-200/80 shrink-0">
         <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
-          <div>AI Sense-Making Assistant</div>
-          <div className="mt-1 text-[11px] font-normal normal-case tracking-normal">{profile.label} perspective</div>
+          <div>{t('chatTitle')}</div>
+          <div className="mt-1 text-[11px] font-normal normal-case tracking-normal">
+            {easy ? `Answering from the ${profile.label.toLowerCase()}'s point of view` : `${profile.label} perspective`}
+          </div>
         </div>
         <button
           type="button"
           onClick={onClose}
           className="p-1.5 rounded-lg text-slate-400 hover:bg-stone-100 hover:text-slate-700 transition min-h-[36px] min-w-[36px] flex items-center justify-center"
-          aria-label="Minimize assistant"
-          title="Minimize"
+          aria-label={easy ? 'Hide the AI helper' : 'Minimize assistant'}
+          title={easy ? 'Hide the AI helper' : 'Minimize'}
         >
           <X className="w-4 h-4" aria-hidden />
         </button>
@@ -494,7 +496,7 @@ function EasyMiniLegend({ onExpand }: { onExpand: () => void }) {
           <circle r={2.2} cy={-2} fill="#64748b" />
           <path d="M-4.2 4.5 a4.2 3.6 0 0 1 8.4 0 Z" fill="#64748b" />
         </svg>
-        <span className="text-slate-700 font-medium">OK</span>
+        <span className="text-slate-700 font-medium">Doing OK</span>
       </div>
       <div className="flex items-center gap-2.5">
         <svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden>
@@ -516,7 +518,7 @@ function EasyMiniLegend({ onExpand }: { onExpand: () => void }) {
             </text>
           </g>
         </svg>
-        <span className="text-slate-700 font-medium">Hurt</span>
+        <span className="text-slate-700 font-medium">Affected</span>
       </div>
       <div className="flex items-center gap-2.5">
         <svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden>
@@ -536,7 +538,7 @@ function EasyMiniLegend({ onExpand }: { onExpand: () => void }) {
             />
           </g>
         </svg>
-        <span className="text-slate-700 font-medium">Fixed</span>
+        <span className="text-slate-700 font-medium">Fixed by an idea</span>
       </div>
       <div className="flex items-center gap-2.5">
         <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden>
@@ -559,14 +561,14 @@ function EasyMiniLegend({ onExpand }: { onExpand: () => void }) {
             strokeLinecap="round"
           />
         </svg>
-        <span className="text-slate-700 font-medium">Broken</span>
+        <span className="text-slate-700 font-medium">Broken connection</span>
       </div>
       <button
         type="button"
         onClick={onExpand}
         className="w-full text-left text-xs text-slate-500 hover:text-slate-700 pt-1 border-t border-stone-100"
       >
-        More about the map…
+        Show the full map key…
       </button>
     </div>
   );

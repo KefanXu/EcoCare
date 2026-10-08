@@ -20,10 +20,10 @@ export function describeEntityImpact(args: {
   const eventName = easy ? scenario.easyName ?? scenario.name : scenario.name;
   if (userMarked) {
     return easy
-      ? `You marked this as hurt by "${eventName}".`
+      ? `You marked this as affected by "${eventName}".`
       : `You marked this entity as impacted by "${eventName}".`;
   }
   return easy
-    ? `This is affected by "${eventName}".`
+    ? `This is affected by "${eventName}". Tap "Ask the AI helper" to learn how.`
     : `Disrupted by "${eventName}".`;
 }

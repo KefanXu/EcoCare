@@ -269,15 +269,20 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
             className="w-1.5 h-1.5 rounded-full shrink-0"
             style={{ background: CATEGORY_COLOR[e.category] }}
           />
-          <span className="text-slate-700">{e.label}</span>
+          <span className="text-slate-700">{easy ? e.easyLabel ?? e.label : e.label}</span>
           <span className="text-slate-300 group-hover:text-slate-500 text-[11px]">×</span>
         </button>
       );
     }
     const f = patient.flows.find((x) => x.id === ref.id);
     if (!f) return null;
-    const src = patient.entities.find((x) => x.id === f.source)?.label ?? f.source;
-    const tgt = patient.entities.find((x) => x.id === f.target)?.label ?? f.target;
+    const nameOf = (id: string) => {
+      const e = patient.entities.find((x) => x.id === id);
+      if (!e) return id;
+      return easy ? e.easyLabel ?? e.label : e.label;
+    };
+    const src = nameOf(f.source);
+    const tgt = nameOf(f.target);
     return (
       <button
         key={`f-${ref.id}`}
@@ -315,7 +320,9 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
               {t('chatTitle')}
             </div>
             <div className={`text-slate-500 mt-0.5 leading-snug ${easy ? 'text-sm' : 'text-[12px]'}`}>
-              Ask about the selected entities, flows, or the active LCE.
+              {easy
+                ? 'Ask a question about the map or the life-changing event.'
+                : 'Ask about the selected entities, flows, or the active life-changing event.'}
             </div>
           </div>
           {messages.length > 0 && (
@@ -326,7 +333,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                 easy ? 'text-sm px-3.5 py-1.5 min-h-[44px]' : 'text-[12px] px-3 py-1.5'
               }`}
             >
-              Clear
+              {easy ? 'Start a new chat' : 'Clear'}
             </button>
           )}
         </div>
@@ -338,7 +345,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
             onClick={resetChat}
             className="text-sm px-3.5 py-1.5 rounded-full border border-stone-200 text-slate-500 hover:border-stone-300 hover:text-slate-800 bg-white min-h-[40px] transition"
           >
-            Clear
+            {easy ? 'Start a new chat' : 'Clear'}
           </button>
         </div>
       )}
@@ -402,7 +409,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
             )}
             <div className="space-y-2">
               <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
-                {profile.label} perspective
+                {profile.label} questions
               </div>
               <div className="space-y-1.5">
                 {profile.questions.map((p, i) => (
@@ -522,7 +529,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
             }`}
           >
             <span className="text-[10px] uppercase tracking-wider text-slate-400 mr-0.5 font-semibold">
-              Context
+              {easy ? 'Asking about' : 'Context'}
             </span>
             {contextStrategies.map(({ proposal, status }) => (
               <button
@@ -532,9 +539,11 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                   status === 'previewing' ? cancelPreview() : discardOverlay(proposal.id)
                 }
                 title={
-                  status === 'previewing'
-                    ? 'Remove preview from context'
-                    : 'Remove applied strategy from context'
+                  easy
+                    ? 'Stop asking about this idea'
+                    : status === 'previewing'
+                      ? 'Remove preview from context'
+                      : 'Remove applied strategy from context'
                 }
                 className={`group inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full border shadow-[0_1px_2px_rgba(16,185,129,0.08)] transition ${
                   status === 'previewing'
@@ -547,7 +556,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                   {proposal.title}
                 </span>
                 <span className="text-[9px] uppercase tracking-wider text-emerald-600/70">
-                  {status === 'previewing' ? 'preview' : 'applied'}
+                  {status === 'previewing' ? (easy ? 'trying out' : 'preview') : (easy ? 'kept' : 'applied')}
                 </span>
                 <span className="text-emerald-400 group-hover:text-emerald-700">×</span>
               </button>
@@ -562,7 +571,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
               }}
               className="text-[11px] font-medium text-slate-400 hover:text-slate-700 ml-0.5 transition"
             >
-              Clear
+              {easy ? 'Clear all' : 'Clear'}
             </button>
           </div>
         )}
@@ -595,10 +604,10 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
               }}
               placeholder={
                 contextStrategies.length > 0
-                  ? 'Ask a follow-up about this strategy…'
+                  ? easy ? 'Ask more about this idea…' : 'Ask a follow-up about this strategy…'
                   : selection.length === 0
                     ? t('chatPlaceholder')
-                    : 'Ask about the selected items…'
+                    : easy ? 'Ask about what you tapped on the map…' : 'Ask about the selected items…'
               }
               className={`flex-1 min-w-0 bg-transparent border-0 text-slate-800 placeholder-slate-400 focus:outline-none resize-none ${
                 variant === 'drawer' ? 'py-3' : 'py-2'
@@ -617,7 +626,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                       }`
                 }
               >
-                Stop
+                {easy ? 'Stop answer' : 'Stop'}
               </button>
             ) : (
               <button

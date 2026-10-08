@@ -75,7 +75,7 @@ export function EasyGuide() {
   const damageText = scenario
     ? `${scenario.easyName ?? scenario.name}. ${scenario.easyStory ?? scenario.description} Right now ${hurtCount} ${
         hurtCount === 1 ? 'thing is' : 'things are'
-      } having trouble and ${brokenCount} ${
+      } affected and ${brokenCount} ${
         brokenCount === 1 ? 'connection is' : 'connections are'
       } broken. They are shown in red on the map.`
     : '';
@@ -99,7 +99,7 @@ export function EasyGuide() {
 
       {/* Step 1 — pick what changed */}
       <StepCard active={step === 1} muted={false}>
-        <StepHeading n={1} done={!!scenario} label="Pick what changed" />
+        <StepHeading n={1} done={!!scenario} label="Pick a life-changing event" />
         <div className="mt-3 space-y-2">
           {patient.scenarios.map((sc) => {
             const Icon = iconForScenario(sc.id);
@@ -139,15 +139,15 @@ export function EasyGuide() {
               className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 px-1 py-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" aria-hidden />
-              Go back to today (no change)
+              Undo. Show everyday life with no event.
             </button>
           )}
         </div>
       </StepCard>
 
-      {/* Step 2 — see what got hurt */}
+      {/* Step 2 — see what is affected */}
       <StepCard active={step === 2} muted={!scenario}>
-        <StepHeading n={2} done={!!scenario && hurtCount >= 0} label="Explore what is affected" />
+        <StepHeading n={2} done={!!scenario && hurtCount >= 0} label="See what the event affects" />
         {scenario ? (
           <div className="mt-3 space-y-3">
             <p className="text-base text-slate-700 leading-relaxed">
@@ -159,17 +159,17 @@ export function EasyGuide() {
               aria-live="polite"
             >
               <span className="font-semibold">{hurtCount}</span>{' '}
-              {hurtCount === 1 ? 'thing is' : 'things are'} having trouble ·{' '}
+              {hurtCount === 1 ? 'thing is' : 'things are'} affected by this event ·{' '}
               <span className="font-semibold">{brokenCount}</span>{' '}
-              {brokenCount === 1 ? 'connection' : 'connections'} broken.
+              {brokenCount === 1 ? 'connection is' : 'connections are'} broken.
               <div className="text-sm text-rose-700/80 mt-1">
-                Look for the red circles and the ✕ marks on the map.
+                On the map, affected things have a red ring. Broken connections have a red ✕.
               </div>
             </div>
 
             {hurtEntities.length > 0 && (
               <div className="space-y-1.5">
-                <div className="text-sm font-semibold text-slate-700">Tap one to learn more:</div>
+                <div className="text-sm font-semibold text-slate-700">Tap one to read how it is affected:</div>
                 <div className="flex flex-col gap-1.5">
                   {hurtEntities.map((e) => {
                     const Icon = iconFor(e.id, e.category);
@@ -207,13 +207,13 @@ export function EasyGuide() {
             </div>
           </div>
         ) : (
-          <p className="mt-2 text-sm text-slate-500">Pick what changed first.</p>
+          <p className="mt-2 text-sm text-slate-500">First, pick a life-changing event in step 1.</p>
         )}
       </StepCard>
 
-      {/* Step 3 — get ideas */}
+      {/* Step 3 — decide what to do */}
       <StepCard active={step === 3} muted={!scenario}>
-        <StepHeading n={3} done={suggestOpen} label={profile.strategyLabel} />
+        <StepHeading n={3} done={suggestOpen} label={profile.decideLabel} />
         {scenario ? (
           <div className="mt-3 space-y-3">
             <button
@@ -228,10 +228,10 @@ export function EasyGuide() {
             <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-3 space-y-2">
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                 <PenLine className="w-4 h-4 text-slate-600 shrink-0" aria-hidden />
-                Share my idea
+                Have your own idea?
               </div>
               <p className="text-sm text-slate-600 leading-snug">
-                Tell us what you would try. We will show how it could change the map.
+                Write what you would do. The map will show what it could fix.
               </p>
               <textarea
                 value={myIdea}
@@ -251,7 +251,7 @@ export function EasyGuide() {
                 }}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 text-emerald-800 text-base font-medium px-3 py-3 min-h-[48px] hover:bg-emerald-100 disabled:opacity-50 transition"
               >
-                See it on the map
+                Show my idea on the map
               </button>
             </div>
 
@@ -266,15 +266,16 @@ export function EasyGuide() {
               className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-sky-300 bg-sky-50 text-sky-800 text-base font-medium px-3 py-3 min-h-[48px] hover:bg-sky-100 transition"
             >
               <MessageCircle className="w-5 h-5" aria-hidden />
-              Ask the helper
+              Ask the AI helper about this event
             </button>
             <p className="text-sm text-slate-500 leading-relaxed">
-              Then tap <span className="font-medium text-slate-600">"Show on map"</span> on an idea
-              to see how it helps.
+              When you see an idea you like, tap{' '}
+              <span className="font-medium text-slate-600">"Show on map"</span> to see what it fixes.
+              You can also ask the AI helper about the benefits and risks of each idea.
             </p>
           </div>
         ) : (
-          <p className="mt-2 text-sm text-slate-500">Pick what changed first.</p>
+          <p className="mt-2 text-sm text-slate-500">First, pick a life-changing event in step 1.</p>
         )}
       </StepCard>
     </div>

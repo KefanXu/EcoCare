@@ -101,8 +101,8 @@ export function ScenarioBar() {
             type="button"
             onClick={() => (helperOpen ? closeHelper() : openHelper())}
             aria-pressed={helperOpen}
-            aria-label="AI Sense-Making Assistant"
-            title="AI Sense-Making Assistant"
+            aria-label={easy ? (helperOpen ? 'Hide the AI helper' : 'Show the AI helper') : 'AI Sense-Making Assistant'}
+            title={easy ? (helperOpen ? 'Hide the AI helper' : 'Show the AI helper') : 'AI Sense-Making Assistant'}
             className={`inline-flex items-center justify-center gap-2 font-medium rounded-full transition-all duration-150 ${
               helperOpen
                 ? 'bg-sky-600 text-white border border-sky-600 shadow-sm'
@@ -116,7 +116,7 @@ export function ScenarioBar() {
             <MessageCircle className={`shrink-0 ${easy ? 'w-4 h-4' : 'w-3.5 h-3.5'}`} aria-hidden />
             {!easy && <span className="hidden sm:inline xl:hidden whitespace-nowrap">AI assistant</span>}
             <span className="hidden xl:inline whitespace-nowrap">
-              AI Sense-Making Assistant
+              {t('chatTitle')}
             </span>
           </button>
 
@@ -156,7 +156,7 @@ export function ScenarioBar() {
             <button
               type="button"
               onClick={reset}
-              title={t('reset')}
+              title={t('resetTitle')}
               className="inline-flex h-[38px] items-center gap-1.5 font-medium text-slate-600 hover:text-slate-900 bg-stone-100/80 hover:bg-stone-200/80 border border-transparent hover:border-stone-200/80 transition-all duration-150 text-[12px] px-3 rounded-full"
             >
               <RotateCcw className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />

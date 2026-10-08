@@ -23,7 +23,7 @@ export function EditToolbar() {
   const fileRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [listOpen, setListOpen] = useState(false);
-  const { t } = useUiText();
+  const { t, easy } = useUiText();
 
   const hasLce = !!activeScenarioId;
   const marked = new Set(userImpactEntityIds);
@@ -66,7 +66,7 @@ export function EditToolbar() {
   }
 
   function onReset() {
-    if (confirm('Reset to seeded ecology? Your edits will be lost.')) {
+    if (confirm(t('resetEcologyConfirm'))) {
       resetEcology();
     }
   }
@@ -151,20 +151,20 @@ export function EditToolbar() {
 
         <div className="dock-file-actions flex items-center gap-0.5 pr-0.5">
           <IconAction
-            title="Export ecology as JSON"
-            label="Export"
+            title={t('exportTitle')}
+            label={t('export')}
             onClick={onExport}
             icon={<Download className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />}
           />
           <IconAction
-            title="Import ecology from JSON"
-            label="Import"
+            title={t('importTitle')}
+            label={t('import')}
             onClick={() => fileRef.current?.click()}
             icon={<Upload className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />}
           />
           <IconAction
-            title="Reset to seeded ecology"
-            label="Reset"
+            title={t('resetEcologyTitle')}
+            label={t('resetEcology')}
             onClick={onReset}
             danger
             icon={<RotateCcw className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />}
@@ -174,9 +174,9 @@ export function EditToolbar() {
         <details className="dock-more relative" onKeyDown={(event) => {
           if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); }
         }}>
-          <summary aria-label="More map actions" title="More map actions" className="list-none cursor-pointer w-10 h-10 flex items-center justify-center rounded-full hover:bg-stone-100 text-slate-600"><MoreHorizontal className="w-4 h-4" /><span className="dock-label text-[13px] font-medium">More actions</span></summary>
+          <summary aria-label={t('more')} title={t('more')} className="list-none cursor-pointer w-10 h-10 flex items-center justify-center rounded-full hover:bg-stone-100 text-slate-600"><MoreHorizontal className="w-4 h-4" /><span className="dock-label text-[13px] font-medium">{t('more')}</span></summary>
           <div className="map-panel absolute bottom-full right-0 mb-3 w-44 p-1">
-            {[{ label: 'Export', Icon: Download, action: onExport }, { label: 'Import', Icon: Upload, action: () => fileRef.current?.click() }, { label: 'Reset ecology', Icon: RotateCcw, action: onReset }].map(({ label, Icon, action }) => (
+            {[{ label: t('export'), Icon: Download, action: onExport }, { label: t('import'), Icon: Upload, action: () => fileRef.current?.click() }, { label: t('resetEcology'), Icon: RotateCcw, action: onReset }].map(({ label, Icon, action }) => (
               <button key={label} type="button" className="flex items-center gap-2 w-full p-2.5 text-xs text-left rounded-lg hover:bg-stone-100" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); action(); }}><Icon className="w-4 h-4" />{label}</button>
             ))}
           </div>
@@ -222,7 +222,7 @@ export function EditToolbar() {
                     onChange={() => toggleUserImpactEntity(e.id)}
                     className="rounded border-stone-300 text-rose-600 focus:ring-rose-300"
                   />
-                  <span className="truncate font-medium">{e.label}</span>
+                  <span className="truncate font-medium">{easy ? e.easyLabel ?? e.label : e.label}</span>
                 </label>
               );
             })}
