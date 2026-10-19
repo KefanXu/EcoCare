@@ -1,6 +1,7 @@
 import type { Conflict, LCE, Patient, SelectionRef } from '../types/ecology';
 import type { EcologyProposal } from '../types/proposals';
 import type { ParticipantRole } from './participantRoles';
+import { translate, type Language } from '../i18n';
 
 export interface ContextStrategy {
   id: string;
@@ -17,6 +18,8 @@ export interface ContextStrategy {
 export interface ChatContextPayload {
   participantRole: ParticipantRole;
   uiMode: 'standard' | 'easy';
+  /** Reply language; case text below is already in this language. */
+  language: Language;
   patient: { name: string; condition: string; background: string };
   scenario: { name: string; description: string } | null;
   selectedEntities: Array<{
@@ -74,6 +77,7 @@ function summarizeStrategy(
 export function buildChatContext(args: {
   participantRole: ParticipantRole;
   uiMode: 'standard' | 'easy';
+  language?: Language;
   /** Effective patient (may include overlay entities/flows). */
   patient: Patient;
   /** Base patient without overlays — used for known-id lists. */
@@ -101,7 +105,9 @@ export function buildChatContext(args: {
     previewStrategy = null,
     appliedStrategies = [],
     userImpactEntityIds = [],
+    language = 'en',
   } = args;
+  const L = (text: string) => translate(language, text);
   const entityById = new Map(patient.entities.map((e) => [e.id, e]));
   const flowById = new Map(patient.flows.map((f) => [f.id, f]));
   const userMarked = new Set(userImpactEntityIds);
@@ -112,10 +118,10 @@ export function buildChatContext(args: {
     .filter((e): e is NonNullable<typeof e> => !!e)
     .map((e) => ({
       id: e.id,
-      label: e.label,
+      label: L(e.label),
       category: e.category,
       layer: e.layer,
-      description: e.description,
+      description: L(e.description),
       isDisrupted: disrupted.has(e.id),
     }));
 
@@ -125,11 +131,11 @@ export function buildChatContext(args: {
     .filter((f): f is NonNullable<typeof f> => !!f)
     .map((f) => ({
       id: f.id,
-      source: entityById.get(f.source)?.label ?? f.source,
-      target: entityById.get(f.target)?.label ?? f.target,
-      label: f.label,
+      source: L(entityById.get(f.source)?.label ?? f.source),
+      target: L(entityById.get(f.target)?.label ?? f.target),
+      label: L(f.label),
       kind: f.kind,
-      description: f.description,
+      description: L(f.description),
       isBroken: broken.has(f.id),
     }));
 
@@ -147,25 +153,26 @@ export function buildChatContext(args: {
   return {
     participantRole: args.participantRole,
     uiMode: args.uiMode,
+    language,
     patient: {
-      name: patient.name,
-      condition: patient.condition,
-      background: patient.background,
+      name: L(patient.name),
+      condition: L(patient.condition),
+      background: L(patient.background),
     },
     scenario: scenario
-      ? { name: scenario.name, description: scenario.description }
+      ? { name: L(scenario.name), description: L(scenario.description) }
       : null,
     selectedEntities,
     selectedFlows,
     activeConflicts: conflicts.map((c) => ({
       id: c.id,
-      title: c.title,
-      description: c.description,
+      title: L(c.title),
+      description: L(c.description),
     })),
     activeStrategies,
     careEcology: {
-      entities: patient.entities.map(({ id, label, category, layer, description }) => ({ id, label, category, layer, description })),
-      flows: patient.flows.map(({ id, source, target, label, kind, description, content }) => ({ id, source, target, label, kind, description, content })),
+      entities: patient.entities.map(({ id, label, category, layer, description }) => ({ id, label: L(label), category, layer, description: L(description) })),
+      flows: patient.flows.map(({ id, source, target, label, kind, description, content }) => ({ id, source, target, label: L(label), kind, description: L(description), content: L(content) })),
     },
     ecologyIndex: {
       entityIds: basePatient.entities.map((e) => e.id),
@@ -179,16 +186,16 @@ export function buildChatContext(args: {
       entities: [...disrupted]
         .map((id) => ({
           id,
-          label: entityById.get(id)?.label ?? id,
+          label: L(entityById.get(id)?.label ?? id),
           ...(userMarked.has(id) ? { userMarked: true as const } : {}),
         }))
         .filter((e) => !!e.label),
       flows: [...broken].map((id) => {
         const f = patient.flows.find((x) => x.id === id);
         if (!f) return { id, label: id };
-        const src = entityById.get(f.source)?.label ?? f.source;
-        const tgt = entityById.get(f.target)?.label ?? f.target;
-        return { id, label: `${src} → ${tgt} (${f.label})` };
+        const src = L(entityById.get(f.source)?.label ?? f.source);
+        const tgt = L(entityById.get(f.target)?.label ?? f.target);
+        return { id, label: `${src} → ${tgt} (${L(f.label)})` };
       }),
     },
   };

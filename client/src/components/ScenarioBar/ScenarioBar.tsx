@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, MessageCircle, RotateCcw, Search, Sparkles, X } from 'lucide-react';
+import { Check, ChevronDown, Languages, MessageCircle, RotateCcw, Search, Sparkles, X } from 'lucide-react';
 import { useEcoStore } from '../../store/useEcoStore';
 import { useUiText } from '../../lib/uiText';
+import { useI18n } from '../../i18n';
 import { iconForScenario } from '../../lib/entityIcons';
 import { RoleSwitcher } from './RoleSwitcher';
 
@@ -17,7 +18,7 @@ export function ScenarioBar() {
   const closeHelper = useEcoStore((s) => s.closeHelper);
   const entitySearchQuery = useEcoStore((s) => s.entitySearchQuery);
   const setEntitySearchQuery = useEcoStore((s) => s.setEntitySearchQuery);
-  const { t, easy } = useUiText();
+  const { t, tr, easy } = useUiText();
   // Phone (Easy): the search field lives on a second row behind a toggle.
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
@@ -52,8 +53,8 @@ export function ScenarioBar() {
             ? 'opacity-100 hover:bg-stone-200/80 hover:text-slate-700'
             : 'pointer-events-none opacity-0'
         }`}
-        title="Clear search"
-        aria-label="Clear search"
+        title={tr('Clear search')}
+        aria-label={tr('Clear search')}
       >
         <X className="w-3.5 h-3.5" aria-hidden />
       </button>
@@ -62,19 +63,19 @@ export function ScenarioBar() {
 
   return (
     <header className="relative z-40 shrink-0 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-stone-200/80 bg-white/90 backdrop-blur-xl shadow-[0_1px_0_rgba(28,25,23,0.04)]">
-      <div className="flex items-center flex-wrap gap-2 sm:gap-3 min-h-[40px]">
+      <div className="flex items-center flex-wrap gap-1.5 sm:gap-3 min-h-[40px]">
         {/* Brand */}
         <RoleSwitcher />
         <div className={`flex-col min-w-0 max-w-[220px] ${easy ? 'hidden sm:flex' : 'flex'}`}>
           <div
-            title={`${patient.name}: ${patient.condition}`}
+            title={`${tr(patient.name)}: ${tr(patient.condition)}`}
             className={`text-slate-500 truncate ${
               easy ? 'text-sm' : 'text-[11px] leading-tight mt-0.5'
             }`}
           >
-            Case: {patient.name}
+            {tr('Case: {name}', { name: tr(patient.name) })}
             <span className="text-stone-300 mx-1.5">·</span>
-            {patient.condition}
+            {tr(patient.condition)}
           </div>
         </div>
 
@@ -89,8 +90,8 @@ export function ScenarioBar() {
               <ScenarioDropdown
                 valueId={activeScenarioId}
                 baselineLabel={t('baseline')}
-                activeLabel={activeScenario?.name ?? t('baseline')}
-                activeDescription={activeScenario?.description}
+                activeLabel={activeScenario ? tr(activeScenario.name) : t('baseline')}
+                activeDescription={activeScenario ? tr(activeScenario.description) : undefined}
                 ActiveIcon={ActiveIcon}
                 scenarios={patient.scenarios}
                 onSelect={setScenario}
@@ -110,8 +111,8 @@ export function ScenarioBar() {
               onClick={() => setMobileSearchOpen((v) => !v)}
               aria-expanded={mobileSearchOpen}
               aria-controls="easy-mobile-search"
-              aria-label={mobileSearchOpen ? 'Hide search' : 'Search the map'}
-              title={mobileSearchOpen ? 'Hide search' : 'Search the map'}
+              aria-label={tr(mobileSearchOpen ? 'Hide search' : 'Search the map')}
+              title={tr(mobileSearchOpen ? 'Hide search' : 'Search the map')}
               className={`sm:hidden ml-auto inline-flex items-center justify-center rounded-full border transition min-h-[40px] min-w-[40px] ${
                 mobileSearchOpen || entitySearchQuery.trim()
                   ? 'bg-slate-900 text-white border-slate-900'
@@ -124,13 +125,13 @@ export function ScenarioBar() {
         )}
 
         {/* Mode + assistant + reset */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0 max-w-full">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 max-w-full">
           <button
             type="button"
             onClick={() => (helperOpen ? closeHelper() : openHelper())}
             aria-pressed={helperOpen}
-            aria-label={easy ? (helperOpen ? 'Hide the AI helper' : 'Show the AI helper') : 'AI Sense-Making Assistant'}
-            title={easy ? (helperOpen ? 'Hide the AI helper' : 'Show the AI helper') : 'AI Sense-Making Assistant'}
+            aria-label={tr(easy ? (helperOpen ? 'Hide the AI helper' : 'Show the AI helper') : 'AI Sense-Making Assistant')}
+            title={tr(easy ? (helperOpen ? 'Hide the AI helper' : 'Show the AI helper') : 'AI Sense-Making Assistant')}
             className={`inline-flex items-center justify-center gap-2 font-medium rounded-full transition-all duration-150 ${
               helperOpen
                 ? 'bg-sky-600 text-white border border-sky-600 shadow-sm'
@@ -142,7 +143,7 @@ export function ScenarioBar() {
             }`}
           >
             <MessageCircle className={`shrink-0 ${easy ? 'w-4 h-4' : 'w-3.5 h-3.5'}`} aria-hidden />
-            {!easy && <span className="hidden sm:inline xl:hidden whitespace-nowrap">AI assistant</span>}
+            {!easy && <span className="hidden sm:inline xl:hidden whitespace-nowrap">{tr('AI assistant')}</span>}
             <span className="hidden xl:inline whitespace-nowrap">
               {t('chatTitle')}
             </span>
@@ -150,7 +151,7 @@ export function ScenarioBar() {
 
           <div
             role="group"
-            aria-label="Display mode"
+            aria-label={tr('Display mode')}
             className="flex items-center rounded-full border border-stone-200/80 bg-stone-100/80 p-0.5 shadow-[inset_0_1px_1px_rgba(28,25,23,0.04)]"
           >
             <button
@@ -163,7 +164,7 @@ export function ScenarioBar() {
                   : 'text-slate-500 hover:text-slate-700 border border-transparent'
               }`}
             >
-              Standard
+              {tr('Standard')}
             </button>
             <button
               type="button"
@@ -175,10 +176,12 @@ export function ScenarioBar() {
                   : 'text-slate-500 hover:text-slate-700 border border-transparent'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5" aria-hidden />
-              Easy
+              <Sparkles className="hidden sm:block w-3.5 h-3.5" aria-hidden />
+              {tr('Easy')}
             </button>
           </div>
+
+          <LanguageToggle />
 
           {!easy && (
             <button
@@ -203,6 +206,28 @@ export function ScenarioBar() {
   );
 }
 
+/** Switches the interface language. Labelled in the target language so it can be found either way. */
+function LanguageToggle() {
+  const { lang } = useI18n();
+  const setLanguage = useEcoStore((s) => s.setLanguage);
+  const toZh = lang === 'en';
+  const label = toZh ? '切换到中文 (Switch to Chinese)' : 'Switch to English (切换到英文)';
+  return (
+    <button
+      type="button"
+      onClick={() => setLanguage(toZh ? 'zh' : 'en')}
+      aria-label={label}
+      title={label}
+      lang={toZh ? 'zh-CN' : 'en'}
+      className="inline-flex items-center justify-center gap-1.5 rounded-full border border-stone-200/80 bg-white text-slate-700 hover:bg-stone-50 hover:border-stone-300 transition text-[12px] font-medium min-h-[36px] min-w-[36px] px-2.5"
+    >
+      <Languages className="hidden sm:block w-3.5 h-3.5 shrink-0" aria-hidden />
+      <span className="sm:hidden">{toZh ? '中' : 'EN'}</span>
+      <span className="hidden sm:inline whitespace-nowrap">{toZh ? '中文' : 'English'}</span>
+    </button>
+  );
+}
+
 function ScenarioDropdown({
   valueId,
   baselineLabel,
@@ -220,6 +245,7 @@ function ScenarioDropdown({
   scenarios: Array<{ id: string; name: string; description: string }>;
   onSelect: (id: string | null) => void;
 }) {
+  const { tr } = useI18n();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const isDanger = valueId !== null;
@@ -271,7 +297,7 @@ function ScenarioDropdown({
       {open && (
         <div
           role="listbox"
-          aria-label="Life-changing event"
+          aria-label={tr('Life-changing event')}
           className="absolute left-0 top-full mt-1.5 z-50 min-w-[min(100%,22rem)] w-max max-w-[min(24rem,calc(100vw-2rem))] rounded-2xl border border-stone-200/80 bg-white shadow-[0_12px_40px_rgba(28,25,23,0.18),inset_0_1px_0_rgba(255,255,255,1)] backdrop-blur-xl p-1.5 overflow-hidden"
         >
           <div className="relative z-10">
@@ -289,8 +315,8 @@ function ScenarioDropdown({
                 <ScenarioOption
                   key={sc.id}
                   selected={valueId === sc.id}
-                  label={sc.name}
-                  description={sc.description}
+                  label={tr(sc.name)}
+                  description={tr(sc.description)}
                   icon={<Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={2} aria-hidden />}
                   danger
                   onClick={() => {

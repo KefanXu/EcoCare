@@ -71,11 +71,11 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
     }
     return list;
   }, [appliedOverlay, previewStrategy]);
-  const { t, easy, role, profile } = useUiText();
+  const { t, tr, lang, easy, role, profile } = useUiText();
   const roleRevision = useEcoStore((s) => s.roleRevision);
   const quickQuestions = profile.quickLabels.map((label, index) => ({
     label,
-    prompt: index < 2 ? profile.questions[index] : index === 2 ? profile.eventQuestions[0] : `${profile.eventQuestions[1]} ${SUGGEST_STRATEGIES_PROMPT}`,
+    prompt: index < 2 ? profile.questions[index] : index === 2 ? profile.eventQuestions[0] : `${profile.eventQuestions[1]} ${tr(SUGGEST_STRATEGIES_PROMPT)}`,
     icon: [MapIcon, Users, HeartCrack, Wrench][index],
     needsScenario: index > 1,
   }));
@@ -139,6 +139,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
     return buildChatContext({
       participantRole: role,
       uiMode: easy ? 'easy' : 'standard',
+      language: lang,
       patient,
       basePatient,
       scenario,
@@ -212,7 +213,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
         onError: (msg) => {
           if (!current()) return;
           streamErrored = true;
-          appendToLast(`\n\n*Error: ${msg}*`);
+          appendToLast(`\n\n*${tr('Error: {message}', { message: tr(msg) })}*`);
           finishStreaming();
         },
       },
@@ -269,7 +270,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
             className="w-1.5 h-1.5 rounded-full shrink-0"
             style={{ background: CATEGORY_COLOR[e.category] }}
           />
-          <span className="text-slate-700">{easy ? e.easyLabel ?? e.label : e.label}</span>
+          <span className="text-slate-700">{tr(easy ? e.easyLabel ?? e.label : e.label)}</span>
           <span className="text-slate-300 group-hover:text-slate-500 text-[11px]">×</span>
         </button>
       );
@@ -279,7 +280,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
     const nameOf = (id: string) => {
       const e = patient.entities.find((x) => x.id === id);
       if (!e) return id;
-      return easy ? e.easyLabel ?? e.label : e.label;
+      return tr(easy ? e.easyLabel ?? e.label : e.label);
     };
     const src = nameOf(f.source);
     const tgt = nameOf(f.target);
@@ -320,9 +321,11 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
               {t('chatTitle')}
             </div>
             <div className={`text-slate-500 mt-0.5 leading-snug ${easy ? 'text-sm' : 'text-[12px]'}`}>
-              {easy
-                ? 'Ask a question about the map or the life-changing event.'
-                : 'Ask about the selected entities, flows, or the active life-changing event.'}
+              {tr(
+                easy
+                  ? 'Ask a question about the map or the life-changing event.'
+                  : 'Ask about the selected entities, flows, or the active life-changing event.',
+              )}
             </div>
           </div>
           {messages.length > 0 && (
@@ -333,7 +336,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                 easy ? 'text-sm px-3.5 py-1.5 min-h-[44px]' : 'text-[12px] px-3 py-1.5'
               }`}
             >
-              {easy ? 'Start a new chat' : 'Clear'}
+              {tr(easy ? 'Start a new chat' : 'Clear')}
             </button>
           )}
         </div>
@@ -345,7 +348,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
             onClick={resetChat}
             className="text-sm px-3.5 py-1.5 rounded-full border border-stone-200 text-slate-500 hover:border-stone-300 hover:text-slate-800 bg-white min-h-[40px] transition"
           >
-            {easy ? 'Start a new chat' : 'Clear'}
+            {tr(easy ? 'Start a new chat' : 'Clear')}
           </button>
         </div>
       )}
@@ -390,7 +393,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
             {scenario && (
               <div className="space-y-2">
                 <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
-                  Suggested for “{scenario.name}”
+                  {tr('Suggested for “{name}”', { name: tr(scenario.name) })}
                 </div>
                 <div className="space-y-1.5">
                   {profile.eventQuestions.map((p, i) => (
@@ -409,7 +412,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
             )}
             <div className="space-y-2">
               <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
-                {profile.label} questions
+                {tr('{role} questions', { role: profile.label })}
               </div>
               <div className="space-y-1.5">
                 {profile.questions.map((p, i) => (
@@ -450,7 +453,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                       easy ? 'text-xs' : 'text-[10px]'
                     }`}
                   >
-                    Assistant
+                    {tr('Assistant')}
                   </div>
                 )}
                 {m.role === 'assistant' ? (
@@ -478,7 +481,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
               {showFollowUps && (
                 <div className="mr-1 space-y-1.5">
                   <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                    Suggested follow-ups
+                    {tr('Suggested follow-ups')}
                   </div>
                   {m.followUps!.map((q, i) => (
                     <button
@@ -529,7 +532,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
             }`}
           >
             <span className="text-[10px] uppercase tracking-wider text-slate-400 mr-0.5 font-semibold">
-              {easy ? 'Asking about' : 'Context'}
+              {tr(easy ? 'Asking about' : 'Context')}
             </span>
             {contextStrategies.map(({ proposal, status }) => (
               <button
@@ -538,13 +541,13 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                 onClick={() =>
                   status === 'previewing' ? cancelPreview() : discardOverlay(proposal.id)
                 }
-                title={
+                title={tr(
                   easy
                     ? 'Stop asking about this idea'
                     : status === 'previewing'
                       ? 'Remove preview from context'
-                      : 'Remove applied strategy from context'
-                }
+                      : 'Remove applied strategy from context',
+                )}
                 className={`group inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full border shadow-[0_1px_2px_rgba(16,185,129,0.08)] transition ${
                   status === 'previewing'
                     ? 'border-emerald-300/80 border-dashed bg-emerald-50/90 hover:border-emerald-400'
@@ -556,7 +559,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                   {proposal.title}
                 </span>
                 <span className="text-[9px] uppercase tracking-wider text-emerald-600/70">
-                  {status === 'previewing' ? (easy ? 'trying out' : 'preview') : (easy ? 'kept' : 'applied')}
+                  {tr(status === 'previewing' ? (easy ? 'trying out' : 'preview') : (easy ? 'kept' : 'applied'))}
                 </span>
                 <span className="text-emerald-400 group-hover:text-emerald-700">×</span>
               </button>
@@ -571,7 +574,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
               }}
               className="text-[11px] font-medium text-slate-400 hover:text-slate-700 ml-0.5 transition"
             >
-              {easy ? 'Clear all' : 'Clear'}
+              {tr(easy ? 'Clear all' : 'Clear')}
             </button>
           </div>
         )}
@@ -604,10 +607,10 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
               }}
               placeholder={
                 contextStrategies.length > 0
-                  ? easy ? 'Ask more about this idea…' : 'Ask a follow-up about this strategy…'
+                  ? tr(easy ? 'Ask more about this idea…' : 'Ask a follow-up about this strategy…')
                   : selection.length === 0
                     ? t('chatPlaceholder')
-                    : easy ? 'Ask about what you tapped on the map…' : 'Ask about the selected items…'
+                    : tr(easy ? 'Ask about what you tapped on the map…' : 'Ask about the selected items…')
               }
               className={`flex-1 min-w-0 bg-transparent border-0 text-slate-800 placeholder-slate-400 focus:outline-none resize-none ${
                 variant === 'drawer' ? 'py-3' : 'py-2'
@@ -626,7 +629,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                       }`
                 }
               >
-                {easy ? 'Stop answer' : 'Stop'}
+                {tr(easy ? 'Stop answer' : 'Stop')}
               </button>
             ) : (
               <button

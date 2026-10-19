@@ -6,7 +6,7 @@ export function ConnectModeOverlay() {
   const connectMode = useEcoStore((s) => s.connectMode);
   const cancel = useEcoStore((s) => s.cancelConnectMode);
   const patient = useEcoStore((s) => s.patient);
-  const { t, easy } = useUiText();
+  const { t, tr, easy } = useUiText();
 
   useEffect(() => {
     if (!connectMode.active) return;
@@ -19,9 +19,10 @@ export function ConnectModeOverlay() {
 
   if (!connectMode.active) return null;
 
-  const sourceLabel = connectMode.sourceId
-    ? patient.entities.find((e) => e.id === connectMode.sourceId)?.label
+  const sourceEntity = connectMode.sourceId
+    ? patient.entities.find((e) => e.id === connectMode.sourceId)
     : null;
+  const sourceLabel = sourceEntity ? tr(sourceEntity.label) : null;
 
   const step = connectMode.sourceId ? 2 : 1;
 
@@ -64,7 +65,7 @@ export function ConnectModeOverlay() {
             t('connectStep1')
           ) : (
             <>
-              {t('connectSource')} <span className="font-semibold">{sourceLabel}</span>.{' '}
+              {t('connectSource')} <span className="font-semibold">{sourceLabel}</span>{tr('. ')}
               {t('connectStep2')}
             </>
           )}

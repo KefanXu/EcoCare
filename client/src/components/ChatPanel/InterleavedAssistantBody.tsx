@@ -4,6 +4,12 @@ import type { EcologyHighlight, EcologyProposal } from '../../types/proposals';
 import { HighlightCards } from './HighlightCards';
 import { Markdown } from './Markdown';
 import { ProposalCard } from './ProposalCards';
+import { useI18n } from '../../i18n';
+
+/** The parser needs the English `### Strategy N` marker; show it in Chinese. */
+function localizeHeadings(markdown: string, zh: boolean): string {
+  return zh ? markdown.replace(/^(#{2,4})\s+Strategy\s+(\d+)/gim, '$1 策略 $2') : markdown;
+}
 
 interface InterleavedAssistantBodyProps {
   content: string;
@@ -26,6 +32,7 @@ export function InterleavedAssistantBody({
   streaming = false,
   flush = false,
 }: InterleavedAssistantBodyProps) {
+  const { zh } = useI18n();
   const segments = useMemo(() => {
     if (streaming || proposals.length === 0) {
       return [{ markdown: content }] as ReturnType<typeof interleaveProposalsWithContent>;
@@ -41,7 +48,7 @@ export function InterleavedAssistantBody({
         <div key={`seg-${i}`} className="space-y-2">
           {seg.markdown.trim() ? (
             <div className="text-sm text-slate-700 leading-relaxed">
-              <Markdown>{seg.markdown}</Markdown>
+              <Markdown>{localizeHeadings(seg.markdown, zh)}</Markdown>
             </div>
           ) : null}
           {seg.proposal ? <ProposalCard proposal={seg.proposal} flush /> : null}

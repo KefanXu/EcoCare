@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Volume2, Square } from 'lucide-react';
 import { speak, speechAvailable, stopSpeaking } from '../../lib/speech';
+import { useI18n } from '../../i18n';
 
 /**
  * Icon-only "read aloud" button. Speaks `text` via speech synthesis and
@@ -17,6 +18,7 @@ export function SpeakButton({
   size?: 'sm' | 'md';
 }) {
   const [speaking, setSpeaking] = useState(false);
+  const { tr } = useI18n();
 
   useEffect(() => {
     return () => {
@@ -47,8 +49,8 @@ export function SpeakButton({
     <button
       type="button"
       onClick={toggle}
-      aria-label={speaking ? 'Stop reading' : 'Listen'}
-      title={speaking ? 'Stop reading' : 'Listen'}
+      aria-label={tr(speaking ? 'Stop reading' : 'Listen')}
+      title={tr(speaking ? 'Stop reading' : 'Listen')}
       className={`inline-flex items-center justify-center rounded-lg border transition ${
         speaking
           ? 'border-sky-400 bg-sky-50 text-sky-700'

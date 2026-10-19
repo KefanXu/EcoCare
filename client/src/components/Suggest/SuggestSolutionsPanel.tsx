@@ -19,7 +19,7 @@ export function SuggestSolutionsPanel() {
 }
 
 function SuggestSolutionsPanelStandard() {
-  const { profile } = useUiText();
+  const { profile, tr } = useUiText();
   const panel = useEcoStore((s) => s.suggestPanel);
   const closeSuggestPanel = useEcoStore((s) => s.closeSuggestPanel);
   const setSuggestPanelPosition = useEcoStore((s) => s.setSuggestPanelPosition);
@@ -185,8 +185,8 @@ function SuggestSolutionsPanelStandard() {
               onClick={() => void runSuggest()}
               disabled={panel.streaming}
               className="map-panel-action disabled:opacity-40"
-              title="Regenerate"
-              aria-label="Regenerate strategies"
+              title={tr('Regenerate')}
+              aria-label={tr('Regenerate strategies')}
             >
               <RefreshCw
                 className={`w-3.5 h-3.5 ${panel.streaming ? 'animate-spin' : ''}`}
@@ -197,8 +197,8 @@ function SuggestSolutionsPanelStandard() {
               type="button"
               onClick={handleClose}
               className="map-panel-action"
-              title="Close"
-              aria-label="Close strategies panel"
+              title={tr('Close')}
+              aria-label={tr('Close strategies panel')}
             >
               <X className="w-3.5 h-3.5" aria-hidden />
             </button>
@@ -213,20 +213,20 @@ function SuggestSolutionsPanelStandard() {
             }}
           >
             <section className="border-b border-stone-200/70 pb-4">
-              <div className="detail-label mb-1">Life-changing event</div>
-              <h3 className="text-sm font-semibold text-slate-800 leading-relaxed">{activeScenario.name}</h3>
-              <p className="text-xs text-slate-500 mt-1">{profile.label} perspective · {panel.streaming ? 'Developing ideas' : 'AI-generated exploration'}</p>
+              <div className="detail-label mb-1">{tr('Life-changing event')}</div>
+              <h3 className="text-sm font-semibold text-slate-800 leading-relaxed">{tr(activeScenario.name)}</h3>
+              <p className="text-xs text-slate-500 mt-1">{tr('{role} perspective', { role: profile.label })} · {tr(panel.streaming ? 'Developing ideas' : 'AI-generated exploration')}</p>
             </section>
             {panel.streaming && !panel.content && (
               <div className="flex items-center gap-2 text-slate-500 py-6 justify-center text-xs">
                 <span className="inline-block w-3.5 h-3.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                Thinking through the ecology…
+                {tr('Thinking through the ecology…')}
               </div>
             )}
 
             {panel.error && (
               <div role="alert" className="text-xs text-rose-700 border-l-2 border-rose-300 pl-3 py-1">
-                {panel.error}
+                {tr(panel.error)}
               </div>
             )}
 
@@ -245,14 +245,14 @@ function SuggestSolutionsPanelStandard() {
               panel.proposals.length === 0 &&
               !panel.error && (
                 <div className="text-[11px] text-slate-400">
-                  No visual strategy options in this reply. Try regenerating.
+                  {tr('No visual strategy options in this reply. Try regenerating.')}
                 </div>
               )}
           </div>
 
           <div className="shrink-0 border-t border-stone-200/80 bg-white/95 px-4 py-3 space-y-2">
             <label htmlFor="own-strategy" className="block text-xs font-semibold text-slate-600">
-              Your strategy
+              {tr('Your strategy')}
             </label>
             <textarea
               id="own-strategy"
@@ -270,7 +270,7 @@ function SuggestSolutionsPanelStandard() {
               className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-sky-600 text-white text-xs font-semibold px-3 py-2.5 hover:bg-sky-700 disabled:bg-stone-100 disabled:text-slate-400 disabled:cursor-not-allowed transition"
             >
               <ArrowUp className="w-4 h-4" aria-hidden />
-              Interpret my strategy
+              {tr('Interpret my strategy')}
             </button>
           </div>
         </div>
@@ -283,7 +283,7 @@ function SuggestSolutionsPanelStandard() {
  * Bottom-dock CTA (Standard mode). Hidden in Easy mode or while the panel is open.
  */
 export function SuggestStrategiesTrigger() {
-  const { t, easy } = useUiText();
+  const { t, tr, easy } = useUiText();
   const panelOpen = useEcoStore((s) => s.suggestPanel.open);
   const openSuggestPanel = useEcoStore((s) => s.openSuggestPanel);
   const patient = useEcoStore((s) => s.patient);
@@ -297,7 +297,7 @@ export function SuggestStrategiesTrigger() {
       type="button"
       onClick={() => openSuggestPanel()}
       className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-slate-900 text-white shadow-[0_8px_30px_rgba(28,25,23,0.1),0_1px_2px_rgba(28,25,23,0.05)] border border-slate-700 hover:bg-slate-800 transition pl-4 pr-5 whitespace-nowrap"
-      title="Explore AI and your own strategies for this life-changing event"
+      title={tr('Explore AI and your own strategies for this life-changing event')}
       aria-label={t('suggestCta')}
     >
       <Sparkles className="shrink-0 text-amber-300 w-4 h-4" aria-hidden />

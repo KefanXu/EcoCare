@@ -23,7 +23,7 @@ export function EditToolbar() {
   const fileRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [listOpen, setListOpen] = useState(false);
-  const { t, easy } = useUiText();
+  const { t, tr, easy } = useUiText();
 
   const hasLce = !!activeScenarioId;
   const marked = new Set(userImpactEntityIds);
@@ -60,7 +60,7 @@ export function EditToolbar() {
     const text = await file.text();
     const result = importEcology(text);
     if (!result.ok) {
-      alert(`Import failed: ${result.error}`);
+      alert(tr('Import failed: {error}', { error: tr(result.error ?? '') }));
     }
     if (fileRef.current) fileRef.current.value = '';
   }
@@ -96,7 +96,7 @@ export function EditToolbar() {
       <div
         className="edit-dock flex h-12 shrink-0 items-center gap-0.5 p-1 rounded-full bg-white/95 border border-stone-200/70 shadow-[0_8px_30px_rgba(28,25,23,0.1),0_1px_2px_rgba(28,25,23,0.05)] backdrop-blur-xl"
         role="toolbar"
-        aria-label="Edit map"
+        aria-label={tr('Edit map')}
       >
         <button type="button" title={t('addEntity')} aria-label={t('addEntity')} onClick={() => openEntityForm()} className={primaryIdle}>
           <Plus className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />
@@ -222,7 +222,7 @@ export function EditToolbar() {
                     onChange={() => toggleUserImpactEntity(e.id)}
                     className="rounded border-stone-300 text-rose-600 focus:ring-rose-300"
                   />
-                  <span className="truncate font-medium">{easy ? e.easyLabel ?? e.label : e.label}</span>
+                  <span className="truncate font-medium">{tr(easy ? e.easyLabel ?? e.label : e.label)}</span>
                 </label>
               );
             })}

@@ -26,6 +26,7 @@ import { startRoleRequest } from './roleRequest';
 export function useSuggestStrategies(opts?: { easy?: boolean }) {
   const easy = opts?.easy ?? false;
   const participantRole = useEcoStore((s) => s.participantRole);
+  const language = useEcoStore((s) => s.language);
   const roleRevision = useEcoStore((s) => s.roleRevision);
   const scenario = useActiveScenario();
   const panel = useEcoStore((s) => s.suggestPanel);
@@ -62,6 +63,7 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
     return buildChatContext({
       participantRole,
       uiMode: easy ? 'easy' : 'standard',
+      language,
       patient,
       basePatient,
       scenario,

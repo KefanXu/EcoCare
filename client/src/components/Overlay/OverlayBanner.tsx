@@ -5,7 +5,7 @@ import { useUiText } from '../../lib/uiText';
 import { useIsMobile } from '../../lib/useMediaQuery';
 
 export function OverlayBanner() {
-  const { easy } = useUiText();
+  const { easy, tr } = useUiText();
   const isMobile = useIsMobile();
   const previewProposalId = useEcoStore((s) => s.previewProposalId);
   const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
@@ -42,7 +42,7 @@ export function OverlayBanner() {
       {repair.total > 0 && (preview || appliedOverlay.length > 0) && (
         <div className={`flex items-center gap-2.5 bg-white border border-stone-200 ${pill} pl-3 pr-3 py-1 shadow-md text-xs`}>
           <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-            {easy ? 'Affected' : 'Damage'}
+            {tr(easy ? 'Affected' : 'Damage')}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="line-through text-rose-500 font-semibold">{repair.total}</span>
@@ -54,7 +54,7 @@ export function OverlayBanner() {
             >
               {repair.remaining}
             </span>
-            <span className="text-slate-500">still affected</span>
+            <span className="text-slate-500">{tr('still affected')}</span>
           </span>
           <span className="h-1.5 w-16 rounded-full bg-rose-100 overflow-hidden">
             <span
@@ -68,14 +68,14 @@ export function OverlayBanner() {
         <div className={`flex items-center gap-2 bg-white border border-amber-300 ring-1 ring-amber-200 ${pill} pl-3 pr-1.5 py-1 shadow-md text-xs`}>
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
           <span className="text-slate-700">
-            <span className="text-amber-700 font-semibold">{easy ? 'Showing:' : 'Highlighting:'}</span>{' '}
+            <span className="text-amber-700 font-semibold">{tr(easy ? 'Showing:' : 'Highlighting:')}</span>{' '}
             {activeHighlight.title}
           </span>
           <button
             onClick={() => setActiveHighlight(null)}
             className="text-[11px] px-2 py-0.5 rounded-full border border-stone-300 bg-white text-slate-600 hover:border-slate-400"
           >
-            Clear
+            {tr('Clear')}
           </button>
         </div>
       )}
@@ -83,20 +83,20 @@ export function OverlayBanner() {
         <div className={`flex items-center gap-2 bg-white border border-emerald-300 ring-1 ring-emerald-200 ${pill} pl-3 pr-1.5 py-1 shadow-md text-xs`}>
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span className="text-slate-700 min-w-0 flex-1">
-            <span className="text-emerald-700 font-semibold">{easy ? 'Trying out:' : 'Previewing:'}</span>{' '}
+            <span className="text-emerald-700 font-semibold">{tr(easy ? 'Trying out:' : 'Previewing:')}</span>{' '}
             {preview.title}
           </span>
           <button
             onClick={() => applyPreviewAsOverlay()}
             className="ml-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-600 text-white font-medium hover:bg-emerald-700"
           >
-            {easy ? 'Keep this idea' : 'Apply'}
+            {tr(easy ? 'Keep this idea' : 'Apply')}
           </button>
           <button
             onClick={() => cancelPreview()}
             className="text-[11px] px-2 py-0.5 rounded-full border border-stone-300 bg-white text-slate-600 hover:border-slate-400"
           >
-            {easy ? 'Hide it' : 'Discard'}
+            {tr(easy ? 'Hide it' : 'Discard')}
           </button>
         </div>
       )}
@@ -110,16 +110,16 @@ export function OverlayBanner() {
           >
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
             <span className="text-slate-700">
-              {easy ? 'Ideas in use:' : 'What-if overlays:'}{' '}
+              {tr(easy ? 'Ideas in use:' : 'What-if overlays:')}{' '}
               <span className="font-semibold text-emerald-700">{appliedOverlay.length}</span>
             </span>
-            <span className="text-[11px] text-slate-500">{easy ? 'See list' : 'Manage'}</span>
+            <span className="text-[11px] text-slate-500">{tr(easy ? 'See list' : 'Manage')}</span>
           </button>
           {managerOpen && (
             <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-72 bg-white border border-stone-200 rounded-lg shadow-lg p-2 space-y-1.5">
               <div className="flex items-center justify-between px-1">
                 <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-                  {easy ? 'Ideas in use' : 'Active overlays'}
+                  {tr(easy ? 'Ideas in use' : 'Active overlays')}
                 </div>
                 <button
                   onClick={() => {
@@ -128,7 +128,7 @@ export function OverlayBanner() {
                   }}
                   className="text-[10px] px-2 py-0.5 rounded-md text-rose-600 hover:bg-rose-50"
                 >
-                  {easy ? 'Undo all' : 'Clear all'}
+                  {tr(easy ? 'Undo all' : 'Clear all')}
                 </button>
               </div>
               {appliedOverlay.map((p) => (
@@ -148,7 +148,7 @@ export function OverlayBanner() {
                     onClick={() => discardOverlay(p.id)}
                     className="shrink-0 text-[10px] px-2 py-0.5 rounded-md border border-stone-300 text-slate-600 hover:border-rose-300 hover:text-rose-600"
                   >
-                    {easy ? 'Undo' : 'Remove'}
+                    {tr(easy ? 'Undo' : 'Remove')}
                   </button>
                 </div>
               ))}

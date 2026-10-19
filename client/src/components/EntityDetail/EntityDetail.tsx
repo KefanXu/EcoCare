@@ -31,7 +31,7 @@ export function EntityDetail() {
   const conflicts = useActiveConflicts();
   const scenario = useActiveScenario();
   const userImpactEntityIds = useEcoStore((s) => s.userImpactEntityIds);
-  const { t, easy, profile } = useUiText();
+  const { t, tr, easy, profile } = useUiText();
   const requestChatPrompt = useEcoStore((s) => s.requestChatPrompt);
 
   const focusEntityId =
@@ -50,10 +50,10 @@ export function EntityDetail() {
   if (!focusEntityId && !focusFlowId) {
     return (
       <div className={easy ? 'text-sm text-slate-500 leading-relaxed' : 'text-xs text-slate-500 leading-relaxed'}>
-        <p className="font-medium text-slate-800 mb-3">No item selected</p>
+        <p className="font-medium text-slate-800 mb-3">{tr('No item selected')}</p>
         <dl className="grid grid-cols-2 gap-4 detail-section">
-          <div><dt className="detail-label">Entities</dt><dd className="mt-1 text-lg font-semibold text-slate-800">{patient.entities.length}</dd></div>
-          <div><dt className="detail-label">Information flows</dt><dd className="mt-1 text-lg font-semibold text-slate-800">{patient.flows.length}</dd></div>
+          <div><dt className="detail-label">{tr('Entities')}</dt><dd className="mt-1 text-lg font-semibold text-slate-800">{patient.entities.length}</dd></div>
+          <div><dt className="detail-label">{tr('Information flows')}</dt><dd className="mt-1 text-lg font-semibold text-slate-800">{patient.flows.length}</dd></div>
         </dl>
       </div>
     );
@@ -66,44 +66,44 @@ export function EntityDetail() {
     const tgt = patient.entities.find((e) => e.id === flow.target);
     return (
       <div className="space-y-3 break-words">
-        <p className="detail-label">{profile.label} perspective</p>
+        <p className="detail-label">{tr('{role} perspective', { role: profile.label })}</p>
         <div className="flex items-center gap-2 flex-wrap">
           <span
             className="border-l-2 pl-2 text-xs text-slate-600 font-medium"
             style={{ borderColor: FLOW_COLOR[flow.kind] }}
           >
-            {FLOW_LABEL[flow.kind]}
+            {tr(FLOW_LABEL[flow.kind])}
           </span>
           {broken.has(flow.id) && (
             <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-medium bg-rose-100 text-rose-700">
-              Broken
+              {tr('Broken')}
             </span>
           )}
         </div>
-        <h3 className="text-sm font-semibold text-slate-900">{flow.label}</h3>
+        <h3 className="text-sm font-semibold text-slate-900">{tr(flow.label)}</h3>
         <dl className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs text-slate-700">
-          <dt className="detail-label">From</dt><dd>{src?.label ?? flow.source}</dd>
-          <dt className="detail-label">To</dt><dd>{tgt?.label ?? flow.target}</dd>
+          <dt className="detail-label">{tr('From')}</dt><dd>{src ? tr(src.label) : flow.source}</dd>
+          <dt className="detail-label">{tr('To')}</dt><dd>{tgt ? tr(tgt.label) : flow.target}</dd>
         </dl>
         {flow.content && (
           <div className="detail-section">
-            <div className={smallLabel}>Information carried</div>
-            <div className={`text-slate-800 ${easy ? 'text-sm' : 'text-xs'}`}>{flow.content}</div>
+            <div className={smallLabel}>{tr('Information carried')}</div>
+            <div className={`text-slate-800 ${easy ? 'text-sm' : 'text-xs'}`}>{tr(flow.content)}</div>
           </div>
         )}
         <div className={`text-slate-500 leading-relaxed ${easy ? 'text-sm' : 'text-xs'}`}>
-          {flow.description}
+          {tr(flow.description)}
         </div>
-        <button className="text-xs text-sky-700 hover:underline text-left" onClick={() => requestChatPrompt(`Regarding the flow "${flow.label}" from ${src?.label} to ${tgt?.label}: ${profile.itemQuestion}`)}>Explore from the {profile.label.toLowerCase()} perspective</button>
+        <button className="text-xs text-sky-700 hover:underline text-left" onClick={() => requestChatPrompt(`${tr('Regarding the flow "{flow}" from {from} to {to}:', { flow: tr(flow.label), from: src ? tr(src.label) : '', to: tgt ? tr(tgt.label) : '' })} ${profile.itemQuestion}`)}>{tr('Explore from the {role} perspective', { role: profile.label.toLowerCase() })}</button>
         {editMode && (
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => {
-                if (confirm('Delete this information flow?')) removeFlow(flow.id);
+                if (confirm(tr('Delete this information flow?'))) removeFlow(flow.id);
               }}
               className="text-[11px] px-2 py-1 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50"
             >
-              <Trash2 className="inline w-3 h-3 mr-1" aria-hidden />Delete flow
+              <Trash2 className="inline w-3 h-3 mr-1" aria-hidden />{tr('Delete flow')}
             </button>
           </div>
         )}
@@ -125,12 +125,13 @@ export function EntityDetail() {
         entityId: entity.id,
         easy,
         userMarked: userImpactEntityIds.includes(entity.id),
+        tr,
       })
     : null;
 
   return (
     <div className="space-y-3 break-words">
-      <p className="detail-label">{profile.label} perspective</p>
+      <p className="detail-label">{tr('{role} perspective', { role: profile.label })}</p>
       <div className="flex items-center gap-2 flex-wrap">
         <span
           className="border-l-2 pl-2 text-xs font-medium text-slate-600"
@@ -138,22 +139,22 @@ export function EntityDetail() {
             borderColor: CATEGORY_COLOR[entity.category],
           }}
         >
-          {CATEGORY_LABEL[entity.category]}
+          {tr(CATEGORY_LABEL[entity.category])}
         </span>
         <span className="text-xs text-slate-500">
-          {LAYER_LABEL[entity.layer]}
+          {tr(LAYER_LABEL[entity.layer])}
         </span>
         {isDisrupted && (
           <span className="px-2 py-0.5 rounded text-[10px] uppercase tracking-wider bg-rose-100 text-rose-700">
-            Disrupted
+            {tr('Disrupted')}
           </span>
         )}
       </div>
       <div className={easy ? 'text-base font-semibold text-slate-800' : 'text-sm font-semibold text-slate-800'}>
-        {entity.label}
+        {tr(entity.label)}
       </div>
       <div className={`text-slate-500 leading-relaxed ${easy ? 'text-sm' : 'text-xs'}`}>
-        {entity.description}
+        {tr(entity.description)}
       </div>
       {impactText && (
         <div
@@ -164,12 +165,12 @@ export function EntityDetail() {
         >
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-600 mt-0.5" aria-hidden />
           <div className="min-w-0 leading-relaxed">
-            <span className="font-medium">How it is impacted: </span>
+            <span className="font-medium">{tr('How it is impacted: ')}</span>
             {impactText}
           </div>
         </div>
       )}
-      <button className="text-xs text-sky-700 hover:underline text-left" onClick={() => requestChatPrompt(`Regarding "${entity.label}": ${profile.itemQuestion}`)}>Explore from the {profile.label.toLowerCase()} perspective</button>
+      <button className="text-xs text-sky-700 hover:underline text-left" onClick={() => requestChatPrompt(`${tr('Regarding "{name}":', { name: tr(entity.label) })} ${profile.itemQuestion}`)}>{tr('Explore from the {role} perspective', { role: profile.label.toLowerCase() })}</button>
 
       {editMode && !isPatientCenter && (
         <div className="flex gap-2 pt-1">
@@ -177,15 +178,15 @@ export function EntityDetail() {
             onClick={() => openEntityForm(entity.id)}
             className="text-[11px] px-2 py-1 rounded-md border border-stone-300 text-slate-700 hover:bg-stone-50"
           >
-            <Pencil className="inline w-3 h-3 mr-1" aria-hidden />Edit
+            <Pencil className="inline w-3 h-3 mr-1" aria-hidden />{tr('Edit')}
           </button>
           <button
             onClick={() => {
-              if (confirm(`Delete "${entity.label}" and its flows?`)) removeEntity(entity.id);
+              if (confirm(tr('Delete "{name}" and its flows?', { name: tr(entity.label) }))) removeEntity(entity.id);
             }}
             className="text-[11px] px-2 py-1 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50"
           >
-            <Trash2 className="inline w-3 h-3 mr-1" aria-hidden />Delete
+            <Trash2 className="inline w-3 h-3 mr-1" aria-hidden />{tr('Delete')}
           </button>
         </div>
       )}
@@ -201,12 +202,12 @@ export function EntityDetail() {
                   return (
                     <li key={f.id} className="text-slate-700 leading-relaxed py-2 first:pt-0">
                       <div>
-                        <p className="font-medium text-slate-800">{tgt?.label}</p>
-                        <p className="text-slate-500 flex items-center gap-1.5"><span className="w-3 border-t-2 shrink-0" style={{ borderColor: FLOW_COLOR[f.kind] }} aria-hidden />{f.label}</p>
+                        <p className="font-medium text-slate-800">{tgt ? tr(tgt.label) : null}</p>
+                        <p className="text-slate-500 flex items-center gap-1.5"><span className="w-3 border-t-2 shrink-0" style={{ borderColor: FLOW_COLOR[f.kind] }} aria-hidden />{tr(f.label)}</p>
                       </div>
                       {f.content && (
                         <div className="text-slate-600 mt-1 text-xs">
-                          {f.content}
+                          {tr(f.content)}
                         </div>
                       )}
                     </li>
@@ -224,12 +225,12 @@ export function EntityDetail() {
                   return (
                     <li key={f.id} className="text-slate-700 leading-relaxed py-2 first:pt-0">
                       <div>
-                        <p className="font-medium text-slate-800">{src?.label}</p>
-                        <p className="text-slate-500 flex items-center gap-1.5"><span className="w-3 border-t-2 shrink-0" style={{ borderColor: FLOW_COLOR[f.kind] }} aria-hidden />{f.label}</p>
+                        <p className="font-medium text-slate-800">{src ? tr(src.label) : null}</p>
+                        <p className="text-slate-500 flex items-center gap-1.5"><span className="w-3 border-t-2 shrink-0" style={{ borderColor: FLOW_COLOR[f.kind] }} aria-hidden />{tr(f.label)}</p>
                       </div>
                       {f.content && (
                         <div className="text-slate-600 mt-1 text-xs">
-                          {f.content}
+                          {tr(f.content)}
                         </div>
                       )}
                     </li>
@@ -244,13 +245,13 @@ export function EntityDetail() {
       {inConflicts.length > 0 && (
         <div className="detail-section">
           <div className={smallLabel}>
-            Active conflicts
+            {tr('Active conflicts')}
           </div>
           <ul className="space-y-1">
             {inConflicts.map((c) => (
               <li key={c.id} className="text-xs text-rose-700">
-                <div className="font-semibold">{c.title}</div>
-                <div className="text-slate-500">{c.description}</div>
+                <div className="font-semibold">{tr(c.title)}</div>
+                <div className="text-slate-500">{tr(c.description)}</div>
               </li>
             ))}
           </ul>

@@ -69,7 +69,7 @@ export function Legend({ onMinimize }: LegendProps) {
   const showInformationFlows = useEcoStore((s) => s.showInformationFlows);
   const toggleInformationFlows = useEcoStore((s) => s.toggleInformationFlows);
   const setLegendHover = useEcoStore((s) => s.setLegendHover);
-  const { t, easy } = useUiText();
+  const { t, tr, easy } = useUiText();
 
   const headingCls = easy
     ? 'text-xs text-slate-500 mb-2 font-semibold'
@@ -85,14 +85,14 @@ export function Legend({ onMinimize }: LegendProps) {
         className={`map-panel pointer-events-auto flex flex-col w-72 max-w-full min-h-0 ${easy ? 'text-sm' : 'text-xs'}`}
       >
         <div className="map-panel-header">
-          <h2 className="map-panel-title flex items-center gap-2"><Layers className="w-4 h-4" aria-hidden />Map key</h2>
+          <h2 className="map-panel-title flex items-center gap-2"><Layers className="w-4 h-4" aria-hidden />{tr('Map key')}</h2>
         {onMinimize ? (
           <button
             type="button"
             onClick={onMinimize}
             className="map-panel-action"
-            title={easy ? 'Hide the map key' : 'Minimize legend'}
-            aria-label={easy ? 'Hide the map key' : 'Minimize legend'}
+            title={tr(easy ? 'Hide the map key' : 'Minimize legend')}
+            aria-label={tr(easy ? 'Hide the map key' : 'Minimize legend')}
           >
             <ChevronDown className={easy ? 'w-5 h-5' : 'w-4 h-4'} aria-hidden />
           </button>
@@ -105,7 +105,7 @@ export function Legend({ onMinimize }: LegendProps) {
             {CATEGORIES.map((c) => (
               <LegendRow key={c} hover={{ kind: 'category', category: c }} easy={easy}>
                 <CategoryGlyph color={CATEGORY_COLOR[c]} size={glyphSize} />
-                <span className={labelCls}>{easy ? EASY_CATEGORY_PLURAL[c] : CATEGORY_LABEL[c]}</span>
+                <span className={labelCls}>{tr(easy ? EASY_CATEGORY_PLURAL[c] : CATEGORY_LABEL[c])}</span>
               </LegendRow>
             ))}
           </div>
@@ -117,14 +117,14 @@ export function Legend({ onMinimize }: LegendProps) {
               type="button"
               role="switch"
               aria-checked={showInformationFlows}
-              aria-label={easy ? 'Show the lines on the map' : 'Show information flows'}
+              aria-label={tr(easy ? 'Show the lines on the map' : 'Show information flows')}
               onClick={toggleInformationFlows}
               className="inline-flex items-center justify-center w-10 h-8 shrink-0"
-              title={
+              title={tr(
                 easy
                   ? showInformationFlows ? 'Hide the lines on the map' : 'Show the lines on the map'
-                  : showInformationFlows ? 'Hide information flows' : 'Show information flows'
-              }
+                  : showInformationFlows ? 'Hide information flows' : 'Show information flows',
+              )}
             >
               <span className={`relative w-8 h-[18px] rounded-full transition-colors ${showInformationFlows ? 'bg-sky-600' : 'bg-stone-300'}`}>
                 <span className={`absolute top-[3px] left-[3px] w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${showInformationFlows ? 'translate-x-[14px]' : ''}`} />
@@ -141,7 +141,7 @@ export function Legend({ onMinimize }: LegendProps) {
                 <svg width={flowLineW} height={flowLineH}>
                   <line x1={0} y1={flowLineH / 2} x2={flowLineW} y2={flowLineH / 2} stroke={FLOW_COLOR[f]} strokeWidth={2} />
                 </svg>
-                <span className={labelCls}>{easy ? capitalize(EASY_FLOW_LABEL[f]) : FLOW_LABEL[f]}</span>
+                <span className={labelCls}>{easy ? capitalize(tr(EASY_FLOW_LABEL[f])) : tr(FLOW_LABEL[f])}</span>
               </LegendRow>
             ))}
             <LegendRow hover={{ kind: 'broken' }} easy={easy}>

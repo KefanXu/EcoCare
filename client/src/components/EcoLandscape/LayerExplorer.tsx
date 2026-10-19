@@ -4,6 +4,7 @@ import { useActiveConflicts, useBrokenFlowIds, useDisruptedEntityIds, useEcoStor
 import { CATEGORY_COLOR, CATEGORY_LABEL, EASY_CATEGORY_LABEL, EASY_FLOW_LABEL, FLOW_COLOR, FLOW_LABEL, LAYER_LABEL, LAYER_RING_FILL, type InfoFlow, type Layer } from '../../types/ecology';
 import { iconFor } from '../../lib/entityIcons';
 import { useUiText } from '../../lib/uiText';
+import type { Tr } from '../../i18n';
 import { getLayerDetails, getLayerExplorerBounds, LAYER_EASY_NAMES, type LayerEntityDetails } from './layerDetails';
 
 export function LayerExplorer({ layer, anchorRef, onClose }: {
@@ -26,10 +27,10 @@ export function LayerExplorer({ layer, anchorRef, onClose }: {
   const selection = useEcoStore((s) => s.selection);
   const toggleSelection = useEcoStore((s) => s.toggleSelection);
   const requestChatPrompt = useEcoStore((s) => s.requestChatPrompt);
-  const { t, easy, profile } = useUiText();
-  const title = easy ? LAYER_EASY_NAMES[layer] : LAYER_LABEL[layer];
+  const { t, tr, easy, profile } = useUiText();
+  const title = tr(easy ? LAYER_EASY_NAMES[layer] : LAYER_LABEL[layer]);
   const details = useMemo(() => getLayerDetails(patient, layer, conflicts), [patient, layer, conflicts]);
-  const entityNames = useMemo(() => new Map(patient.entities.map(entity => [entity.id, easy ? entity.easyLabel ?? entity.label : entity.label])), [patient.entities, easy]);
+  const entityNames = useMemo(() => new Map(patient.entities.map(entity => [entity.id, tr(easy ? entity.easyLabel ?? entity.label : entity.label)])), [patient.entities, easy, tr]);
 
   const dismiss = useCallback((afterClose?: () => void) => {
     if (closeTimer.current !== undefined) return;
@@ -113,13 +114,13 @@ export function LayerExplorer({ layer, anchorRef, onClose }: {
         <span className="layer-explorer-symbol" style={{ backgroundColor: LAYER_RING_FILL[layer] }}><Layers size={24} aria-hidden /></span>
         <div className="min-w-0 flex-1">
           <h2 id="layer-explorer-title">{title}</h2>
-          <p>{details.entities.length} {easy ? 'people and things' : 'entities'} <span aria-hidden>·</span> {details.connectionCount} connections</p>
+          <p>{tr(easy ? '{n} people and things' : '{n} entities', { n: details.entities.length })} <span aria-hidden>·</span> {tr('{n} connections', { n: details.connectionCount })}</p>
         </div>
-        <button ref={closeRef} type="button" className="map-panel-action" title="Close" aria-label="Close" onClick={() => dismiss()}><X size={20} aria-hidden /></button>
+        <button ref={closeRef} type="button" className="map-panel-action" title={tr('Close')} aria-label={tr('Close')} onClick={() => dismiss()}><X size={20} aria-hidden /></button>
       </header>
 
       {details.entities.length ? (
-        <div ref={rowRef} className="layer-entity-row" role="region" aria-label={easy ? `People and things in ${title}` : `${title} entities`} tabIndex={0} onScroll={updateScroll}
+        <div ref={rowRef} className="layer-entity-row" role="region" aria-label={tr(easy ? 'People and things in {layer}' : '{layer} entities', { layer: title })} tabIndex={0} onScroll={updateScroll}
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget) return;
             if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); scroll(event.key === 'ArrowLeft' ? -1 : 1); }
@@ -132,18 +133,18 @@ export function LayerExplorer({ layer, anchorRef, onClose }: {
               : disrupted.has(entity.id) ? 'affected'
               : tag === 'applied' || tag === 'preview' ? 'added'
               : tag ? 'changed' : null;
-            return <LayerEntityCard key={entity.id} item={item} entityNames={entityNames} broken={broken} easy={easy} selected={selected} status={status} askLabel={t('askAi')}
+            return <LayerEntityCard key={entity.id} item={item} entityNames={entityNames} broken={broken} easy={easy} selected={selected} status={status} askLabel={t('askAi')} tr={tr}
               onSelect={() => toggleSelection({ id: entity.id, kind: 'entity' })}
-              onAsk={() => dismiss(() => requestChatPrompt(`Regarding "${entity.label}": ${profile.itemQuestion}`))} />;
+              onAsk={() => dismiss(() => requestChatPrompt(`${tr('Regarding "{name}":', { name: tr(entity.label) })} ${profile.itemQuestion}`))} />;
           })}
         </div>
-      ) : <div className="layer-explorer-empty">{easy ? 'Nothing is in this ring yet.' : 'No entities in this layer.'}</div>}
+      ) : <div className="layer-explorer-empty">{tr(easy ? 'Nothing is in this ring yet.' : 'No entities in this layer.')}</div>}
 
       <footer className="layer-explorer-footer">
-        <span className="text-sm text-slate-500 tabular-nums" aria-live="polite">{scrollState.first ? `${scrollState.first === scrollState.last ? scrollState.first : `${scrollState.first}-${scrollState.last}`} of ${details.entities.length}` : easy ? 'Nothing to show' : '0 entities'}</span>
+        <span className="text-sm text-slate-500 tabular-nums" aria-live="polite">{scrollState.first ? tr('{range} of {total}', { range: scrollState.first === scrollState.last ? scrollState.first : `${scrollState.first}-${scrollState.last}`, total: details.entities.length }) : tr(easy ? 'Nothing to show' : '0 entities')}</span>
         <div className="flex gap-2">
-          <button className="layer-scroll-button" aria-label={easy ? 'Show previous' : 'Previous entities'} title={easy ? 'Show previous' : 'Previous entities'} disabled={!scrollState.previous || closing} onClick={() => scroll(-1)}><ChevronLeft size={20} aria-hidden /></button>
-          <button className="layer-scroll-button" aria-label={easy ? 'Show next' : 'Next entities'} title={easy ? 'Show next' : 'Next entities'} disabled={!scrollState.next || closing} onClick={() => scroll(1)}><ChevronRight size={20} aria-hidden /></button>
+          <button className="layer-scroll-button" aria-label={tr(easy ? 'Show previous' : 'Previous entities')} title={tr(easy ? 'Show previous' : 'Previous entities')} disabled={!scrollState.previous || closing} onClick={() => scroll(-1)}><ChevronLeft size={20} aria-hidden /></button>
+          <button className="layer-scroll-button" aria-label={tr(easy ? 'Show next' : 'Next entities')} title={tr(easy ? 'Show next' : 'Next entities')} disabled={!scrollState.next || closing} onClick={() => scroll(1)}><ChevronRight size={20} aria-hidden /></button>
         </div>
       </footer>
     </dialog>
@@ -159,7 +160,7 @@ const STATUS_TEXT: Record<EntityStatus, { standard: string; easy: string }> = {
   changed: { standard: 'What-if change', easy: 'Changed by an idea' },
 };
 
-function LayerEntityCard({ item, entityNames, broken, easy, selected, status, askLabel, onSelect, onAsk }: {
+function LayerEntityCard({ item, entityNames, broken, easy, selected, status, askLabel, tr, onSelect, onAsk }: {
   item: LayerEntityDetails;
   entityNames: Map<string, string>;
   broken: Set<string>;
@@ -167,6 +168,7 @@ function LayerEntityCard({ item, entityNames, broken, easy, selected, status, as
   selected: boolean;
   status: EntityStatus | null;
   askLabel: string;
+  tr: Tr;
   onSelect: () => void;
   onAsk: () => void;
 }) {
@@ -178,34 +180,34 @@ function LayerEntityCard({ item, entityNames, broken, easy, selected, status, as
     <article className={`layer-entity-card ${selected ? 'layer-entity-selected' : ''}`} aria-label={name}>
       <div className="layer-entity-heading">
         <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-          <span className="font-medium text-slate-500 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} aria-hidden />{easy ? EASY_CATEGORY_LABEL[entity.category] : CATEGORY_LABEL[entity.category]}</span>
-          {status && <span className={status === 'affected' ? 'text-rose-700' : 'text-emerald-700'}>{STATUS_TEXT[status][easy ? 'easy' : 'standard']}</span>}
+          <span className="font-medium text-slate-500 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} aria-hidden />{tr(easy ? EASY_CATEGORY_LABEL[entity.category] : CATEGORY_LABEL[entity.category])}</span>
+          {status && <span className={status === 'affected' ? 'text-rose-700' : 'text-emerald-700'}>{tr(STATUS_TEXT[status][easy ? 'easy' : 'standard'])}</span>}
         </div>
         <div className="flex items-center gap-3 mt-4">
           <span className="layer-entity-icon" style={{ backgroundColor: `${color}20`, borderColor: color }}><Icon size={28} strokeWidth={1.5} aria-hidden /></span>
           <h3>{name}</h3>
         </div>
       </div>
-      <div className="layer-entity-content scrollbar-thin" tabIndex={0} aria-label={`${name} details`}>
-        <p className="layer-entity-description">{(easy ? entity.easyDescription ?? entity.description : entity.description) || 'No description provided.'}</p>
-        <ConnectionList title={easy ? 'Gets information from' : 'Incoming information'} flows={incoming} direction="incoming" entityNames={entityNames} broken={broken} easy={easy} />
-        <ConnectionList title={easy ? 'Sends information to' : 'Outgoing information'} flows={outgoing} direction="outgoing" entityNames={entityNames} broken={broken} easy={easy} />
-        {!incoming.length && !outgoing.length && <p className="layer-entity-no-connections">{easy ? 'No connections yet.' : 'No connections recorded.'}</p>}
+      <div className="layer-entity-content scrollbar-thin" tabIndex={0} aria-label={tr('{name} details', { name })}>
+        <p className="layer-entity-description">{tr((easy ? entity.easyDescription ?? entity.description : entity.description) || 'No description provided.')}</p>
+        <ConnectionList title={tr(easy ? 'Gets information from' : 'Incoming information')} flows={incoming} direction="incoming" entityNames={entityNames} broken={broken} easy={easy} tr={tr} />
+        <ConnectionList title={tr(easy ? 'Sends information to' : 'Outgoing information')} flows={outgoing} direction="outgoing" entityNames={entityNames} broken={broken} easy={easy} tr={tr} />
+        {!incoming.length && !outgoing.length && <p className="layer-entity-no-connections">{tr(easy ? 'No connections yet.' : 'No connections recorded.')}</p>}
         {!!conflicts.length && <section className="layer-entity-section">
-          <h4>{easy ? 'Problems right now' : 'Active conflicts'}</h4>
-          {conflicts.map(conflict => <div key={conflict.id} className="mt-3"><p className="text-sm font-medium text-rose-800">{conflict.title}</p><p className="text-sm text-slate-600 leading-relaxed mt-1">{conflict.description}</p></div>)}
+          <h4>{tr(easy ? 'Problems right now' : 'Active conflicts')}</h4>
+          {conflicts.map(conflict => <div key={conflict.id} className="mt-3"><p className="text-sm font-medium text-rose-800">{tr(conflict.title)}</p><p className="text-sm text-slate-600 leading-relaxed mt-1">{tr(conflict.description)}</p></div>)}
         </section>}
       </div>
       <div className="layer-entity-actions">
-        <button type="button" aria-pressed={selected} onClick={onSelect} title={easy ? (selected ? 'Stop including this when you ask the AI helper' : 'Include this when you ask the AI helper') : (selected ? 'Remove from selected context' : 'Add to selected context')}>{selected ? <Check size={16} aria-hidden /> : <Plus size={16} aria-hidden />}{selected ? 'Selected' : 'Select'}</button>
+        <button type="button" aria-pressed={selected} onClick={onSelect} title={tr(easy ? (selected ? 'Stop including this when you ask the AI helper' : 'Include this when you ask the AI helper') : (selected ? 'Remove from selected context' : 'Add to selected context'))}>{selected ? <Check size={16} aria-hidden /> : <Plus size={16} aria-hidden />}{tr(selected ? 'Selected' : 'Select')}</button>
         <button type="button" onClick={onAsk}><MessageCircle size={16} aria-hidden />{askLabel}</button>
       </div>
     </article>
   );
 }
 
-function ConnectionList({ title, flows, direction, entityNames, broken, easy }: {
-  title: string; flows: InfoFlow[]; direction: 'incoming' | 'outgoing'; entityNames: Map<string, string>; broken: Set<string>; easy: boolean;
+function ConnectionList({ title, flows, direction, entityNames, broken, easy, tr }: {
+  title: string; flows: InfoFlow[]; direction: 'incoming' | 'outgoing'; entityNames: Map<string, string>; broken: Set<string>; easy: boolean; tr: Tr;
 }) {
   if (!flows.length) return null;
   const Icon = direction === 'incoming' ? ArrowDownLeft : ArrowUpRight;
@@ -215,9 +217,9 @@ function ConnectionList({ title, flows, direction, entityNames, broken, easy }: 
       <Icon size={16} className="shrink-0 mt-0.5 text-slate-400" aria-hidden />
       <div className="min-w-0">
         <p className="text-sm font-medium text-slate-800">{entityNames.get(direction === 'incoming' ? flow.source : flow.target) ?? (direction === 'incoming' ? flow.source : flow.target)}</p>
-        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5"><span className="w-3 border-t-2 shrink-0" style={{ borderColor: FLOW_COLOR[flow.kind] }} aria-hidden />{easy ? `Carries ${EASY_FLOW_LABEL[flow.kind]}` : FLOW_LABEL[flow.kind]}{broken.has(flow.id) && <span className="text-rose-700">{easy ? '· Broken right now' : '· Interrupted'}</span>}</p>
-        <p className="text-sm text-slate-600 leading-relaxed mt-1">{flow.content || flow.label}</p>
-        {flow.description && <p className="text-xs text-slate-500 leading-relaxed mt-1">{flow.description}</p>}
+        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5"><span className="w-3 border-t-2 shrink-0" style={{ borderColor: FLOW_COLOR[flow.kind] }} aria-hidden />{easy ? tr('Carries {kind}', { kind: tr(EASY_FLOW_LABEL[flow.kind]) }) : tr(FLOW_LABEL[flow.kind])}{broken.has(flow.id) && <span className="text-rose-700">{tr(easy ? '· Broken right now' : '· Interrupted')}</span>}</p>
+        <p className="text-sm text-slate-600 leading-relaxed mt-1">{tr(flow.content || flow.label)}</p>
+        {flow.description && <p className="text-xs text-slate-500 leading-relaxed mt-1">{tr(flow.description)}</p>}
       </div>
     </li>)}</ul>
   </section>;

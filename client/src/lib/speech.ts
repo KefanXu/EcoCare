@@ -29,6 +29,8 @@ export function speak(text: string, onEnd?: () => void): boolean {
   const synth = window.speechSynthesis;
   synth.cancel();
   const utterance = new SpeechSynthesisUtterance(stripForSpeech(text));
+  // Pick a Chinese voice for Chinese text so it is not read with English phonetics.
+  if (/[\u4e00-\u9fff]/.test(text)) utterance.lang = 'zh-CN';
   utterance.rate = 0.95;
   utterance.pitch = 1;
   if (onEnd) {

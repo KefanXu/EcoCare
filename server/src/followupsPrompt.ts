@@ -1,5 +1,6 @@
 import type { ChatContext } from './systemPrompt.js';
 import { buildParticipantRoleInstructions } from './participantRole.js';
+import { languageLine } from './language.js';
 
 /**
  * A FOCUSED system prompt for the /api/followups endpoint.
@@ -56,6 +57,9 @@ export function buildFollowUpsSystemPrompt(ctx: ChatContext): string {
       lines.push(`- ${c.title}: ${c.description}`);
     }
   }
+
+  const language = languageLine(ctx.language, 'the follow-up questions (each under 25 Chinese characters)');
+  if (language) lines.push('', language);
 
   return lines.join('\n');
 }

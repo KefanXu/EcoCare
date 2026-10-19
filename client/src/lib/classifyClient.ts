@@ -1,4 +1,10 @@
 import type { EntityCategory, FlowKind, Layer } from '../types/ecology';
+import { useEcoStore } from '../store/useEcoStore';
+
+/** Lets the server write AI descriptions in the interface language. */
+function withLanguage<T extends object>(payload: T) {
+  return { ...payload, language: useEcoStore.getState().language };
+}
 
 export interface ClassifyEntitySuggestion {
   category: EntityCategory;
@@ -28,7 +34,7 @@ export async function classifyItem(
     const res = await fetch('/api/classify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(withLanguage(payload)),
       signal,
     });
     if (!res.ok) return null;
@@ -69,7 +75,7 @@ export async function suggestFlowsForEntity(
     const res = await fetch('/api/suggest-flows', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(withLanguage(payload)),
       signal,
     });
     if (!res.ok) return null;

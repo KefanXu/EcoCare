@@ -14,7 +14,7 @@ export function Timeline() {
   const playSimulation = useEcoStore((s) => s.playSimulation);
   const pauseSimulation = useEcoStore((s) => s.pauseSimulation);
   const resetSimulation = useEcoStore((s) => s.resetSimulation);
-  const { t, easy } = useUiText();
+  const { t, tr, easy } = useUiText();
 
   const rafRef = useRef<number | null>(null);
   const lastTsRef = useRef<number | null>(null);
@@ -85,7 +85,7 @@ export function Timeline() {
           className={`rounded-full bg-slate-800 hover:bg-slate-900 text-white flex items-center justify-center shadow-sm transition-colors ${
             easy ? 'w-11 h-11' : 'w-9 h-9'
           }`}
-          title={simulationPlaying ? 'Pause' : atEnd ? 'Replay' : t('play')}
+          title={simulationPlaying ? tr('Pause') : atEnd ? tr('Replay') : t('play')}
         >
           {simulationPlaying ? (
             <Pause size={easy ? 18 : 14} strokeWidth={2} fill="white" />
@@ -100,7 +100,7 @@ export function Timeline() {
               {t('timeline')}
             </div>
             <div className={`text-slate-700 font-medium truncate ${easy ? 'text-sm' : 'text-xs'}`}>
-              {easy ? scenario.easyName ?? scenario.name : scenario.name}
+              {tr(easy ? scenario.easyName ?? scenario.name : scenario.name)}
             </div>
           </div>
           <div className={`relative flex items-center ${easy ? 'h-9' : 'h-7'}`}>
@@ -108,7 +108,7 @@ export function Timeline() {
               className={`absolute -left-1 top-1/2 -translate-y-1/2 z-10 rounded-full bg-rose-50 border-2 border-rose-300 flex items-center justify-center text-rose-600 shadow-sm ${
                 easy ? 'w-8 h-8' : 'w-7 h-7'
               }`}
-              title={`LCE: ${scenario.name}`}
+              title={tr('LCE: {name}', { name: tr(scenario.name) })}
             >
               {createElement(Icon, { size: easy ? 16 : 14, strokeWidth: 1.75 })}
             </div>
@@ -126,8 +126,8 @@ export function Timeline() {
             />
           </div>
           <div className={`flex justify-between text-slate-400 mt-0.5 ${easy ? 'text-xs pl-10' : 'text-[10px] pl-9'}`}>
-            <span>t = 0 (LCE strikes)</span>
-            <span>t = 1 (full ripple)</span>
+            <span>{tr('t = 0 (LCE strikes)')}</span>
+            <span>{tr('t = 1 (full ripple)')}</span>
           </div>
         </div>
 
@@ -137,7 +137,7 @@ export function Timeline() {
           className={`rounded-md border border-stone-300 text-slate-600 hover:border-slate-400 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 ${
             easy ? 'px-3 py-2 text-sm min-h-[44px]' : 'px-2.5 py-1.5 text-xs'
           }`}
-          title="Reset to t=0"
+          title={tr('Reset to t=0')}
         >
           <RotateCcw size={easy ? 14 : 12} strokeWidth={2} />
           {t('reset')}

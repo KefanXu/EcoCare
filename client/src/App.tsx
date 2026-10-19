@@ -25,6 +25,7 @@ import {
   useEcoStore,
 } from './store/useEcoStore';
 import { useUiText } from './lib/uiText';
+import { useI18n } from './i18n';
 import { CATEGORY_COLOR } from './types/ecology';
 
 // Keep panels mounted during their exit animation; cancel pending exits on reopen.
@@ -96,8 +97,13 @@ export default function App() {
   const suggestOpen = useEcoStore((s) => s.suggestPanel.open);
   const reset = useEcoStore((s) => s.reset);
   const scenario = useActiveScenario();
-  const { t, easy, profile } = useUiText();
+  const { t, tr, lang, easy, profile } = useUiText();
   const roleRevision = useEcoStore((s) => s.roleRevision);
+
+  useEffect(() => {
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+    document.title = tr('EcoCare — Ecological Landscape');
+  }, [lang, tr]);
 
   // Phone layout (Easy mode): the guide becomes a bottom sheet and the map keeps full width.
   const isMobile = useIsMobile();
@@ -148,23 +154,23 @@ export default function App() {
               aria-expanded={!searchMinimized}
               aria-controls="entity-search-panel"
               onClick={() => setSearchMinimized(false)}
-              title="Show entity search"
-              aria-label="Show entity search"
+              title={tr('Show entity search')}
+              aria-label={tr('Show entity search')}
             >
               <Search className="w-5 h-5 shrink-0" aria-hidden />
             </button>
           {searchPresent && (
-            <section id="entity-search-panel" aria-label="Entity search" className={`map-panel panel-motion origin-top-right pointer-events-auto w-72 max-w-full ${searchMinimized ? 'panel-exit' : 'panel-enter'}`} onKeyDown={(event) => { if (event.key === 'Escape') closeSearch(); }}>
+            <section id="entity-search-panel" aria-label={tr('Entity search')} className={`map-panel panel-motion origin-top-right pointer-events-auto w-72 max-w-full ${searchMinimized ? 'panel-exit' : 'panel-enter'}`} onKeyDown={(event) => { if (event.key === 'Escape') closeSearch(); }}>
               <div className="map-panel-header">
-                <h2 className="map-panel-title flex items-center gap-2"><Search className="w-4 h-4" aria-hidden />Find an entity</h2>
-                <button type="button" onClick={closeSearch} className="map-panel-action" title="Minimize search" aria-label="Minimize search"><ChevronDown className="w-4 h-4" aria-hidden /></button>
+                <h2 className="map-panel-title flex items-center gap-2"><Search className="w-4 h-4" aria-hidden />{tr('Find an entity')}</h2>
+                <button type="button" onClick={closeSearch} className="map-panel-action" title={tr('Minimize search')} aria-label={tr('Minimize search')}><ChevronDown className="w-4 h-4" aria-hidden /></button>
               </div>
               <div className="p-3">
               <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/70 px-3 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-100 transition">
               <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden />
               <input
                 ref={searchInputRef}
-                aria-label="Search entities"
+                aria-label={tr('Search entities')}
                 type="text"
                 value={entitySearchQuery}
                 onChange={(e) => setEntitySearchQuery(e.target.value)}
@@ -176,8 +182,8 @@ export default function App() {
                   type="button"
                   onClick={() => { setEntitySearchQuery(''); searchInputRef.current?.focus(); }}
                   className="shrink-0 p-1 rounded-md text-slate-400 hover:bg-stone-200 hover:text-slate-700 transition"
-                  title="Clear search"
-                  aria-label="Clear search"
+                  title={tr('Clear search')}
+                  aria-label={tr('Clear search')}
                 >
                   <X className="w-4 h-4" aria-hidden />
                 </button>
@@ -194,12 +200,12 @@ export default function App() {
           <div className="map-panel-header">
             <div className="map-panel-title flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-rose-400 shrink-0" aria-hidden />
-              Active life-changing event
+              {tr('Active life-changing event')}
             </div>
           </div>
           <div className="px-4 py-4 break-words">
-            <h2 id="active-event-title" className="font-semibold text-slate-900 text-sm leading-relaxed">{scenario.name}</h2>
-            <p className="text-slate-600 mt-2 leading-relaxed text-xs">{scenario.description}</p>
+            <h2 id="active-event-title" className="font-semibold text-slate-900 text-sm leading-relaxed">{tr(scenario.name)}</h2>
+            <p className="text-slate-600 mt-2 leading-relaxed text-xs">{tr(scenario.description)}</p>
           </div>
         </section>
       )}
@@ -214,14 +220,14 @@ export default function App() {
               aria-expanded={!inspectorMinimized}
               aria-controls="inspector-panel"
               onClick={() => setInspectorMinimized(false)}
-              title="Show inspector"
-              aria-label="Show inspector"
+              title={tr('Show inspector')}
+              aria-label={tr('Show inspector')}
             >
               <ClipboardList className="w-5 h-5 shrink-0" aria-hidden />
             </button>
           </div>
         {inspectorPresent && (
-          <section id="inspector-panel" aria-label="Inspector" className={`map-panel panel-motion origin-top-left ${inspectorMinimized ? 'panel-exit' : 'panel-enter'} inspector-panel absolute top-3 left-3 z-10 flex flex-col w-72 max-w-[calc(100%-4.5rem)] max-h-[calc(100%-7rem)]`}>
+          <section id="inspector-panel" aria-label={tr('Inspector')} className={`map-panel panel-motion origin-top-left ${inspectorMinimized ? 'panel-exit' : 'panel-enter'} inspector-panel absolute top-3 left-3 z-10 flex flex-col w-72 max-w-[calc(100%-4.5rem)] max-h-[calc(100%-7rem)]`}>
             <div className="map-panel-header">
             <h2 className="map-panel-title flex items-center gap-2">
               <ClipboardList className="w-4 h-4" aria-hidden />{t('inspector')}
@@ -230,8 +236,8 @@ export default function App() {
               type="button"
               onClick={() => { setInspectorMinimized(true); inspectorTriggerRef.current?.focus(); }}
               className="map-panel-action"
-              title="Minimize inspector"
-              aria-label="Minimize inspector"
+              title={tr('Minimize inspector')}
+              aria-label={tr('Minimize inspector')}
             >
               <ChevronDown className="w-4 h-4" aria-hidden />
             </button>
@@ -280,11 +286,11 @@ export default function App() {
               type="button"
               onClick={() => setLegendExpanded(true)}
               className={fabCls}
-              title="Show the map key"
-              aria-label="Show the map key"
+              title={tr('Show the map key')}
+              aria-label={tr('Show the map key')}
             >
               <Layers className="w-5 h-5 shrink-0" aria-hidden />
-              Key
+              {tr('Key')}
             </button>
           ) : (
             <div className="pointer-events-auto">
@@ -300,8 +306,8 @@ export default function App() {
             aria-expanded={!legendMinimized}
             aria-controls="legend-panel"
             onClick={() => setLegendMinimized(false)}
-            title="Show legend"
-            aria-label="Show legend"
+            title={tr('Show legend')}
+            aria-label={tr('Show legend')}
           >
             <Layers className="w-5 h-5 shrink-0" aria-hidden />
             </button>
@@ -322,7 +328,7 @@ export default function App() {
               className="absolute top-3 left-3 z-30 flex items-center gap-2 rounded-full bg-slate-900 text-white shadow-md px-4 py-2.5 text-sm font-medium min-h-[44px] hover:bg-slate-800 pointer-events-auto"
             >
               <Sparkles className="w-4 h-4" aria-hidden />
-              Show the guide
+              {tr('Show the guide')}
             </button>
           )}
         </>
@@ -382,12 +388,12 @@ export default function App() {
               <div
                 role="separator"
                 aria-orientation="vertical"
-                aria-label="Change the width of the guide"
+                aria-label={tr('Change the width of the guide')}
                 aria-valuemin={GUIDE_WIDTH_MIN}
                 aria-valuemax={GUIDE_WIDTH_MAX}
                 aria-valuenow={guideWidth}
                 tabIndex={0}
-                title="Drag to make the guide wider or narrower"
+                title={tr('Drag to make the guide wider or narrower')}
                 onPointerDown={onGuideResizeStart}
                 onPointerMove={onGuideResizeMove}
                 onPointerUp={onGuideResizeEnd}
@@ -408,14 +414,14 @@ export default function App() {
               </div>
               <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-stone-200/80 shrink-0">
                 <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
-                  {suggestOpen ? profile.strategyLabel : `${profile.label} guide`}
+                  {suggestOpen ? profile.strategyLabel : tr('{role} guide', { role: profile.label })}
                 </div>
                 <button
                   type="button"
                   onClick={() => closeGuide()}
                   className="p-1.5 rounded-lg text-slate-400 hover:bg-stone-100 hover:text-slate-700 transition min-h-[36px] min-w-[36px] flex items-center justify-center"
-                  aria-label="Hide the guide"
-                  title="Hide the guide"
+                  aria-label={tr('Hide the guide')}
+                  title={tr('Hide the guide')}
                 >
                   <X className="w-4 h-4" aria-hidden />
                 </button>
@@ -470,7 +476,7 @@ function AssistantOverlay({
   /** Phone layout: full-width sheet sliding up from the bottom. */
   mobile?: boolean;
 }) {
-  const { t, easy, profile } = useUiText();
+  const { t, tr, easy, profile } = useUiText();
   const [rendered, setRendered] = useState(open);
   const [visible, setVisible] = useState(open);
   const skipEnterAnim = useRef(open);
@@ -512,7 +518,9 @@ function AssistantOverlay({
         <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
           <div>{t('chatTitle')}</div>
           <div className="mt-1 text-[11px] font-normal normal-case tracking-normal">
-            {easy ? `Answering from the ${profile.label.toLowerCase()}'s point of view` : `${profile.label} perspective`}
+            {easy
+              ? tr("Answering from the {role}'s point of view", { role: profile.label.toLowerCase() })
+              : tr('{role} perspective', { role: profile.label })}
           </div>
         </div>
         {mobile ? (
@@ -520,18 +528,18 @@ function AssistantOverlay({
             type="button"
             onClick={onClose}
             className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white text-slate-700 text-sm font-medium px-3 min-h-[40px] hover:bg-stone-50 transition shrink-0"
-            aria-label="Close the AI helper and go back to the guide"
+            aria-label={tr('Close the AI helper and go back to the guide')}
           >
             <ChevronDown className="w-4 h-4" aria-hidden />
-            Back to the guide
+            {tr('Back to the guide')}
           </button>
         ) : (
           <button
             type="button"
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 hover:bg-stone-100 hover:text-slate-700 transition min-h-[36px] min-w-[36px] flex items-center justify-center"
-            aria-label={easy ? 'Hide the AI helper' : 'Minimize assistant'}
-            title={easy ? 'Hide the AI helper' : 'Minimize'}
+            aria-label={tr(easy ? 'Hide the AI helper' : 'Minimize assistant')}
+            title={tr(easy ? 'Hide the AI helper' : 'Minimize')}
           >
             <X className="w-4 h-4" aria-hidden />
           </button>
@@ -553,6 +561,7 @@ function EasyMiniLegend({ onExpand }: { onExpand: () => void }) {
   const ROSE = '#fb7185';
   const RED = '#e11d48';
   const GREEN = '#10b981';
+  const { tr } = useI18n();
   return (
     <div className="bg-white/95 border border-stone-200 rounded-2xl shadow-md p-3 space-y-2 text-sm">
       <div className="flex items-center gap-2.5">
@@ -561,7 +570,7 @@ function EasyMiniLegend({ onExpand }: { onExpand: () => void }) {
           <circle r={2.2} cy={-2} fill="#64748b" />
           <path d="M-4.2 4.5 a4.2 3.6 0 0 1 8.4 0 Z" fill="#64748b" />
         </svg>
-        <span className="text-slate-700 font-medium">Doing OK</span>
+        <span className="text-slate-700 font-medium">{tr('Doing OK')}</span>
       </div>
       <div className="flex items-center gap-2.5">
         <svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden>
@@ -583,7 +592,7 @@ function EasyMiniLegend({ onExpand }: { onExpand: () => void }) {
             </text>
           </g>
         </svg>
-        <span className="text-slate-700 font-medium">Affected</span>
+        <span className="text-slate-700 font-medium">{tr('Affected')}</span>
       </div>
       <div className="flex items-center gap-2.5">
         <svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden>
@@ -603,7 +612,7 @@ function EasyMiniLegend({ onExpand }: { onExpand: () => void }) {
             />
           </g>
         </svg>
-        <span className="text-slate-700 font-medium">Fixed by an idea</span>
+        <span className="text-slate-700 font-medium">{tr('Fixed by an idea')}</span>
       </div>
       <div className="flex items-center gap-2.5">
         <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden>
@@ -626,14 +635,14 @@ function EasyMiniLegend({ onExpand }: { onExpand: () => void }) {
             strokeLinecap="round"
           />
         </svg>
-        <span className="text-slate-700 font-medium">Broken connection</span>
+        <span className="text-slate-700 font-medium">{tr('Broken connection')}</span>
       </div>
       <button
         type="button"
         onClick={onExpand}
         className="w-full text-left text-xs text-slate-500 hover:text-slate-700 pt-1 border-t border-stone-100"
       >
-        Show the full map key…
+        {tr('Show the full map key…')}
       </button>
     </div>
   );

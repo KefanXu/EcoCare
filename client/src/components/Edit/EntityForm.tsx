@@ -29,7 +29,7 @@ export function EntityForm() {
   const addFlow = useEcoStore((s) => s.addFlow);
   const updateEntity = useEcoStore((s) => s.updateEntity);
   const patient = useEcoStore((s) => s.patient);
-  const { t, easy } = useUiText();
+  const { tr, easy } = useUiText();
 
   const editing = form.editingId
     ? patient.entities.find((e) => e.id === form.editingId)
@@ -47,8 +47,8 @@ export function EntityForm() {
 
   useEffect(() => {
     if (form.open) {
-      setLabel(editing?.label ?? '');
-      setDescription(editing?.description ?? '');
+      setLabel(editing ? tr(editing.label) : '');
+      setDescription(editing ? tr(editing.description) : '');
       setError(null);
       setClassifying(false);
       setSuggesting(false);
@@ -63,6 +63,7 @@ export function EntityForm() {
         setStep('input');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.open, editing]);
 
   if (!form.open) return null;
@@ -85,7 +86,7 @@ export function EntityForm() {
       }
       setStep('confirm');
     } catch {
-      setError('Could not classify this entity. Please choose the fields below.');
+      setError(tr('Could not classify this entity. Please choose the fields below.'));
       setStep('confirm');
     } finally {
       setClassifying(false);
@@ -96,11 +97,15 @@ export function EntityForm() {
     e.preventDefault();
     if (!label.trim()) return;
     if (editing) {
+      // Fields shown translated keep their original text unless the participant changed them.
       updateEntity(editing.id, {
-        label: label.trim(),
+        label: label.trim() === tr(editing.label) ? editing.label : label.trim(),
         category,
         layer,
-        description: description.trim(),
+        description:
+          description.trim() === tr(editing.description).trim()
+            ? editing.description
+            : description.trim(),
       });
       close();
       return;
@@ -170,7 +175,8 @@ export function EntityForm() {
   }
 
   function otherLabel(flow: FlowDraft) {
-    return patient.entities.find((e) => e.id === flow.otherEntityId)?.label ?? flow.otherEntityId;
+    const other = patient.entities.find((e) => e.id === flow.otherEntityId);
+    return other ? tr(other.label) : flow.otherEntityId;
   }
 
   const includedCount = flows.filter((f) => f.include).length;
@@ -203,10 +209,10 @@ export function EntityForm() {
       >
         <div>
           <h2 className={`font-semibold text-slate-800 ${easy ? 'text-xl' : 'text-base'}`}>
-            {editing ? 'Edit entity' : easy ? 'Add a person or thing' : 'Add ecological entity'}
+            {tr(editing ? 'Edit entity' : easy ? 'Add a person or thing' : 'Add ecological entity')}
           </h2>
           <p className={`text-slate-500 ${easy ? 'text-sm' : 'text-xs'}`}>
-            {step === 'input'
+            {tr(step === 'input'
               ? easy
                 ? 'Give it a name. We can help figure out the rest.'
                 : 'Enter a name and an optional description. The AI will suggest a category and layer.'
@@ -216,18 +222,18 @@ export function EntityForm() {
                   : 'Review the suggested category and layer — you can adjust them before continuing.'
                 : easy
                   ? 'These are the connections we suggest. Pick the ones you want.'
-                  : 'Review the information flows the AI suggests for this entity. You can edit or skip them.'}
+                  : 'Review the information flows the AI suggests for this entity. You can edit or skip them.')}
           </p>
         </div>
 
         {step === 'input' && (
           <>
             <label className="block">
-              <span className={labelCls}>Name</span>
+              <span className={labelCls}>{tr('Name')}</span>
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="e.g. Yoga class"
+                placeholder={tr('e.g. Yoga class')}
                 className={inputCls}
                 autoFocus
               />
@@ -235,12 +241,12 @@ export function EntityForm() {
 
             <label className="block">
               <span className={labelCls}>
-                Description <span className="text-slate-400">(optional)</span>
+                {tr('Description')} <span className="text-slate-400">{tr('(optional)')}</span>
               </span>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="What is this entity and how is it involved in the care ecology?"
+                placeholder={tr('What is this entity and how is it involved in the care ecology?')}
                 rows={3}
                 className={inputCls}
               />
@@ -251,7 +257,7 @@ export function EntityForm() {
         {step === 'confirm' && (
           <>
             <label className="block">
-              <span className={labelCls}>Name</span>
+              <span className={labelCls}>{tr('Name')}</span>
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
@@ -261,7 +267,7 @@ export function EntityForm() {
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className={labelCls}>Category</span>
+                <span className={labelCls}>{tr('Category')}</span>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value as EntityCategory)}
@@ -269,13 +275,13 @@ export function EntityForm() {
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>
-                      {CATEGORY_LABEL[c]}
+                      {tr(CATEGORY_LABEL[c])}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="block">
-                <span className={labelCls}>Layer</span>
+                <span className={labelCls}>{tr('Layer')}</span>
                 <select
                   value={layer}
                   onChange={(e) => setLayer(e.target.value as Layer)}
@@ -283,7 +289,7 @@ export function EntityForm() {
                 >
                   {LAYERS.map((l) => (
                     <option key={l} value={l}>
-                      {LAYER_LABEL[l]}
+                      {tr(LAYER_LABEL[l])}
                     </option>
                   ))}
                 </select>
@@ -291,7 +297,7 @@ export function EntityForm() {
             </div>
 
             <label className="block">
-              <span className={labelCls}>Description</span>
+              <span className={labelCls}>{tr('Description')}</span>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -306,7 +312,7 @@ export function EntityForm() {
           <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
             {flows.length === 0 ? (
               <p className="text-sm text-slate-500">
-                No information flows were suggested. You can add the entity and connect it later.
+                {tr('No information flows were suggested. You can add the entity and connect it later.')}
               </p>
             ) : (
               flows.map((flow, i) => {
@@ -336,7 +342,7 @@ export function EntityForm() {
                     <input
                       value={flow.label}
                       onChange={(e) => patchFlow(i, { label: e.target.value })}
-                      placeholder="Verb phrase, e.g. shares glucose trends"
+                      placeholder={tr('Verb phrase, e.g. shares glucose trends')}
                       className="w-full bg-white border border-stone-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-slate-500"
                     />
 
@@ -348,14 +354,14 @@ export function EntityForm() {
                       >
                         {KINDS.map((k) => (
                           <option key={k} value={k}>
-                            {FLOW_LABEL[k]}
+                            {tr(FLOW_LABEL[k])}
                           </option>
                         ))}
                       </select>
                       <input
                         value={flow.content}
                         onChange={(e) => patchFlow(i, { content: e.target.value })}
-                        placeholder="Content, e.g. Insulin prescription"
+                        placeholder={tr('Content, e.g. Insulin prescription')}
                         className="w-full bg-white border border-stone-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-slate-500"
                       />
                     </div>
@@ -363,7 +369,7 @@ export function EntityForm() {
                     <input
                       value={flow.description}
                       onChange={(e) => patchFlow(i, { description: e.target.value })}
-                      placeholder="Short description"
+                      placeholder={tr('Short description')}
                       className="w-full bg-white border border-stone-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-slate-500"
                     />
                   </div>
@@ -381,7 +387,7 @@ export function EntityForm() {
             onClick={close}
             className={btnCls}
           >
-            Cancel
+            {tr('Cancel')}
           </button>
 
           {step === 'confirm' && !editing && (
@@ -390,7 +396,7 @@ export function EntityForm() {
               onClick={() => setStep('input')}
               className={btnCls}
             >
-              Back
+              {tr('Back')}
             </button>
           )}
 
@@ -401,14 +407,14 @@ export function EntityForm() {
                 onClick={() => setStep('confirm')}
                 className={btnCls}
               >
-                Back
+                {tr('Back')}
               </button>
               <button
                 type="button"
                 onClick={() => commitEntity(false)}
                 className={btnCls}
               >
-                Skip flows
+                {tr('Skip flows')}
               </button>
             </>
           )}
@@ -419,18 +425,18 @@ export function EntityForm() {
             className={primaryBtnCls}
           >
             {classifying
-              ? 'Classifying…'
+              ? tr('Classifying…')
               : suggesting
-                ? 'Thinking…'
+                ? tr('Thinking…')
                 : step === 'input'
-                  ? 'Continue'
+                  ? tr('Continue')
                   : step === 'confirm'
                     ? editing
-                      ? 'Save'
-                      : 'Suggest flows'
+                      ? tr('Save')
+                      : tr('Suggest flows')
                     : includedCount > 0
-                      ? `Add entity + ${includedCount} flow${includedCount === 1 ? '' : 's'}`
-                      : 'Add entity'}
+                      ? tr(includedCount === 1 ? 'Add entity + {n} flow' : 'Add entity + {n} flows', { n: includedCount })
+                      : tr('Add entity')}
           </button>
         </div>
       </form>

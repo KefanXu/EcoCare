@@ -1,5 +1,6 @@
 import { useEcoStore } from '../../store/useEcoStore';
 import type { EcologyHighlight } from '../../types/proposals';
+import { useI18n } from '../../i18n';
 
 interface HighlightCardsProps {
   highlights: EcologyHighlight[];
@@ -8,23 +9,24 @@ interface HighlightCardsProps {
 export function HighlightCards({ highlights }: HighlightCardsProps) {
   const activeHighlightId = useEcoStore((s) => s.activeHighlightId);
   const setActiveHighlight = useEcoStore((s) => s.setActiveHighlight);
+  const { tr } = useI18n();
 
   if (highlights.length === 0) return null;
 
   return (
     <div className="mr-2 space-y-2">
       <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-        References on the visualization
+        {tr('References on the visualization')}
       </div>
       {highlights.map((h) => {
         const isActive = activeHighlightId === h.id;
         const ePart =
           h.entityIds && h.entityIds.length > 0
-            ? `${h.entityIds.length} entit${h.entityIds.length === 1 ? 'y' : 'ies'}`
+            ? tr(h.entityIds.length === 1 ? '{n} entity' : '{n} entities', { n: h.entityIds.length })
             : '';
         const fPart =
           h.flowIds && h.flowIds.length > 0
-            ? `${h.flowIds.length} flow${h.flowIds.length === 1 ? '' : 's'}`
+            ? tr(h.flowIds.length === 1 ? '{n} flow' : '{n} flows', { n: h.flowIds.length })
             : '';
         const meta = [ePart, fPart].filter(Boolean).join(' · ');
         return (
@@ -60,7 +62,7 @@ export function HighlightCards({ highlights }: HighlightCardsProps) {
                     : 'border-stone-300 bg-white text-slate-700 hover:border-amber-400 hover:text-amber-700'
                 }`}
               >
-                {isActive ? 'Hide' : 'Show on viz'}
+                {tr(isActive ? 'Hide' : 'Show on viz')}
               </button>
             </div>
           </div>

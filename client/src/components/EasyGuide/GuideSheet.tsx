@@ -60,7 +60,7 @@ export function GuideSheet({
   /** Slide fully off-screen (e.g. while the AI helper is open). */
   hidden: boolean;
 }) {
-  const { profile } = useUiText();
+  const { profile, tr } = useUiText();
   const labels = useGuideStepLabels();
   const activeScenarioId = useEcoStore((s) => s.activeScenarioId);
   const suggestOpen = useEcoStore((s) => s.suggestPanel.open);
@@ -188,9 +188,12 @@ export function GuideSheet({
           ? `${HALF_RATIO * 100}%`
           : `calc(100% - ${FULL_INSET_PX}px)`;
 
-  const title = suggestOpen ? profile.strategyLabel : showItem ? 'About this item' : labels[step];
-  const expandLabel = snap === 'peek' ? 'Open the guide' : 'Collapse the guide';
-  const stepStatus = suggestOpen || showItem ? title : `Step ${step} of ${GUIDE_STEP_COUNT}: ${title}`;
+  const title = suggestOpen ? profile.strategyLabel : showItem ? tr('About this item') : labels[step];
+  const expandLabel = tr(snap === 'peek' ? 'Open the guide' : 'Collapse the guide');
+  const stepStatus =
+    suggestOpen || showItem
+      ? title
+      : tr('Step {n} of {total}: {title}', { n: step, total: GUIDE_STEP_COUNT, title });
 
   return (
     <div
@@ -205,7 +208,7 @@ export function GuideSheet({
       <div
         role="button"
         tabIndex={0}
-        aria-label={`${expandLabel}. ${stepStatus}`}
+        aria-label={tr('{action}. {status}', { action: expandLabel, status: stepStatus })}
         aria-expanded={snap !== 'peek'}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -222,12 +225,16 @@ export function GuideSheet({
               {suggestOpen ? (
                 <span className="inline-flex items-center gap-1.5">
                   <Lightbulb className="w-3.5 h-3.5 text-emerald-600" aria-hidden />
-                  Ideas · {profile.label} guide
+                  {tr('Ideas · {role} guide', { role: profile.label })}
                 </span>
               ) : showItem ? (
-                `Step ${step} of ${GUIDE_STEP_COUNT} · tap the map to look around`
+                tr('Step {n} of {total} · tap the map to look around', { n: step, total: GUIDE_STEP_COUNT })
               ) : (
-                `Step ${step} of ${GUIDE_STEP_COUNT} · ${profile.label} guide`
+                tr('Step {n} of {total} · {role} guide', {
+                  n: step,
+                  total: GUIDE_STEP_COUNT,
+                  role: profile.label,
+                })
               )}
             </div>
             <div className="text-base font-semibold text-slate-900 truncate leading-snug">{title}</div>
@@ -261,7 +268,7 @@ export function GuideSheet({
                 className="self-start inline-flex items-center gap-1.5 rounded-xl border border-stone-300 bg-white text-slate-700 text-sm font-medium px-3.5 min-h-[44px] hover:bg-stone-50 transition"
               >
                 <ArrowLeft className="w-4 h-4" aria-hidden />
-                Back to step {step}
+                {tr('Back to step {n}', { n: step })}
               </button>
             </div>
           ) : (

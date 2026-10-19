@@ -29,7 +29,7 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
   const basePatient = useEcoStore((s) => s.patient);
   const impact = useScenarioImpact();
   const allConflicts = useAllConflicts();
-  const { easy } = useUiText();
+  const { easy, tr } = useUiText();
 
   const isPreviewing = previewProposalId === p.id;
   const isApplied = appliedOverlay.some((x) => x.id === p.id);
@@ -41,10 +41,12 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
     .map((id) => allConflicts.find((c) => c.id === id))
     .filter((c): c is NonNullable<typeof c> => !!c);
 
-  const labelForEntity = (id: string) =>
-    basePatient.entities.find((e) => e.id === id)?.label ??
-    patient.entities.find((e) => e.id === id)?.label ??
-    id;
+  const labelForEntity = (id: string) => {
+    const label =
+      basePatient.entities.find((e) => e.id === id)?.label ??
+      patient.entities.find((e) => e.id === id)?.label;
+    return label ? tr(label) : id;
+  };
   const labelForFlow = (id: string) => {
     const f =
       basePatient.flows.find((x) => x.id === id) ?? patient.flows.find((x) => x.id === id);
@@ -68,11 +70,11 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
         <div className="text-sm font-semibold text-slate-800">{p.title}</div>
         {isApplied ? (
           <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">
-            Applied
+            {tr('Applied')}
           </span>
         ) : isPreviewing ? (
           <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium border border-emerald-200">
-            Previewing
+            {tr('Previewing')}
           </span>
         ) : null}
       </div>
@@ -82,14 +84,14 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
         <div className="mt-2.5">
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-              {easy ? 'How much it fixes' : 'Repairs damage'}
+              {tr(easy ? 'How much it fixes' : 'Repairs damage')}
             </span>
             <span
               className={`text-[11px] font-semibold ${
                 repairs.total > 0 ? 'text-emerald-700' : 'text-slate-400'
               }`}
             >
-              {repairs.total} of {impact.total}
+              {tr('{n} of {total}', { n: repairs.total, total: impact.total })}
             </span>
           </div>
           <div className="mt-1 h-1.5 w-full rounded-full bg-rose-100 overflow-hidden">
@@ -109,7 +111,7 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
               onMouseEnter={() => setHoveredEntity(id)}
               onMouseLeave={() => setHoveredEntity(null)}
               onClick={() => toggleSelection({ id, kind: 'entity' })}
-              title="Hover to locate on the visualization"
+              title={tr('Hover to locate on the visualization')}
               className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400"
             >
               <CheckGlyph />
@@ -122,7 +124,7 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
               onMouseEnter={() => setHoveredFlow(id)}
               onMouseLeave={() => setHoveredFlow(null)}
               onClick={() => toggleSelection({ id, kind: 'flow' })}
-              title="Hover to locate on the visualization"
+              title={tr('Hover to locate on the visualization')}
               className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400"
             >
               <CheckGlyph />
@@ -135,7 +137,7 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
       {(additions.length > 0 || addedFlowCount > 0) && (
         <div className="mt-2">
           <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-            {easy ? 'New things it adds' : 'Adds to the ecology'}
+            {tr(easy ? 'New things it adds' : 'Adds to the ecology')}
           </div>
           <div className="mt-1 flex flex-wrap gap-1">
             {additions.map((e) => (
@@ -149,7 +151,7 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
             ))}
             {addedFlowCount > 0 && (
               <span className="text-[11px] px-2 py-0.5 rounded-full border border-stone-200 bg-stone-50 text-slate-500">
-                + {addedFlowCount} connection{addedFlowCount === 1 ? '' : 's'}
+                {tr(addedFlowCount === 1 ? '+ {n} connection' : '+ {n} connections', { n: addedFlowCount })}
               </span>
             )}
           </div>
@@ -159,7 +161,7 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
       {((p.removeEntityIds?.length ?? 0) > 0 || (p.removeFlowIds?.length ?? 0) > 0) && (
         <div className="mt-2">
           <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-            {easy ? 'Takes out' : 'Removes from the ecology'}
+            {tr(easy ? 'Takes out' : 'Removes from the ecology')}
           </div>
           <div className="mt-1 flex flex-wrap gap-1">
             {(p.removeEntityIds ?? []).map((id) => (
@@ -192,16 +194,18 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
 
       {resolved.length > 0 && (
         <div className="mt-2 text-[11px] text-slate-600">
-          <span className="text-slate-500">Resolves conflict: </span>
-          {resolved.map((c) => c.title).join(', ')}
+          <span className="text-slate-500">{tr('Resolves conflict: ')}</span>
+          {resolved.map((c) => tr(c.title)).join(tr(', '))}
         </div>
       )}
 
       {impact.total > 0 && repairs.total === 0 && (
         <div className="mt-2 text-[11px] text-slate-400">
-          {easy
-            ? 'This idea makes things stronger, but does not fix the broken parts.'
-            : 'Strengthens the ecology but does not repair the current damage.'}
+          {tr(
+            easy
+              ? 'This idea makes things stronger, but does not fix the broken parts.'
+              : 'Strengthens the ecology but does not repair the current damage.',
+          )}
         </div>
       )}
 
@@ -217,13 +221,15 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
                 : 'border-stone-300 bg-white text-slate-700 hover:border-slate-400'
             }`}
           >
-            {isPreviewing
-              ? easy
-                ? 'Stop showing'
-                : 'Cancel preview'
-              : easy
-                ? 'Show me on the map'
-                : 'Preview on map'}
+            {tr(
+              isPreviewing
+                ? easy
+                  ? 'Stop showing'
+                  : 'Cancel preview'
+                : easy
+                  ? 'Show me on the map'
+                  : 'Preview on map',
+            )}
           </button>
         )}
         {isApplied ? (
@@ -233,7 +239,7 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
               easy ? 'text-sm px-3 py-2 min-h-[40px] font-medium' : 'text-xs px-2.5 py-1'
             }`}
           >
-            Undo
+            {tr('Undo')}
           </button>
         ) : (
           <button
@@ -242,7 +248,7 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
               easy ? 'text-sm px-3 py-2 min-h-[40px] font-medium' : 'text-xs px-2.5 py-1'
             }`}
           >
-            {easy ? 'Try it' : 'Apply what-if'}
+            {tr(easy ? 'Try it' : 'Apply what-if')}
           </button>
         )}
       </div>
@@ -256,12 +262,13 @@ interface ProposalCardsProps {
 
 /** Stack of strategy cards with a shared section label (legacy / fallback). */
 export function ProposalCards({ proposals }: ProposalCardsProps) {
+  const { tr } = useUiText();
   if (proposals.length === 0) return null;
 
   return (
     <div className="mr-2 space-y-2">
       <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-        Strategy options
+        {tr('Strategy options')}
       </div>
       {proposals.map((p) => (
         <ProposalCard key={p.id} proposal={p} flush />

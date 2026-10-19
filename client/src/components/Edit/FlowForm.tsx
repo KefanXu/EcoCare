@@ -13,7 +13,7 @@ export function FlowForm() {
   const close = useEcoStore((s) => s.closeFlowForm);
   const addFlow = useEcoStore((s) => s.addFlow);
   const patient = useEcoStore((s) => s.patient);
-  const { t, easy } = useUiText();
+  const { tr, easy } = useUiText();
 
   const [step, setStep] = useState<Step>('input');
   const [label, setLabel] = useState('');
@@ -74,7 +74,7 @@ export function FlowForm() {
       }
       setStep('confirm');
     } catch {
-      setError('Could not classify this flow. Please choose the fields below.');
+      setError(tr('Could not classify this flow. Please choose the fields below.'));
       setStep('confirm');
     } finally {
       setClassifying(false);
@@ -93,7 +93,7 @@ export function FlowForm() {
       description: description.trim(),
     });
     if (!result.ok) {
-      setError(result.error ?? 'Could not create flow');
+      setError(tr(result.error ?? 'Could not create flow'));
       return;
     }
     close();
@@ -107,33 +107,33 @@ export function FlowForm() {
       >
         <div>
           <h2 className={`font-semibold text-slate-800 ${easy ? 'text-xl' : 'text-base'}`}>
-            {easy ? 'Draw a connection' : 'Add information flow'}
+            {tr(easy ? 'Draw a connection' : 'Add information flow')}
           </h2>
           <p className={`text-slate-500 ${easy ? 'text-sm' : 'text-xs'}`}>
-            {step === 'input'
+            {tr(step === 'input'
               ? easy
                 ? 'Name what travels along this line. We can help figure out the details.'
                 : 'Enter a name and an optional description. The AI will suggest the kind and content.'
               : easy
                 ? 'Check the details below. Change anything that looks wrong.'
-                : 'Review the suggested kind and content — you can adjust them before saving.'}
+                : 'Review the suggested kind and content — you can adjust them before saving.')}
           </p>
         </div>
 
         <div className={`bg-stone-50 border border-stone-200 text-slate-700 ${easy ? 'rounded-lg px-3 py-2.5 text-base' : 'rounded-md px-3 py-2 text-sm'}`}>
-          <span className="font-medium">{src?.label ?? form.sourceId}</span>
+          <span className="font-medium">{src ? tr(src.label) : form.sourceId}</span>
           <span className="mx-2 text-slate-400">→</span>
-          <span className="font-medium">{tgt?.label ?? form.targetId}</span>
+          <span className="font-medium">{tgt ? tr(tgt.label) : form.targetId}</span>
         </div>
 
         {step === 'input' ? (
           <>
             <label className="block">
-              <span className={labelCls}>Name</span>
+              <span className={labelCls}>{tr('Name')}</span>
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="e.g. shares glucose trends"
+                placeholder={tr('e.g. shares glucose trends')}
                 className={inputCls}
                 autoFocus
               />
@@ -141,12 +141,12 @@ export function FlowForm() {
 
             <label className="block">
               <span className={labelCls}>
-                Description <span className="text-slate-400">(optional)</span>
+                {tr('Description')} <span className="text-slate-400">{tr('(optional)')}</span>
               </span>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="What does this flow actually transmit?"
+                placeholder={tr('What does this flow actually transmit?')}
                 rows={3}
                 className={inputCls}
               />
@@ -155,7 +155,7 @@ export function FlowForm() {
         ) : (
           <>
             <label className="block">
-              <span className={labelCls}>Name</span>
+              <span className={labelCls}>{tr('Name')}</span>
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
@@ -164,7 +164,7 @@ export function FlowForm() {
             </label>
 
             <label className="block">
-              <span className={labelCls}>Kind</span>
+              <span className={labelCls}>{tr('Kind')}</span>
               <select
                 value={kind}
                 onChange={(e) => setKind(e.target.value as FlowKind)}
@@ -172,24 +172,24 @@ export function FlowForm() {
               >
                 {KINDS.map((k) => (
                   <option key={k} value={k}>
-                    {FLOW_LABEL[k]}
+                    {tr(FLOW_LABEL[k])}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="block">
-              <span className={labelCls}>Information content</span>
+              <span className={labelCls}>{tr('Information content')}</span>
               <input
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="e.g. Insulin prescription, Treatment plan"
+                placeholder={tr('e.g. Insulin prescription, Treatment plan')}
                 className={inputCls}
               />
             </label>
 
             <label className="block">
-              <span className={labelCls}>Description</span>
+              <span className={labelCls}>{tr('Description')}</span>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -208,7 +208,7 @@ export function FlowForm() {
             onClick={close}
             className={btnCls}
           >
-            Cancel
+            {tr('Cancel')}
           </button>
           {step === 'confirm' && (
             <button
@@ -216,7 +216,7 @@ export function FlowForm() {
               onClick={() => setStep('input')}
               className={btnCls}
             >
-              Back
+              {tr('Back')}
             </button>
           )}
           <button
@@ -224,7 +224,7 @@ export function FlowForm() {
             disabled={!label.trim() || classifying}
             className={primaryBtnCls}
           >
-            {classifying ? 'Classifying…' : step === 'input' ? 'Continue' : 'Add flow'}
+            {tr(classifying ? 'Classifying…' : step === 'input' ? 'Continue' : 'Add flow')}
           </button>
         </div>
       </form>

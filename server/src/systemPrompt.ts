@@ -1,4 +1,5 @@
 import { buildParticipantRoleInstructions, normalizeParticipantRole } from './participantRole.js';
+import { buildLanguageInstructions } from './language.js';
 
 export interface ContextEntity {
   id: string;
@@ -54,6 +55,8 @@ export interface ContextStrategy {
 export interface ChatContext {
   participantRole?: unknown;
   uiMode?: unknown;
+  /** 'zh' asks for Simplified Chinese replies; anything else is English. */
+  language?: unknown;
   careEcology?: { entities: ContextEntity[]; flows: Array<ContextFlow & { content?: string }> };
   patient: { name: string; condition: string; background: string };
   scenario: { name: string; description: string } | null;
@@ -379,5 +382,7 @@ export function buildSystemPrompt(ctx: ChatContext): string {
   }
 
   lines.push('', buildParticipantRoleInstructions(ctx.participantRole, ctx.uiMode));
+  const languageRules = buildLanguageInstructions(ctx.language, questionsHeading);
+  if (languageRules) lines.push('', languageRules);
   return lines.join('\n');
 }

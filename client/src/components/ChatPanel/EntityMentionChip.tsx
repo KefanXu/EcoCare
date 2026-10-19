@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useEcoStore, useEffectivePatient } from '../../store/useEcoStore';
+import { useI18n } from '../../i18n';
 import {
   CATEGORY_COLOR,
   FLOW_COLOR,
@@ -28,6 +29,7 @@ export function EntityMentionChip({ text, fallback }: EntityMentionChipProps) {
   const toggleSelection = useEcoStore((s) => s.toggleSelection);
   const setHoveredEntity = useEcoStore((s) => s.setHoveredEntity);
   const setHoveredFlow = useEcoStore((s) => s.setHoveredFlow);
+  const { tr } = useI18n();
 
   const match = useMemo<Match | null>(() => {
     const trimmed = text.trim();
@@ -48,12 +50,12 @@ export function EntityMentionChip({ text, fallback }: EntityMentionChipProps) {
     }
 
     const entityByLabel = patient.entities.find(
-      (e) => e.label.toLowerCase() === lower,
+      (e) => e.label.toLowerCase() === lower || tr(e.label).toLowerCase() === lower,
     );
     if (entityByLabel) return { kind: 'entity', entity: entityByLabel };
 
     return null;
-  }, [patient, text]);
+  }, [patient, text, tr]);
 
   if (!match) return <>{fallback}</>;
 
@@ -71,13 +73,13 @@ export function EntityMentionChip({ text, fallback }: EntityMentionChipProps) {
             ? 'border-sky-400 bg-sky-50 text-sky-800'
             : 'border-stone-300 bg-white text-slate-700 hover:border-slate-400'
         }`}
-        title={`${isSelected ? 'Selected' : 'Click to select'}: ${e.label}`}
+        title={`${tr(isSelected ? 'Selected' : 'Click to select')}${tr(': ')}${tr(e.label)}`}
       >
         <span
           className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
           style={{ background: CATEGORY_COLOR[e.category] }}
         />
-        <span className="truncate max-w-[160px]">{e.label}</span>
+        <span className="truncate max-w-[160px]">{tr(e.label)}</span>
       </button>
     );
   }
@@ -86,8 +88,8 @@ export function EntityMentionChip({ text, fallback }: EntityMentionChipProps) {
   const isSelected = selection.some((s) => s.kind === 'flow' && s.id === f.id);
   const label =
     match.source && match.target
-      ? `${match.source.label} → ${match.target.label}`
-      : f.label;
+      ? `${tr(match.source.label)} → ${tr(match.target.label)}`
+      : tr(f.label);
   return (
     <button
       type="button"
@@ -99,7 +101,7 @@ export function EntityMentionChip({ text, fallback }: EntityMentionChipProps) {
           ? 'border-sky-400 bg-sky-50 text-sky-800'
           : 'border-stone-300 bg-white text-slate-700 hover:border-slate-400'
       }`}
-      title={`${isSelected ? 'Selected' : 'Click to select'}: ${label}`}
+      title={`${tr(isSelected ? 'Selected' : 'Click to select')}${tr(': ')}${label}`}
     >
       <span
         className="inline-block w-1.5 h-1.5 rounded-full shrink-0"

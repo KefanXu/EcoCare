@@ -38,6 +38,7 @@ import {
 } from './layout';
 import { LayerExplorer } from './LayerExplorer';
 import { LAYER_EASY_NAMES } from './layerDetails';
+import { useI18n } from '../../i18n';
 
 const NODE_BEZEL_R = 22;
 const PATIENT_BEZEL_R = 36;
@@ -79,9 +80,9 @@ function ringFill(name: string): string {
   return LAYER_RING_FILL[name as keyof typeof LAYER_RING_FILL] ?? '#ffffff';
 }
 
-function ringDisplayLabel(name: Layer, label: string, easy: boolean): string {
-  if (easy) return LAYER_EASY_NAMES[name] ?? label;
-  return label;
+function ringDisplayLabel(name: Layer, label: string, easy: boolean, tr: (s: string) => string): string {
+  if (easy) return tr(LAYER_EASY_NAMES[name] ?? label);
+  return tr(label);
 }
 
 function parseHex(hex: string): [number, number, number] {
@@ -140,12 +141,13 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
   const uiMode = useEcoStore((s) => s.uiMode);
   const easy = uiMode === 'easy';
   const activeScenarioId = useEcoStore((s) => s.activeScenarioId);
+  const { tr } = useI18n();
 
-  const easyLabelById = useMemo(() => {
+  const labelById = useMemo(() => {
     const m = new Map<string, string>();
-    for (const e of patient.entities) m.set(e.id, e.easyLabel ?? e.label);
+    for (const e of patient.entities) m.set(e.id, tr(easy ? e.easyLabel ?? e.label : e.label));
     return m;
-  }, [patient.entities]);
+  }, [patient.entities, easy, tr]);
   const entityStrengths = useEntityDisruptionStrengths();
   const flowStrengths = useFlowBreakStrengths();
   const overlayTags = useOverlayTagMap();
@@ -416,10 +418,11 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
     if (!search) return new Set<string>();
     const ids = new Set<string>();
     for (const p of positions.values()) {
-      if (p.label.toLowerCase().includes(search)) ids.add(p.id);
+      const shown = labelById.get(p.id) ?? p.label;
+      if (p.label.toLowerCase().includes(search) || shown.toLowerCase().includes(search)) ids.add(p.id);
     }
     return ids;
-  }, [positions, search]);
+  }, [positions, search, labelById]);
   const searchActive = search.length > 0;
 
   const adjacentEntityIds = useMemo(() => {
@@ -467,7 +470,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
     return {
       role: 'button',
       tabIndex: active && !pickModeActive ? 0 : -1,
-      'aria-label': `Expand ${easy ? LAYER_EASY_NAMES[layer] : layer} layer`,
+      'aria-label': tr('Expand {layer} layer', { layer: tr(easy ? LAYER_EASY_NAMES[layer] : layer) }),
       'aria-haspopup': 'dialog' as const,
       'aria-disabled': pickModeActive,
       'data-system-layer': layer,
@@ -575,7 +578,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
           const isMicro = ring.isMicrosystem;
           return (
             <g key={ring.name} filter={isMicro ? 'url(#microsystem-shadow)' : undefined} {...layerInteraction(ring.name, viewMode === 'ring')}>
-              <title>{`Expand ${ringDisplayLabel(ring.name, ring.label, easy)}`}</title>
+              <title>{tr('Expand {layer}', { layer: ringDisplayLabel(ring.name, ring.label, easy, tr) })}</title>
               {/* Outer disc */}
               <circle
                 cx={0}
@@ -610,7 +613,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
                   startOffset="50%"
                   textAnchor="middle"
                 >
-                  {ringDisplayLabel(ring.name, ring.label, easy)}
+                  {ringDisplayLabel(ring.name, ring.label, easy, tr)}
                 </textPath>
               </text>
             </g>
@@ -618,7 +621,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
         })}
 
         <g {...layerInteraction('individual', viewMode === 'ring')}>
-          <title>Expand individual layer</title>
+          <title>{tr('Expand individual layer')}</title>
           <circle r={rings[0].innerRadius} fill="transparent" />
         </g>
 
@@ -664,7 +667,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
                         opacity: 0.85,
                       }}
                     >
-                      {easy ? EASY_SECTOR_LABEL[w.category] : `${CATEGORY_LABEL[w.category]}s`}
+                      {tr(easy ? EASY_SECTOR_LABEL[w.category] : `${CATEGORY_LABEL[w.category]}s`)}
                     </text>
                   </g>
                 );
@@ -681,7 +684,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
           <g opacity={transitionProgress} pointerEvents={viewMode === 'row' ? 'auto' : 'none'} aria-hidden={viewMode !== 'row'}>
             {rowLayout.bands.map((band) => (
               <g key={`row-${band.name}`} {...layerInteraction(band.name, viewMode === 'row')}>
-                <title>{`Expand ${ringDisplayLabel(band.name, band.label, easy)}`}</title>
+                <title>{tr('Expand {layer}', { layer: ringDisplayLabel(band.name, band.label, easy, tr) })}</title>
                 <rect
                   x={-580}
                   y={band.y - band.height / 2}
@@ -704,7 +707,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
                   fontWeight={600}
                   style={{ pointerEvents: 'none' }}
                 >
-                  {ringDisplayLabel(band.name, band.label, easy)}
+                  {ringDisplayLabel(band.name, band.label, easy, tr)}
                 </text>
               </g>
             ))}
@@ -912,7 +915,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
               isLegendMatch={legendFocus.entityIds.has(p.id)}
               labelBelow={useRowLabel}
               easy={easy}
-              displayLabel={easy ? easyLabelById.get(p.id) : undefined}
+              displayLabel={labelById.get(p.id)}
               spotlightDim={
                 easySpotlight &&
                 (entityStrengths.get(p.id) ?? 0) < 0.15 &&
@@ -934,7 +937,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
           return (
             <g transform={`translate(${patientPos.x}, ${patientPos.y})`}>
               <PatientCenter
-                label={easy ? patient.name : patientPos.label}
+                label={tr(easy ? patient.name : patientPos.label)}
             offset={nodeOffsets.patient}
             isDragging={draggingNodeId === 'patient'}
             isSelected={selectedSet.entities.has('patient')}
@@ -985,9 +988,10 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
             const s = positionedAt(flow.source, sPos.x, sPos.y);
             const t = positionedAt(flow.target, tPos.x, tPos.y);
             const { x, y } = bezierMidpoint(s.x, s.y, t.x, t.y);
-            const label = flow.content || flow.label;
-            // Width grows ~7px per char; clamp to a sane max.
-            const w = Math.min(Math.max(label.length * 7 + 16, 80), 220);
+            const label = tr(flow.content || flow.label);
+            // Width grows ~7px per char (~12px for Chinese); clamp to a sane max.
+            const cjk = (label.match(/[\u4e00-\u9fff]/g) ?? []).length;
+            const w = Math.min(Math.max((label.length - cjk) * 7 + cjk * 12 + 16, 80), 220);
             const h = 26;
             return (
               <g style={{ pointerEvents: 'none' }}>

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useEcoStore } from '../store/useEcoStore';
 import { ROLE_PROFILES, resolveRoleProfile } from './participantRoles';
+import { useI18n } from '../i18n';
 
 /**
  * Plain-language copy for the two UI modes. Standard strings are the app's
@@ -104,20 +105,21 @@ const UI_TEXT = {
 
 export type UiTextKey = keyof typeof UI_TEXT;
 
-/** Returns the copy for the active UI mode. */
+/** Returns the copy for the active UI mode and language. */
 export function useUiText() {
   const uiMode = useEcoStore((s) => s.uiMode);
   const role = useEcoStore((s) => s.participantRole);
   const patientName = useEcoStore((s) => s.patient.name);
+  const { tr, trx, lang, zh } = useI18n();
   const profile = useMemo(
-    () => resolveRoleProfile(ROLE_PROFILES[role], patientName),
-    [role, patientName],
+    () => resolveRoleProfile(ROLE_PROFILES[role], patientName, tr),
+    [role, patientName, tr],
   );
   const easy = uiMode === 'easy';
   const t = (key: UiTextKey): string => {
     if (key === 'suggestCta') return profile.strategyLabel;
     if (key === 'chatPlaceholder') return profile.chatPlaceholder;
-    return UI_TEXT[key][easy ? 'easy' : 'standard'];
+    return tr(UI_TEXT[key][easy ? 'easy' : 'standard']);
   };
-  return { t, easy, role, profile };
+  return { t, tr, trx, lang, zh, easy, role, profile };
 }

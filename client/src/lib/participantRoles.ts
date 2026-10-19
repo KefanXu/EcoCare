@@ -100,11 +100,20 @@ export const ROLE_PROFILES: Record<ParticipantRole, RoleProfile> = {
   },
 };
 
-/** Fills `{name}` with the patient's name in every string of a profile. */
-export function resolveRoleProfile(profile: RoleProfile, patientName: string): RoleProfile {
-  const fill = (s: string) => s.split('{name}').join(patientName);
+/**
+ * Translates every string of a profile (templates are dictionary keys) and
+ * fills `{name}` with the patient's name.
+ */
+export function resolveRoleProfile(
+  profile: RoleProfile,
+  patientName: string,
+  tr: (text: string) => string = (s) => s,
+): RoleProfile {
+  const name = tr(patientName);
+  const fill = (s: string) => tr(s).split('{name}').join(name);
   return {
     ...profile,
+    label: tr(profile.label),
     focus: fill(profile.focus),
     intro: fill(profile.intro),
     guideIntro: fill(profile.guideIntro),

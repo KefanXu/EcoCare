@@ -22,7 +22,7 @@ export function EasyIdeasView({
   /** Phone sheet: the sheet header already names this view, so skip the inner title. */
   compact?: boolean;
 } = {}) {
-  const { profile } = useUiText();
+  const { profile, tr, trx } = useUiText();
   const closeSuggestPanel = useEcoStore((s) => s.closeSuggestPanel);
   const basePatient = useEcoStore((s) => s.patient);
   const { runSuggest, runUserStrategy, abortSuggest, scenario, panel } = useSuggestStrategies({
@@ -75,13 +75,19 @@ export function EasyIdeasView({
   const userProposals = panel.proposals.filter((p) => userIds.has(p.id));
   const aiProposals = panel.proposals.filter((p) => !userIds.has(p.id));
 
-  const scenarioName = scenario?.easyName ?? scenario?.name ?? 'this event';
+  const scenarioName = tr(scenario?.easyName ?? scenario?.name ?? 'this event');
   const listenText =
     panel.proposals.length > 0
-      ? `Here are ${panel.proposals.length} ideas for coping with ${scenarioName}. ${panel.proposals
-          .map((p, i) => `Idea ${i + 1}: ${p.title}. ${firstSentence(p.rationale)}`)
+      ? `${tr('Here are {n} ideas for coping with {event}.', {
+          n: panel.proposals.length,
+          event: scenarioName,
+        })} ${panel.proposals
+          .map(
+            (p, i) =>
+              `${tr('Idea {n}: {title}.', { n: i + 1, title: p.title })} ${firstSentence(p.rationale)}`,
+          )
           .join(' ')}`
-      : `Finding ideas for coping with ${scenarioName}.`;
+      : tr('Finding ideas for coping with {event}.', { event: scenarioName });
 
   return (
     <div className="flex flex-col gap-4 min-h-0">
@@ -92,7 +98,7 @@ export function EasyIdeasView({
           className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 px-2 py-1.5 rounded-lg hover:bg-stone-100 min-h-[40px] shrink-0"
         >
           <ArrowLeft className="w-4 h-4" aria-hidden />
-          Back
+          {tr('Back')}
         </button>
         <div className="flex-1 min-w-0" />
         <SpeakButton text={listenText} size="sm" className="shrink-0" />
@@ -101,8 +107,8 @@ export function EasyIdeasView({
           onClick={() => void runSuggest()}
           disabled={panel.streaming}
           className="p-2 rounded-lg text-slate-500 hover:bg-stone-100 hover:text-slate-800 disabled:opacity-40 min-h-[40px] min-w-[40px] flex items-center justify-center"
-          title="Ask for a new set of ideas"
-          aria-label="Ask for a new set of ideas"
+          title={tr('Ask for a new set of ideas')}
+          aria-label={tr('Ask for a new set of ideas')}
         >
           <RefreshCw className={`w-4 h-4 ${panel.streaming ? 'animate-spin' : ''}`} aria-hidden />
         </button>
@@ -116,9 +122,10 @@ export function EasyIdeasView({
           </div>
         )}
         <p className="text-sm text-slate-600 leading-snug">
-          Ideas for coping with <span className="font-medium text-slate-800">{scenarioName}</span>.
-          Tap “Show on map” under an idea to see what it fixes, or ask the AI helper about its
-          benefits and risks.
+          {trx(
+            'Ideas for coping with {event}. Tap “Show on map” under an idea to see what it fixes, or ask the AI helper about its benefits and risks.',
+            { event: <span className="font-medium text-slate-800">{scenarioName}</span> },
+          )}
         </p>
       </div>
 
@@ -126,7 +133,7 @@ export function EasyIdeasView({
       <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-3 space-y-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
           <PenLine className="w-4 h-4 shrink-0" aria-hidden />
-          Have your own idea?
+          {tr('Have your own idea?')}
         </div>
         <textarea
           value={draft}
@@ -142,7 +149,7 @@ export function EasyIdeasView({
           onClick={submitMyIdea}
           className="w-full rounded-xl bg-slate-900 text-white text-sm font-medium px-3 py-2.5 min-h-[44px] hover:bg-slate-800 disabled:opacity-50 transition"
         >
-          Show my idea on the map
+          {tr('Show my idea on the map')}
         </button>
       </div>
 
@@ -150,19 +157,19 @@ export function EasyIdeasView({
         {panel.streaming && panel.proposals.length === 0 && (
           <div className="flex items-center gap-2.5 text-slate-500 py-8 justify-center text-base">
             <span className="inline-block w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-            Thinking of ideas…
+            {tr('Thinking of ideas…')}
           </div>
         )}
 
         {panel.error && (
           <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-2xl px-3 py-3">
-            {panel.error}
+            {tr(panel.error)}
             <button
               type="button"
               onClick={() => void runSuggest()}
               className="block mt-2 text-sm font-medium text-rose-800 underline"
             >
-              Try again
+              {tr('Try again')}
             </button>
           </div>
         )}
@@ -170,7 +177,7 @@ export function EasyIdeasView({
         {userProposals.length > 0 && (
           <div className="space-y-2">
             <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
-              Your idea
+              {tr('Your idea')}
             </div>
             {userProposals.map((p) => (
               <EasyIdeaCard
@@ -188,7 +195,7 @@ export function EasyIdeasView({
           <div className="space-y-2">
             {userProposals.length > 0 && (
               <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
-                Other ideas
+                {tr('Other ideas')}
               </div>
             )}
             {aiProposals.map((p, i) => (
@@ -202,7 +209,7 @@ export function EasyIdeasView({
           panel.content &&
           panel.proposals.length === 0 && (
             <div className="text-sm text-slate-500 py-4 text-center">
-              No ideas came back. Tap the refresh arrow at the top to try again.
+              {tr('No ideas came back. Tap the refresh arrow at the top to try again.')}
             </div>
           )}
       </div>
@@ -221,6 +228,7 @@ function EasyIdeaCard({
   yours?: boolean;
   basePatient: ReturnType<typeof useEcoStore.getState>['patient'];
 }) {
+  const { tr } = useUiText();
   const previewProposalId = useEcoStore((s) => s.previewProposalId);
   const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
   const startPreview = useEcoStore((s) => s.startPreview);
@@ -235,7 +243,10 @@ function EasyIdeaCard({
     // Put the idea in the AI's context (as a preview) so the answer stays grounded in it.
     if (!isApplied && !isPreviewing) startPreview(p.id);
     requestChatPrompt(
-      `Help me understand the idea "${p.title}" in very simple words. What would it change for ${patient.name}? What are the benefits? What are the risks or downsides? What would it take to do it, and what should ${patient.name} ask the care team?`,
+      tr(
+        'Help me understand the idea "{title}" in very simple words. What would it change for {name}? What are the benefits? What are the risks or downsides? What would it take to do it, and what should {name} ask the care team?',
+        { title: p.title, name: tr(patient.name) },
+      ),
     );
   }
 
@@ -244,13 +255,13 @@ function EasyIdeaCard({
   const repairs = repairedByProposal(p, impact);
   const coverage = impact.total > 0 ? repairs.total / impact.total : 0;
   const blurb = firstSentence(p.rationale);
-  const impactSummary = proposalImpactSummary(p, basePatient, { easy: true });
+  const impactSummary = proposalImpactSummary(p, basePatient, { easy: true, tr });
 
   const fixNames = repairs.entityIds
     .slice(0, 3)
     .map((id) => {
       const e = patient.entities.find((x) => x.id === id);
-      return e?.easyLabel ?? e?.label ?? id;
+      return e ? tr(e.easyLabel ?? e.label) : id;
     })
     .filter(Boolean);
 
@@ -277,7 +288,7 @@ function EasyIdeaCard({
         <div className="min-w-0 flex-1">
           {yours && (
             <div className="text-[10px] uppercase tracking-wider text-sky-700 font-semibold mb-0.5">
-              Your idea
+              {tr('Your idea')}
             </div>
           )}
           <div className="text-base font-semibold text-slate-900 leading-snug">{p.title}</div>
@@ -290,13 +301,13 @@ function EasyIdeaCard({
         impactSummary.helps.length > 0) && (
         <div className="space-y-1.5 text-xs">
           {impactSummary.adds.length > 0 && (
-            <ImpactLine label="Adds" items={impactSummary.adds} tone="add" />
+            <ImpactLine label={tr('Adds')} items={impactSummary.adds} tone="add" />
           )}
           {impactSummary.removes.length > 0 && (
-            <ImpactLine label="Removes" items={impactSummary.removes} tone="remove" />
+            <ImpactLine label={tr('Removes')} items={impactSummary.removes} tone="remove" />
           )}
           {impactSummary.helps.length > 0 && (
-            <ImpactLine label="Helps" items={impactSummary.helps} tone="help" />
+            <ImpactLine label={tr('Helps')} items={impactSummary.helps} tone="help" />
           )}
         </div>
       )}
@@ -304,13 +315,13 @@ function EasyIdeaCard({
       {impact.total > 0 && (
         <div>
           <div className="flex items-baseline justify-between gap-2 text-sm">
-            <span className="text-slate-500">Fixes (of the affected things)</span>
+            <span className="text-slate-500">{tr('Fixes (of the affected things)')}</span>
             <span
               className={`font-semibold ${
                 repairs.total > 0 ? 'text-emerald-700' : 'text-slate-400'
               }`}
             >
-              {repairs.total} of {impact.total}
+              {tr('{n} of {total}', { n: repairs.total, total: impact.total })}
             </span>
           </div>
           <div className="mt-1.5 h-2 w-full rounded-full bg-rose-100 overflow-hidden">
@@ -321,9 +332,9 @@ function EasyIdeaCard({
           </div>
           {fixNames.length > 0 && (
             <p className="text-xs text-emerald-800 mt-1.5 leading-snug">
-              Fixes: {fixNames.join(', ')}
+              {tr('Fixes: {names}', { names: fixNames.join(tr(', ')) })}
               {repairs.entityIds.length > fixNames.length
-                ? ` +${repairs.entityIds.length - fixNames.length} more`
+                ? tr(' +{n} more', { n: repairs.entityIds.length - fixNames.length })
                 : ''}
             </p>
           )}
@@ -341,7 +352,7 @@ function EasyIdeaCard({
                 : 'border-stone-300 bg-white text-slate-800 hover:border-slate-400'
             }`}
           >
-            {isPreviewing ? 'Hide from map' : 'Show on map'}
+            {tr(isPreviewing ? 'Hide from map' : 'Show on map')}
           </button>
         )}
         {isApplied ? (
@@ -350,7 +361,7 @@ function EasyIdeaCard({
             onClick={() => discardOverlay(p.id)}
             className="w-full rounded-xl border border-rose-300 bg-rose-50 text-rose-700 text-sm font-medium px-3 py-2.5 min-h-[44px] hover:bg-rose-100 transition"
           >
-            Undo this idea
+            {tr('Undo this idea')}
           </button>
         ) : (
           <button
@@ -361,7 +372,7 @@ function EasyIdeaCard({
             }}
             className="w-full rounded-xl bg-emerald-600 text-white text-sm font-medium px-3 py-2.5 min-h-[44px] hover:bg-emerald-700 transition"
           >
-            Keep this idea on the map
+            {tr('Keep this idea on the map')}
           </button>
         )}
         <button
@@ -370,7 +381,7 @@ function EasyIdeaCard({
           className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 text-sky-800 text-sm font-medium px-3 py-2.5 min-h-[44px] hover:bg-sky-100 hover:border-sky-300 transition"
         >
           <MessageCircleQuestion className="w-4 h-4" aria-hidden />
-          Ask about benefits and risks
+          {tr('Ask about benefits and risks')}
         </button>
       </div>
     </div>
@@ -386,6 +397,7 @@ function ImpactLine({
   items: string[];
   tone: 'add' | 'remove' | 'help';
 }) {
+  const { tr } = useUiText();
   const shown = items.slice(0, 4);
   const extra = items.length - shown.length;
   const toneCls =
@@ -396,8 +408,9 @@ function ImpactLine({
         : 'text-slate-800';
   return (
     <p className={`leading-snug ${toneCls}`}>
-      <span className="font-semibold text-slate-500">{label}:</span> {shown.join(', ')}
-      {extra > 0 ? ` +${extra} more` : ''}
+      <span className="font-semibold text-slate-500">{tr('{label}:', { label })}</span>{' '}
+      {shown.join(tr(', '))}
+      {extra > 0 ? tr(' +{n} more', { n: extra }) : ''}
     </p>
   );
 }
@@ -405,8 +418,10 @@ function ImpactLine({
 function firstSentence(text: string | undefined): string {
   if (!text) return '';
   const cleaned = text.replace(/\s+/g, ' ').trim();
-  const m = cleaned.match(/^(.+?[.!?])(?:\s|$)/);
+  const m = cleaned.match(/^(.+?(?:[.!?](?=\s|$)|[。！？]))/);
   const sentence = (m?.[1] ?? cleaned).trim();
-  if (sentence.length <= 110) return sentence;
-  return sentence.slice(0, 107).trimEnd() + '…';
+  // Chinese packs more meaning per character, so cap it shorter.
+  const max = /[\u4e00-\u9fff]/.test(sentence) ? 60 : 110;
+  if (sentence.length <= max) return sentence;
+  return sentence.slice(0, max - 3).trimEnd() + '…';
 }

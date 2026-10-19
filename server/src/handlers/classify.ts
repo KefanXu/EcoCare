@@ -1,5 +1,6 @@
 import type OpenAI from 'openai';
 import type { LlmRuntime } from '../llm.js';
+import { languageLine } from '../language.js';
 
 export interface ClassifyPayload {
   type: 'entity' | 'flow';
@@ -7,6 +8,7 @@ export interface ClassifyPayload {
   description?: string;
   sourceLabel?: string;
   targetLabel?: string;
+  language?: unknown;
 }
 
 export interface ClassifyEntityResult {
@@ -30,6 +32,11 @@ const VALID_LAYERS = new Set([
   'macrosystem',
 ]);
 const VALID_KINDS = new Set(['data', 'guidance', 'feedback', 'communication']);
+
+function withLanguage(prompt: string, language: unknown, fields: string): string {
+  const line = languageLine(language, fields);
+  return line ? `${prompt} ${line}` : prompt;
+}
 
 function parseJson(raw: string): unknown {
   const cleaned = raw
@@ -59,6 +66,7 @@ export interface SuggestFlowsPayload {
   entity: { label: string; description: string; category: string; layer: string };
   entities: Array<{ id: string; label: string; category: string }>;
   existingFlows?: Array<{ source: string; target: string }>;
+  language?: unknown;
 }
 
 export interface SuggestFlow {
@@ -110,7 +118,7 @@ export async function suggestFlowsForEntity(
     temperature: 0.3,
     max_tokens: 500,
     messages: [
-      { role: 'system', content: SUGGEST_FLOWS_PROMPT },
+      { role: 'system', content: withLanguage(SUGGEST_FLOWS_PROMPT, body.language, '"label", "content", and "description"') },
       { role: 'user', content: userLine },
     ],
   });
@@ -165,7 +173,7 @@ export async function classifyItem(
       temperature: 0.2,
       max_tokens: 200,
       messages: [
-        { role: 'system', content: FLOW_PROMPT },
+        { role: 'system', content: withLanguage(FLOW_PROMPT, body.language, '"content" and "description"') },
         { role: 'user', content: userLine },
       ],
     });
@@ -192,7 +200,7 @@ export async function classifyItem(
     temperature: 0.2,
     max_tokens: 200,
     messages: [
-      { role: 'system', content: ENTITY_PROMPT },
+      { role: 'system', content: withLanguage(ENTITY_PROMPT, body.language, '"description"') },
       { role: 'user', content: userLine },
     ],
   });

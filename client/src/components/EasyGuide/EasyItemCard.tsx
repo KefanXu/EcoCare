@@ -13,11 +13,12 @@ import { iconFor } from '../../lib/entityIcons';
 import { describeEntityImpact } from '../../lib/entityImpact';
 import { SpeakButton } from '../common/SpeakButton';
 import { useUiText } from '../../lib/uiText';
+import type { Tr } from '../../i18n';
 import { useIsMobile } from '../../lib/useMediaQuery';
 
-function easyName(e: EcoEntity | undefined): string {
+function easyName(e: EcoEntity | undefined, tr: Tr): string {
   if (!e) return '';
-  return e.easyLabel ?? e.label;
+  return tr(e.easyLabel ?? e.label);
 }
 
 /**
@@ -33,7 +34,7 @@ export function EasyItemCard({
   /** Touch layouts: show the tapped item even if a stale hover is still set. */
   preferSelection?: boolean;
 } = {}) {
-  const { t, profile } = useUiText();
+  const { t, tr, trx, profile } = useUiText();
   const patient = useEffectivePatient();
   const hoveredEntityId = useEcoStore((s) => s.hoveredEntityId);
   const hoveredFlowId = useEcoStore((s) => s.hoveredFlowId);
@@ -71,37 +72,42 @@ export function EasyItemCard({
     const isBroken = broken.has(flow.id);
     const isRepaired = repair.flowIds.has(flow.id);
 
-    const spoken = `A connection from ${easyName(src)} to ${easyName(tgt)}. It carries ${
-      EASY_FLOW_LABEL[flow.kind]
-    }${flow.content ? `: ${flow.content}` : ''}. ${
+    const carries = tr(EASY_FLOW_LABEL[flow.kind]);
+    const spoken = `${tr('A connection from {from} to {to}.', {
+      from: easyName(src, tr),
+      to: easyName(tgt, tr),
+    })} ${
+      flow.content
+        ? tr('It carries {kind}: {content}.', { kind: carries, content: tr(flow.content) })
+        : tr('It carries {kind}.', { kind: carries })
+    } ${tr(
       isRepaired
         ? 'It was broken. An idea is fixing it.'
         : isBroken
           ? 'This connection is broken right now.'
-          : 'This connection is working fine.'
-    }`;
+          : 'This connection is working fine.',
+    )}`;
 
     return (
       <div className="space-y-3">
         <div className="text-base font-semibold text-slate-800 leading-snug">
-          {easyName(src)} <span className="text-slate-400 mx-0.5">→</span> {easyName(tgt)}
+          {easyName(src, tr)} <span className="text-slate-400 mx-0.5">→</span> {easyName(tgt, tr)}
         </div>
 
         <StatusLine
           state={isRepaired ? 'repaired' : isBroken ? 'hurt' : 'ok'}
-          hurtText="This connection is broken right now."
-          repairedText="It was broken. An idea is fixing it."
-          okText="This connection is working fine."
+          hurtText={tr('This connection is broken right now.')}
+          repairedText={tr('It was broken. An idea is fixing it.')}
+          okText={tr('This connection is working fine.')}
         />
 
         <p className="text-sm text-slate-700 leading-relaxed">
-          It carries <span className="font-medium">{EASY_FLOW_LABEL[flow.kind]}</span>
-          {flow.content ? (
-            <>
-              : <span className="font-medium">{flow.content}</span>
-            </>
-          ) : null}
-          .
+          {flow.content
+            ? trx('It carries {kind}: {content}.', {
+                kind: <span className="font-medium">{carries}</span>,
+                content: <span className="font-medium">{tr(flow.content)}</span>,
+              })
+            : trx('It carries {kind}.', { kind: <span className="font-medium">{carries}</span> })}
         </p>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -110,7 +116,10 @@ export function EasyItemCard({
             type="button"
             onClick={() =>
               requestChatPrompt(
-                `Explain the connection from "${src?.label ?? flow.source}" to "${tgt?.label ?? flow.target}" in plain language. ${profile.itemQuestion}`,
+                `${tr('Explain the connection from "{from}" to "{to}" in plain language.', {
+                  from: src ? tr(src.label) : flow.source,
+                  to: tgt ? tr(tgt.label) : flow.target,
+                })} ${profile.itemQuestion}`,
               )
             }
             className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 text-white text-sm px-3 py-1.5 min-h-[36px] hover:bg-sky-700 transition"
@@ -124,11 +133,11 @@ export function EasyItemCard({
           <button
             type="button"
             onClick={() => {
-              if (confirm('Remove this connection from the map?')) removeFlow(flow.id);
+              if (confirm(tr('Remove this connection from the map?'))) removeFlow(flow.id);
             }}
             className="text-xs px-2.5 py-1.5 rounded-lg border border-rose-300 text-rose-700 hover:bg-rose-50"
           >
-            Remove this connection
+            {tr('Remove this connection')}
           </button>
         )}
       </div>
@@ -141,17 +150,17 @@ export function EasyItemCard({
   const Icon = iconFor(entity.id, entity.category);
   const isHurt = disrupted.has(entity.id);
   const isRepaired = repair.entityIds.has(entity.id);
-  const name = easyName(entity);
-  const description = entity.easyDescription ?? entity.description;
+  const name = easyName(entity, tr);
+  const description = tr(entity.easyDescription ?? entity.description);
   const isPatientCenter = entity.id === 'patient';
 
   const outgoing = patient.flows.filter((f) => f.source === entity.id);
   const incoming = patient.flows.filter((f) => f.target === entity.id);
   const sendNames = [
-    ...new Set(outgoing.map((f) => easyName(patient.entities.find((e) => e.id === f.target)))),
+    ...new Set(outgoing.map((f) => easyName(patient.entities.find((e) => e.id === f.target), tr))),
   ].filter(Boolean);
   const hearNames = [
-    ...new Set(incoming.map((f) => easyName(patient.entities.find((e) => e.id === f.source)))),
+    ...new Set(incoming.map((f) => easyName(patient.entities.find((e) => e.id === f.source), tr))),
   ].filter(Boolean);
 
   const impactText =
@@ -161,16 +170,17 @@ export function EasyItemCard({
           entityId: entity.id,
           easy: true,
           userMarked: userImpactEntityIds.includes(entity.id),
+          tr,
         })
       : null;
 
-  const spoken = `${name}. ${description} ${
+  const spoken = `${tr('{text}.', { text: name })} ${description} ${tr(
     isRepaired
       ? 'It was affected by the event. An idea is helping it.'
       : isHurt
         ? 'It is affected by the event right now.'
-        : 'It is doing OK right now.'
-  }${impactText ? ` ${impactText}` : ''}`;
+        : 'It is doing OK right now.',
+  )}${impactText ? ` ${impactText}` : ''}`;
 
   return (
     <div className="space-y-3">
@@ -190,9 +200,9 @@ export function EasyItemCard({
 
       <StatusLine
         state={isRepaired ? 'repaired' : isHurt ? 'hurt' : 'ok'}
-        hurtText="Affected by the event right now."
-        repairedText="Was affected by the event. An idea is helping it."
-        okText="Doing OK right now."
+        hurtText={tr('Affected by the event right now.')}
+        repairedText={tr('Was affected by the event. An idea is helping it.')}
+        okText={tr('Doing OK right now.')}
         detail={impactText ?? undefined}
       />
 
@@ -215,7 +225,7 @@ export function EasyItemCard({
           type="button"
           onClick={() =>
             requestChatPrompt(
-              `Explain "${entity.label}" in plain language. ${profile.itemQuestion}`,
+              `${tr('Explain "{name}" in plain language.', { name: tr(entity.label) })} ${profile.itemQuestion}`,
             )
           }
           className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 text-white text-sm px-3 py-1.5 min-h-[36px] hover:bg-sky-700 transition"
@@ -232,16 +242,16 @@ export function EasyItemCard({
             onClick={() => openEntityForm(entity.id)}
             className="text-xs px-2.5 py-1.5 rounded-lg border border-stone-300 text-slate-700 hover:bg-stone-50"
           >
-            Edit details
+            {tr('Edit details')}
           </button>
           <button
             type="button"
             onClick={() => {
-              if (confirm(`Remove "${name}" from the map? Its connections will be removed too.`)) removeEntity(entity.id);
+              if (confirm(tr('Remove "{name}" from the map? Its connections will be removed too.', { name }))) removeEntity(entity.id);
             }}
             className="text-xs px-2.5 py-1.5 rounded-lg border border-rose-300 text-rose-700 hover:bg-rose-50"
           >
-            Remove from map
+            {tr('Remove from map')}
           </button>
         </div>
       )}
@@ -309,14 +319,15 @@ function StatusLine({
 }
 
 function ConnectionRow({ label, names }: { label: string; names: string[] }) {
+  const { tr } = useUiText();
   const shown = names.slice(0, 4);
   const extra = names.length - shown.length;
   return (
     <div className="leading-relaxed">
-      <span className="text-slate-500">{label}:</span>{' '}
+      <span className="text-slate-500">{tr('{label}:', { label })}</span>{' '}
       <span className="text-slate-800">
-        {shown.join(', ')}
-        {extra > 0 ? ` and ${extra} more` : ''}
+        {shown.join(tr(', '))}
+        {extra > 0 ? tr(' and {n} more', { n: extra }) : ''}
       </span>
     </div>
   );
@@ -332,6 +343,7 @@ export function EasyItemOverlay() {
   const selection = useEcoStore((s) => s.selection);
   const guideOpen = useEcoStore((s) => s.guideOpen);
   const isMobile = useIsMobile();
+  const { tr } = useUiText();
   const clearSelection = useEcoStore((s) => s.clearSelection);
   const setHoveredEntity = useEcoStore((s) => s.setHoveredEntity);
   const setHoveredFlow = useEcoStore((s) => s.setHoveredFlow);
@@ -363,13 +375,13 @@ export function EasyItemOverlay() {
           type="button"
           onClick={dismiss}
           className="absolute top-2 right-2 p-1.5 rounded-lg text-slate-400 hover:bg-stone-100 hover:text-slate-700 transition min-h-[36px] min-w-[36px] flex items-center justify-center"
-          aria-label="Close this card"
-          title="Close this card"
+          aria-label={tr('Close this card')}
+          title={tr('Close this card')}
         >
           <X className="w-4 h-4" aria-hidden />
         </button>
         <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2 pr-1">
-          About this item
+          {tr('About this item')}
         </div>
         <EasyItemCard />
       </div>

@@ -11,13 +11,14 @@ export interface ProposalImpactSummary {
 export function proposalImpactSummary(
   proposal: EcologyProposal,
   patient: Patient,
-  opts?: { easy?: boolean },
+  opts?: { easy?: boolean; tr?: (text: string) => string },
 ): ProposalImpactSummary {
   const easy = opts?.easy ?? false;
+  const tr = opts?.tr ?? ((s: string) => s);
   const entityName = (id: string) => {
     const e = patient.entities.find((x) => x.id === id);
     if (!e) return id;
-    return easy ? (e.easyLabel ?? e.label) : e.label;
+    return tr(easy ? (e.easyLabel ?? e.label) : e.label);
   };
   const flowName = (id: string) => {
     const f = patient.flows.find((x) => x.id === id);
@@ -30,12 +31,14 @@ export function proposalImpactSummary(
   const adds = [
     ...(proposal.addEntities ?? []).map((e) => e.label),
     ...(proposal.addFlows ?? []).map((f) => {
+      const existingSrc = patient.entities.find((e) => e.id === f.source)?.label;
+      const existingTgt = patient.entities.find((e) => e.id === f.target)?.label;
       const src =
-        patient.entities.find((e) => e.id === f.source)?.label ??
+        (existingSrc && tr(existingSrc)) ??
         proposal.addEntities?.find((e) => e.tempId === f.source)?.label ??
         f.source;
       const tgt =
-        patient.entities.find((e) => e.id === f.target)?.label ??
+        (existingTgt && tr(existingTgt)) ??
         proposal.addEntities?.find((e) => e.tempId === f.target)?.label ??
         f.target;
       return `${src} → ${tgt}`;

@@ -23,10 +23,10 @@ export const GUIDE_STEP_COUNT = 3;
 
 /** Step titles, shared by the desktop cards and the mobile sheet header. */
 export function useGuideStepLabels(): Record<GuideStep, string> {
-  const { profile } = useUiText();
+  const { tr, profile } = useUiText();
   return {
-    1: 'Pick a life-changing event',
-    2: 'See what the event affects',
+    1: tr('Pick a life-changing event'),
+    2: tr('See what the event affects'),
     3: profile.decideLabel,
   };
 }
@@ -36,6 +36,7 @@ export function useGuideStepLabels(): Record<GuideStep, string> {
  * Hovered/selected item details render on the map overlay instead.
  */
 export function EasyHelper({ hideTitle = false }: { hideTitle?: boolean }) {
+  const { tr } = useUiText();
   const suggestOpen = useEcoStore((s) => s.suggestPanel.open);
 
   if (suggestOpen) {
@@ -43,7 +44,7 @@ export function EasyHelper({ hideTitle = false }: { hideTitle?: boolean }) {
       <div>
         {!hideTitle && (
           <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-3 pr-2">
-            Ideas
+            {tr('Ideas')}
           </div>
         )}
         <EasyIdeasView />
@@ -55,7 +56,7 @@ export function EasyHelper({ hideTitle = false }: { hideTitle?: boolean }) {
     <div>
       {!hideTitle && (
         <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-3 pr-2">
-          Your guide
+          {tr('Your guide')}
         </div>
       )}
       <EasyGuide />
@@ -65,7 +66,7 @@ export function EasyHelper({ hideTitle = false }: { hideTitle?: boolean }) {
 
 /** Shared data + actions for the three guide steps. */
 function useGuideModel() {
-  const { profile } = useUiText();
+  const { profile, tr, trx } = useUiText();
   const patient = useEcoStore((s) => s.patient);
   const activeScenarioId = useEcoStore((s) => s.activeScenarioId);
   const setScenario = useEcoStore((s) => s.setScenario);
@@ -87,11 +88,15 @@ function useGuideModel() {
   const hurtEntities = patient.entities.filter((e) => disrupted.has(e.id));
 
   const damageText = scenario
-    ? `${scenario.easyName ?? scenario.name}. ${scenario.easyStory ?? scenario.description} Right now ${hurtCount} ${
-        hurtCount === 1 ? 'thing is' : 'things are'
-      } affected and ${brokenCount} ${
-        brokenCount === 1 ? 'connection is' : 'connections are'
-      } broken. They are shown in red on the map.`
+    ? `${tr('{text}.', { text: tr(scenario.easyName ?? scenario.name) })} ${tr(scenario.easyStory ?? scenario.description)} ${tr(
+        hurtCount === 1 ? 'Right now {n} thing is affected' : 'Right now {n} things are affected',
+        { n: hurtCount },
+      )} ${tr(
+        brokenCount === 1
+          ? 'and {n} connection is broken. They are shown in red on the map.'
+          : 'and {n} connections are broken. They are shown in red on the map.',
+        { n: brokenCount },
+      )}`
     : '';
 
   function selectHurt(id: string) {
@@ -101,6 +106,8 @@ function useGuideModel() {
 
   return {
     profile,
+    tr,
+    trx,
     patient,
     activeScenarioId,
     setScenario,
@@ -159,7 +166,7 @@ function StepPickEvent({ m }: { m: GuideModel }) {
               {createElement(Icon, { size: 18, strokeWidth: 1.75 })}
             </span>
             <span className="flex-1 text-base font-medium text-slate-800 leading-snug">
-              {sc.easyName ?? sc.name}
+              {m.tr(sc.easyName ?? sc.name)}
             </span>
             {selected && <Check className="w-5 h-5 text-rose-500 shrink-0" aria-hidden />}
           </button>
@@ -172,7 +179,7 @@ function StepPickEvent({ m }: { m: GuideModel }) {
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 px-1 py-1.5"
         >
           <RotateCcw className="w-3.5 h-3.5" aria-hidden />
-          Undo. Show everyday life with no event.
+          {m.tr('Undo. Show everyday life with no event.')}
         </button>
       )}
     </div>
@@ -183,32 +190,38 @@ function StepSeeAffected({ m }: { m: GuideModel }) {
   const { scenario } = m;
   if (!scenario) {
     return (
-      <p className="text-sm text-slate-500">First, pick a life-changing event in step 1.</p>
+      <p className="text-sm text-slate-500">{m.tr('First, pick a life-changing event in step 1.')}</p>
     );
   }
   return (
     <div className="space-y-3">
       <p className="text-base text-slate-700 leading-relaxed">
-        {scenario.easyStory ?? scenario.description}
+        {m.tr(scenario.easyStory ?? scenario.description)}
       </p>
       <div
         className="rounded-2xl bg-rose-50 border border-rose-200 px-3 py-3 text-base text-rose-900"
         role="status"
         aria-live="polite"
       >
-        <span className="font-semibold">{m.hurtCount}</span>{' '}
-        {m.hurtCount === 1 ? 'thing is' : 'things are'} affected by this event ·{' '}
-        <span className="font-semibold">{m.brokenCount}</span>{' '}
-        {m.brokenCount === 1 ? 'connection is' : 'connections are'} broken.
+        {m.trx(
+          m.hurtCount === 1
+            ? '{n} thing is affected by this event'
+            : '{n} things are affected by this event',
+          { n: <span className="font-semibold">{m.hurtCount}</span> },
+        )}
+        {' · '}
+        {m.trx(m.brokenCount === 1 ? '{n} connection is broken.' : '{n} connections are broken.', {
+          n: <span className="font-semibold">{m.brokenCount}</span>,
+        })}
         <div className="text-sm text-rose-700/80 mt-1">
-          On the map, affected things have a red ring. Broken connections have a red ✕.
+          {m.tr('On the map, affected things have a red ring. Broken connections have a red ✕.')}
         </div>
       </div>
 
       {m.hurtEntities.length > 0 && (
         <div className="space-y-1.5">
           <div className="text-sm font-semibold text-slate-700">
-            Tap one to read how it is affected:
+            {m.tr('Tap one to read how it is affected:')}
           </div>
           <div className="flex flex-col gap-1.5">
             {m.hurtEntities.map((e) => {
@@ -233,7 +246,7 @@ function StepSeeAffected({ m }: { m: GuideModel }) {
                     {createElement(Icon, { size: 16, strokeWidth: 1.75 })}
                   </span>
                   <span className="text-sm font-medium text-slate-800">
-                    {e.easyLabel ?? e.label}
+                    {m.tr(e.easyLabel ?? e.label)}
                   </span>
                 </button>
               );
@@ -254,7 +267,7 @@ function StepDecide({ m }: { m: GuideModel }) {
   const { profile, scenario } = m;
   if (!scenario) {
     return (
-      <p className="text-sm text-slate-500">First, pick a life-changing event in step 1.</p>
+      <p className="text-sm text-slate-500">{m.tr('First, pick a life-changing event in step 1.')}</p>
     );
   }
   return (
@@ -271,10 +284,10 @@ function StepDecide({ m }: { m: GuideModel }) {
       <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-3 space-y-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
           <PenLine className="w-4 h-4 text-slate-600 shrink-0" aria-hidden />
-          Have your own idea?
+          {m.tr('Have your own idea?')}
         </div>
         <p className="text-sm text-slate-600 leading-snug">
-          Write what you would do. The map will show what it could fix.
+          {m.tr('Write what you would do. The map will show what it could fix.')}
         </p>
         <textarea
           value={myIdea}
@@ -294,7 +307,7 @@ function StepDecide({ m }: { m: GuideModel }) {
           }}
           className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 text-emerald-800 text-base font-medium px-3 py-3 min-h-[48px] hover:bg-emerald-100 disabled:opacity-50 transition"
         >
-          Show my idea on the map
+          {m.tr('Show my idea on the map')}
         </button>
       </div>
 
@@ -307,12 +320,13 @@ function StepDecide({ m }: { m: GuideModel }) {
         className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-sky-300 bg-sky-50 text-sky-800 text-base font-medium px-3 py-3 min-h-[48px] hover:bg-sky-100 transition"
       >
         <MessageCircle className="w-5 h-5" aria-hidden />
-        Ask the AI helper about this event
+        {m.tr('Ask the AI helper about this event')}
       </button>
       <p className="text-sm text-slate-500 leading-relaxed">
-        When you see an idea you like, tap{' '}
-        <span className="font-medium text-slate-600">"Show on map"</span> to see what it fixes.
-        You can also ask the AI helper about the benefits and risks of each idea.
+        {m.trx(
+          'When you see an idea you like, tap {button} to see what it fixes. You can also ask the AI helper about the benefits and risks of each idea.',
+          { button: <span className="font-medium text-slate-600">{m.tr('"Show on map"')}</span> },
+        )}
       </p>
     </div>
   );
@@ -369,7 +383,7 @@ export function EasyGuideStepper({
 }) {
   const m = useGuideModel();
   const reset = useEcoStore((s) => s.reset);
-  const { t } = useUiText();
+  const { t, tr } = useUiText();
   const canNext = step === 1 ? !!m.scenario : step === 2;
 
   return (
@@ -391,7 +405,7 @@ export function EasyGuideStepper({
             className="inline-flex items-center gap-1.5 rounded-xl border border-stone-300 bg-white text-slate-700 text-sm font-medium px-3.5 min-h-[44px] hover:bg-stone-50 transition"
           >
             <ArrowLeft className="w-4 h-4" aria-hidden />
-            Back
+            {tr('Back')}
           </button>
         ) : (
           <span />
@@ -404,7 +418,7 @@ export function EasyGuideStepper({
             onClick={() => onStepChange((step + 1) as GuideStep)}
             className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 text-white text-sm font-medium px-4 min-h-[44px] hover:bg-slate-800 disabled:opacity-40 transition"
           >
-            {step === 1 && !m.scenario ? 'Pick an event to continue' : 'Next'}
+            {tr(step === 1 && !m.scenario ? 'Pick an event to continue' : 'Next')}
             <ArrowRight className="w-4 h-4" aria-hidden />
           </button>
         )}

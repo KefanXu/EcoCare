@@ -14,6 +14,7 @@ import type {
 } from '../types/ecology';
 import type { EcologyHighlight, EcologyProposal } from '../types/proposals';
 import { isParticipantRole, type ParticipantRole } from '../lib/participantRoles';
+import { isLanguage, type Language } from '../i18n/language';
 
 export type OverlayTag = 'preview' | 'applied' | 'restored' | 'removed';
 
@@ -95,6 +96,8 @@ interface EcoState {
   legendHover: LegendHover | null;
   entitySearchQuery: string;
   uiMode: UiMode;
+  /** Interface language (persisted). */
+  language: Language;
   showLegend: boolean;
   showInformationFlows: boolean;
   messages: ChatMessage[];
@@ -153,6 +156,7 @@ interface EcoState {
   setLegendHover: (hover: LegendHover | null) => void;
   setEntitySearchQuery: (query: string) => void;
   setUiMode: (mode: UiMode) => void;
+  setLanguage: (language: Language) => void;
   toggleLegend: () => void;
   toggleInformationFlows: () => void;
 
@@ -348,6 +352,7 @@ export const useEcoStore = create<EcoState>()(
       entitySearchQuery: '',
       // Easy mode is the default for first-time visitors; the chosen mode is remembered.
       uiMode: 'easy',
+      language: 'en',
       showLegend: true,
       showInformationFlows: true,
       messages: [],
@@ -441,6 +446,7 @@ export const useEcoStore = create<EcoState>()(
       setEntitySearchQuery: (entitySearchQuery) => set({ entitySearchQuery }),
       setUiMode: (uiMode) =>
         set({ uiMode, helperOpen: uiMode === 'standard' }),
+      setLanguage: (language) => set({ language }),
       toggleLegend: () => set((s) => ({ showLegend: !s.showLegend })),
       toggleInformationFlows: () =>
         set((s) => {
@@ -859,6 +865,7 @@ export const useEcoStore = create<EcoState>()(
         showLegend: s.showLegend,
         showInformationFlows: s.showInformationFlows,
         uiMode: s.uiMode,
+        language: s.language,
         participantRole: s.participantRole,
         guideWidth: s.guideWidth,
       }),
@@ -869,6 +876,7 @@ export const useEcoStore = create<EcoState>()(
           showLegend?: boolean;
           showInformationFlows?: boolean;
           uiMode?: UiMode;
+          language?: unknown;
           participantRole?: unknown;
           guideWidth?: unknown;
         };
@@ -898,6 +906,7 @@ export const useEcoStore = create<EcoState>()(
             ? { showInformationFlows: p.showInformationFlows }
             : {}),
           ...(p.uiMode !== undefined ? { uiMode: p.uiMode } : {}),
+          ...(isLanguage(p.language) ? { language: p.language } : {}),
           ...(typeof p.guideWidth === 'number'
             ? { guideWidth: clampGuideWidth(p.guideWidth) }
             : {}),

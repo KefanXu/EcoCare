@@ -6,7 +6,7 @@ export function ImpactPickOverlay() {
   const impactPickMode = useEcoStore((s) => s.impactPickMode);
   const cancel = useEcoStore((s) => s.cancelImpactPickMode);
   const count = useEcoStore((s) => s.userImpactEntityIds.length);
-  const { t, easy } = useUiText();
+  const { t, tr, easy } = useUiText();
 
   useEffect(() => {
     if (!impactPickMode) return;
@@ -29,7 +29,7 @@ export function ImpactPickOverlay() {
         {t('impactPickHint')}
         {count > 0 ? (
           <span className="ml-2 text-rose-600/80 font-normal">
-            ({count} marked so far)
+            {tr('({n} marked so far)', { n: count })}
           </span>
         ) : null}
       </span>

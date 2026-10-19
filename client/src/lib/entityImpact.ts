@@ -1,4 +1,5 @@
 import type { LCE } from '../types/ecology';
+import type { Tr } from '../i18n';
 
 /**
  * Plain explanation of how the active LCE impacts one entity.
@@ -10,20 +11,21 @@ export function describeEntityImpact(args: {
   entityId: string;
   easy: boolean;
   userMarked: boolean;
+  tr?: Tr;
 }): string | null {
-  const { scenario, entityId, easy, userMarked } = args;
+  const { scenario, entityId, easy, userMarked, tr = (s: string) => s } = args;
   if (!scenario) return null;
 
   const note = scenario.impactNotes?.[entityId];
-  if (note) return easy ? note.easy : note.standard;
+  if (note) return tr(easy ? note.easy : note.standard);
 
-  const eventName = easy ? scenario.easyName ?? scenario.name : scenario.name;
+  const eventName = tr(easy ? scenario.easyName ?? scenario.name : scenario.name);
   if (userMarked) {
     return easy
-      ? `You marked this as affected by "${eventName}".`
-      : `You marked this entity as impacted by "${eventName}".`;
+      ? tr('You marked this as affected by "{event}".', { event: eventName })
+      : tr('You marked this entity as impacted by "{event}".', { event: eventName });
   }
   return easy
-    ? `This is affected by "${eventName}". Tap "Ask the AI helper" to learn how.`
-    : `Disrupted by "${eventName}".`;
+    ? tr('This is affected by "{event}". Tap "Ask the AI helper" to learn how.', { event: eventName })
+    : tr('Disrupted by "{event}".', { event: eventName });
 }
