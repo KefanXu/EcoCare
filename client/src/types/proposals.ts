@@ -27,6 +27,8 @@ export interface EcologyProposal {
   id: string;
   title: string;
   rationale: string;
+  /** Practical actions in order; optional for ideas saved before this field existed. */
+  steps?: string[];
   addEntities?: ProposalAddEntity[];
   addFlows?: ProposalAddFlow[];
   /** Existing disrupted entity ids this proposal "heals". */

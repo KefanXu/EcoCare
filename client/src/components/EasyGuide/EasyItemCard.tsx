@@ -342,6 +342,7 @@ export function EasyItemOverlay() {
   const hoveredFlowId = useEcoStore((s) => s.hoveredFlowId);
   const selection = useEcoStore((s) => s.selection);
   const guideOpen = useEcoStore((s) => s.guideOpen);
+  const hasIdea = useEcoStore((s) => s.appliedOverlay.length > 0);
   const isMobile = useIsMobile();
   const { tr } = useUiText();
   const clearSelection = useEcoStore((s) => s.clearSelection);
@@ -364,7 +365,8 @@ export function EasyItemOverlay() {
 
   // When the guide is open, park the card to its right; otherwise sit under the
   // Guide chip. The workspace is already padded past the guide, so "left-3" clears it.
-  const positionCls = guideOpen ? 'top-3 left-3' : 'top-16 left-3';
+  // An idea card on the map takes the top row, so drop below it.
+  const positionCls = hasIdea ? 'top-[5.5rem] left-3' : guideOpen ? 'top-3 left-3' : 'top-16 left-3';
 
   return (
     <div

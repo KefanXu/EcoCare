@@ -7,7 +7,9 @@ export interface ContextStrategy {
   id: string;
   title: string;
   rationale: string;
-  status: 'previewing' | 'applied';
+  steps?: string[];
+  /** `applied` = on the map; `discussing` = asked about without being on the map. */
+  status: 'applied' | 'discussing';
   addsEntities: string[];
   addsFlows: number;
   restoresEntityIds: string[];
@@ -58,12 +60,13 @@ export interface ChatContextPayload {
 
 function summarizeStrategy(
   proposal: EcologyProposal,
-  status: 'previewing' | 'applied',
+  status: ContextStrategy['status'],
 ): ContextStrategy {
   return {
     id: proposal.id,
     title: proposal.title,
     rationale: proposal.rationale,
+    ...(proposal.steps?.length ? { steps: proposal.steps } : {}),
     status,
     addsEntities: (proposal.addEntities ?? []).map((e) => e.label),
     addsFlows: (proposal.addFlows ?? []).length,
@@ -87,9 +90,9 @@ export function buildChatContext(args: {
   disrupted: Set<string>;
   broken: Set<string>;
   conflicts: Conflict[];
-  /** Strategy currently being previewed on the map, if any. */
-  previewStrategy?: EcologyProposal | null;
-  /** Strategies the user has applied as what-if overlays. */
+  /** Idea the participant is asking about (not necessarily on the map). */
+  discussStrategy?: EcologyProposal | null;
+  /** The idea on the map (at most one). */
   appliedStrategies?: EcologyProposal[];
   /** Participant-marked entity impacts for the active LCE. */
   userImpactEntityIds?: string[];
@@ -102,7 +105,7 @@ export function buildChatContext(args: {
     disrupted,
     broken,
     conflicts,
-    previewStrategy = null,
+    discussStrategy = null,
     appliedStrategies = [],
     userImpactEntityIds = [],
     language = 'en',
@@ -146,8 +149,8 @@ export function buildChatContext(args: {
     seenStrategyIds.add(p.id);
     activeStrategies.push(summarizeStrategy(p, 'applied'));
   }
-  if (previewStrategy && !seenStrategyIds.has(previewStrategy.id)) {
-    activeStrategies.push(summarizeStrategy(previewStrategy, 'previewing'));
+  if (discussStrategy && !seenStrategyIds.has(discussStrategy.id)) {
+    activeStrategies.push(summarizeStrategy(discussStrategy, 'discussing'));
   }
 
   return {
@@ -203,7 +206,7 @@ export function buildChatContext(args: {
 
 /** Default prompt used by the visualization AI suggest button. */
 export const SUGGEST_STRATEGIES_PROMPT =
-  'Suggest concrete strategies to mediate the conflicts and repair the damage caused by the current life-changing event. Focus on restoring disrupted entities and broken information flows, and follow your answer format.';
+  'Suggest practical ways to respond to the current life-changing event. Include 2-3 ordered steps in each proposal: who could do what, who to contact or what to ask, and what needs checking first. Explain why each option might help and its limits. Follow the selected participant perspective and your answer format.';
 
 /**
  * Easy-mode variant: fewer ideas, much shorter prose. Still requires
@@ -215,7 +218,10 @@ Rules for this answer (Easy mode):
 - Use Mode B (strategies).
 - At most 3 strategies.
 - Each strategy title: max 6 words, respectful adult plain language.
-- Under each heading write ONE short sentence (max 18 words) explaining what it does. No bullet lists, no "Ask your care team" section.
+- Explain in 1-2 short sentences what the idea means in everyday life and why it might help. Keep uncertainty clear; avoid jargon like "plan authorship", "bridge visits", or "information-flow restoration".
+- Every proposal JSON MUST include "steps": 2-3 short, ordered actions (about 20 words each). Name who could do what and give a concrete first action, such as who to contact and what to ask. Include a relevant check for access, cost, consent, time, or clinical suitability. These must explain how to try the idea, not describe changes on the map.
+- Match the selected role. Do not prescribe treatment or promise results. Do not assume access to a phone, internet, services, or family help.
+- Keep prose outside JSON brief; do not repeat the steps outside the card.
 - Still emit one ecology-proposal JSON block per strategy so the map can show the fix.
 - Prefer restoring broken things over adding many new ones.`;
 
@@ -234,6 +240,7 @@ Interpret that decision as Mode B with EXACTLY ONE strategy and EXACTLY ONE ecol
 Rules:
 - Title: short name for THEIR idea (max 8 words), not a new invented strategy.
 - Write 1–2 short sentences on ecological impact (what gets added, removed, or repaired).
+- Include "steps" with 2-3 short practical actions to carry out THEIR idea, naming who does what and any prerequisite to check. Stay within their intent; do not add new commitments or clinical instructions.
 - Prefer \`restoresEntityIds\` / \`restoresFlowIds\` for healing active LCE damage.
 - Use \`addEntities\` / \`addFlows\` for new supports their idea introduces.
 - Use \`removeEntityIds\` / \`removeFlowIds\` ONLY when they clearly stop relying on or drop something. Never remove \`patient\`.
@@ -252,8 +259,40 @@ ${userText.trim()}
 Rules (Easy mode):
 - Use Mode B with EXACTLY ONE strategy and EXACTLY ONE ecology-proposal block.
 - Title: max 6 words, respectful adult plain language, matching their idea.
-- ONE short sentence (max 20 words) explaining what it does on the map.
+- Explain what their idea means in daily life in 1-2 short sentences, including any important limitation.
+- Include "steps": 2-3 short practical actions in order, naming who does what and what to check first. Keep their intent; do not invent extra commitments or give treatment instructions.
 - Prefer restoring broken things; add new people/tools only if their idea needs them.
 - Use removeEntityIds / removeFlowIds only if they clearly drop or stop something. Never remove patient.
 - No bullet lists, no "Ask your care team" section.`;
+}
+
+/**
+ * Revise the idea on the map with the participant's own wording. The answer
+ * must keep the same proposal id so the idea stays "the same idea, changed".
+ */
+export function REVISE_IDEA_PROMPT(idea: EcologyProposal, change: string, easy: boolean): string {
+  return `The participant wants to change the idea that is currently on the map.
+
+Current idea (ecology-proposal JSON):
+"""
+${JSON.stringify(idea)}
+"""
+
+Their change, in their own words:
+"""
+${change.trim()}
+"""
+
+Rewrite this idea so it includes their change. Use Mode B with EXACTLY ONE strategy and EXACTLY ONE ecology-proposal block.
+
+Rules:
+- Keep "id": "${idea.id}".
+- Keep every part of the current idea that their change does not touch.
+- Title: ${easy ? 'max 6 words, respectful adult plain language' : 'short name (max 8 words)'}; update it only if the change alters what the idea is.
+- Rationale: ${easy ? 'ONE short sentence (max 20 words)' : '1–2 short sentences'} on what the updated idea now does on the map.
+- Include "steps": 2-3 short practical actions reflecting the updated idea, in plain language appropriate to the participant role. Preserve steps not affected by their change. Name who could do what and any prerequisite to check; do not invent new commitments or clinical instructions.
+- Prefer \`restoresEntityIds\` / \`restoresFlowIds\` for healing active LCE damage; use \`addEntities\` / \`addFlows\` for new supports their change introduces.
+- Use \`removeEntityIds\` / \`removeFlowIds\` ONLY when they clearly drop something. Never remove \`patient\`.
+- Stay faithful to what they asked; do not add unrelated changes.
+- No bullet lists outside the strategy, no "Ask your care team" section.`;
 }

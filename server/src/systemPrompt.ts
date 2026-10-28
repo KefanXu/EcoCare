@@ -44,7 +44,8 @@ export interface ContextStrategy {
   id: string;
   title: string;
   rationale: string;
-  status: 'previewing' | 'applied';
+  steps?: string[];
+  status: 'applied' | 'discussing' | 'previewing';
   addsEntities?: string[];
   addsFlows?: number;
   restoresEntityIds?: string[];
@@ -68,8 +69,15 @@ export interface ChatContext {
   disruption?: ContextDisruption;
 }
 
+/** Ring names for ripple bullets: research terms in Standard, everyday words in Easy. */
+const LAYER_NAMES = {
+  standard: ['Individual', 'Microsystem', 'Mesosystem', 'Exosystem', 'Macrosystem'],
+  easy: ['Daily care', 'Home circle', 'Care team', 'Services', 'Wider world'],
+} as const;
+
 export function buildSystemPrompt(ctx: ChatContext): string {
   const lines: string[] = [];
+  const layers = LAYER_NAMES[ctx.uiMode === 'easy' ? 'easy' : 'standard'];
   const questionsHeading = normalizeParticipantRole(ctx.participantRole) === 'clinician' ? 'Information to clarify' : 'Questions for the care team';
 
   lines.push(
@@ -130,7 +138,8 @@ export function buildSystemPrompt(ctx: ChatContext): string {
     lines.push(
       'The user has selected these strategies on the visualization and wants to discuss them. ' +
         'Treat them as the primary focus for follow-up questions: compare, refine, surface trade-offs, ' +
-        'or explain which disrupted items they might affect and under what conditions. Do NOT re-propose the same strategy unless asked.',
+        'or explain which disrupted items they might affect and under what conditions. Do NOT re-propose the same strategy unless asked. ' +
+        '[applied] means the idea is on the map now; [discussing] means the participant is asking about it without using it yet.',
     );
     for (const s of activeStrategies) {
       const bits: string[] = [];
@@ -151,7 +160,7 @@ export function buildSystemPrompt(ctx: ChatContext): string {
       }
       const detail = bits.length > 0 ? ` \u2014 ${bits.join('; ')}` : '';
       lines.push(
-        `- [${s.status}] **${s.title}**: ${s.rationale}${detail}`,
+        `- [${s.status}] **${s.title}**: ${s.rationale}${detail}${s.steps?.length ? ` Practical steps: ${s.steps.join(' ')}` : ''}`,
       );
     }
     lines.push(
@@ -228,8 +237,8 @@ export function buildSystemPrompt(ctx: ChatContext): string {
   lines.push('- 2\u20133 bullets grounded in the selected items / active LCE.');
   lines.push('');
   lines.push('**Ripple effects**');
-  lines.push('- **Microsystem** \u2014 one short consequence.');
-  lines.push('- **Mesosystem** \u2014 one short consequence.');
+  lines.push(`- **${layers[1]}** \u2014 one short consequence.`);
+  lines.push(`- **${layers[2]}** \u2014 one short consequence.`);
   lines.push('');
   lines.push(`**${questionsHeading}**`);
   lines.push('- 2\u20133 concrete questions (optional if the user only wanted a brief definition).');
@@ -247,8 +256,8 @@ export function buildSystemPrompt(ctx: ChatContext): string {
   lines.push('- 2\u20133 bullets naming the concrete entities/flows under strain right now.');
   lines.push('');
   lines.push('**Ripple effects**');
-  lines.push('- **Microsystem** \u2014 one short consequence.');
-  lines.push('- **Mesosystem** \u2014 one short consequence.');
+  lines.push(`- **${layers[1]}** \u2014 one short consequence.`);
+  lines.push(`- **${layers[2]}** \u2014 one short consequence.`);
   lines.push('');
   lines.push('### Strategy 1 \u2014 <3\u20135 word name>');
   lines.push('- **Does:** one sentence on the change being made.');
@@ -267,7 +276,7 @@ export function buildSystemPrompt(ctx: ChatContext): string {
     [
       'Shared rules:',
       `- Section labels are fixed when used: "**What's happening**", "**Ripple effects**", "**${questionsHeading}**".`,
-      '- Start each ripple bullet with the bolded layer name (**Individual**, **Microsystem**, **Mesosystem**, **Exosystem**, **Macrosystem**) followed by an em dash.',
+      `- Start each ripple bullet with the bolded layer name (${layers.map((l) => `**${l}**`).join(', ')}) followed by an em dash.`,
       '- Whenever you name an existing entity or flow in prose, wrap it in single backticks using its exact id or label (e.g. `foot-care-routine`). The dashboard turns those into clickable chips. Never backtick anything that is not a real id/label.',
       '- A chip already renders the item\u2019s full label, so never restate that label around it (write "`partner` is unavailable", not "`partner` (Caregiver) is unavailable"). Cap it at ~3 chips per bullet.',
       '- In Mode B, the strategy card already lists repaired items, so the "**Repairs:**" bullet stays short prose with no chips.',
@@ -329,6 +338,7 @@ export function buildSystemPrompt(ctx: ChatContext): string {
   lines.push('  "id": "proposal-visiting-nurse",');
   lines.push('  "title": "Add a visiting nurse",');
   lines.push('  "rationale": "Could support the existing care routine if the patient agrees and the care team confirms eligibility, availability, and suitability.",');
+  lines.push('  "steps": ["Ask Jordan what help they would be comfortable receiving at home.", "Ask the care team whether home support is suitable and how to check availability and cost.", "If support is available and Jordan agrees, confirm who will arrange it and what to do while waiting."],');
   lines.push('  "addEntities": [');
   lines.push(
     '    { "tempId": "temp-visiting-nurse", "label": "Visiting Nurse", "category": "stakeholder", "layer": "mesosystem", "description": "Potential support whose role and availability need confirmation with the patient and care team." }',
@@ -349,7 +359,9 @@ export function buildSystemPrompt(ctx: ChatContext): string {
   lines.push('Rules for ecology proposals:');
   lines.push(
     [
-      '- Schema: `{ id, title, rationale, addEntities?, addFlows?, restoresEntityIds?, restoresFlowIds?, resolvesConflictIds?, removeEntityIds?, removeFlowIds? }`. At least ONE of the action fields must be non-empty.',
+      '- Schema: `{ id, title, rationale, steps, addEntities?, addFlows?, restoresEntityIds?, restoresFlowIds?, resolvesConflictIds?, removeEntityIds?, removeFlowIds? }`. At least ONE of the map action fields must be non-empty.',
+      '- Every proposal MUST include `steps`: 2-3 short ordered actions explaining how someone could try the idea. Name who could do what, who to contact or what to ask, and a relevant prerequisite or feasibility check. Start with a concrete action, not an abstract goal or a map change. Tailor actions to the selected participant role. Use plain words (for example, "ask the clinic whether a phone visit is possible", not "restore plan iteration"). Do not assume access, consent, coverage, or service availability; do not give diagnosis, dosing, medication changes, or treatment instructions.',
+      '- Keep `rationale` to 1-2 plain-language sentences explaining why the idea might help and its main limitation. Keep `steps` distinct from the explanation. For a participant-authored idea, preserve their intent without inventing extra commitments.',
       '- `title` MUST match the name in its `### Strategy N` heading so the card and the prose line up.',
       '- `category` \u2208 { component, stakeholder, information, practice }.',
       '- `layer` \u2208 { individual, microsystem, mesosystem, exosystem, macrosystem }.',
@@ -382,7 +394,7 @@ export function buildSystemPrompt(ctx: ChatContext): string {
   }
 
   lines.push('', buildParticipantRoleInstructions(ctx.participantRole, ctx.uiMode));
-  const languageRules = buildLanguageInstructions(ctx.language, questionsHeading);
+  const languageRules = buildLanguageInstructions(ctx.language, questionsHeading, ctx.uiMode === 'easy');
   if (languageRules) lines.push('', languageRules);
   return lines.join('\n');
 }

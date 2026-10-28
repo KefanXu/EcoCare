@@ -12,12 +12,14 @@ import {
   buildChatContext,
   EASY_SUGGEST_STRATEGIES_PROMPT,
   EASY_USER_STRATEGY_PROMPT,
+  REVISE_IDEA_PROMPT,
   SUGGEST_STRATEGIES_PROMPT,
   USER_STRATEGY_PROMPT,
 } from './chatContext';
 import { parseProposalsFromContent } from './proposalParser';
 import { findPreviewProposal } from '../components/Overlay/findPreviewProposal';
 import { startRoleRequest } from './roleRequest';
+import type { EcologyProposal } from '../types/proposals';
 
 /**
  * Shared logic for generating LCE mediation strategies into `suggestPanel`.
@@ -42,23 +44,27 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
   const selection = useEcoStore((s) => s.selection);
   const messages = useEcoStore((s) => s.messages);
   const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
-  const previewProposalId = useEcoStore((s) => s.previewProposalId);
+  const discussIdeaId = useEcoStore((s) => s.discussIdeaId);
+  const selectIdea = useEcoStore((s) => s.selectIdea);
+  const reviseIdea = useEcoStore((s) => s.reviseIdea);
   const disrupted = useDisruptedEntityIds();
   const broken = useBrokenFlowIds();
   const conflicts = useActiveConflicts();
   const userImpactEntityIds = useEcoStore((s) => s.userImpactEntityIds);
 
   const abortRef = useRef<AbortController | null>(null);
+  const reviseAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
+      reviseAbortRef.current?.abort();
     };
   }, [roleRevision]);
 
   function buildContext() {
-    const previewStrategy = previewProposalId
-      ? findPreviewProposal(messages, previewProposalId, panel)
+    const discussStrategy = discussIdeaId
+      ? findPreviewProposal(messages, discussIdeaId, panel)
       : null;
     return buildChatContext({
       participantRole,
@@ -71,7 +77,7 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
       disrupted,
       broken,
       conflicts,
-      previewStrategy,
+      discussStrategy,
       appliedStrategies: appliedOverlay,
       userImpactEntityIds,
     });
@@ -201,6 +207,8 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
       proposals,
       highlights: parsed.highlights,
     });
+    // The participant asked to see their own idea on the map, so use it right away.
+    if (proposals[0]) selectIdea(proposals[0].id);
   }
 
   function abortSuggest() {
@@ -209,5 +217,47 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
     if (ctrl) clearStreamingIfCurrent(ctrl);
   }
 
-  return { runSuggest, runUserStrategy, abortSuggest, scenario, panel };
+  /**
+   * Change an idea with the participant's own words. The AI answer is parsed
+   * privately (not streamed into the ideas list) and replaces the idea in place.
+   */
+  async function runReviseIdea(
+    idea: EcologyProposal,
+    changeText: string,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    const trimmed = changeText.trim();
+    if (!trimmed) return { ok: false, error: 'Empty change' };
+    reviseAbortRef.current?.abort();
+    const request = startRoleRequest(roleRevision);
+    const ctrl = request.controller;
+    reviseAbortRef.current = ctrl;
+
+    let raw = '';
+    let error = null as string | null;
+    await streamChat(
+      {
+        messages: [{ role: 'user', content: REVISE_IDEA_PROMPT(idea, trimmed, easy) }],
+        context: buildContext(),
+      },
+      {
+        onDelta: (d) => {
+          raw += d;
+        },
+        onDone: () => {},
+        onError: (msg) => {
+          error = msg;
+        },
+      },
+      ctrl.signal,
+    );
+    request.dispose();
+    if (ctrl.signal.aborted || !request.isCurrent()) return { ok: false, error: 'aborted' };
+    if (error) return { ok: false, error };
+    const revised = parseProposalsFromContent(raw).proposals[0];
+    if (!revised) return { ok: false, error: 'The AI did not return an updated idea. Please try again.' };
+    reviseIdea(idea.id, { ...revised, id: idea.id });
+    return { ok: true };
+  }
+
+  return { runSuggest, runUserStrategy, runReviseIdea, abortSuggest, scenario, panel };
 }

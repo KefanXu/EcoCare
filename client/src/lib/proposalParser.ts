@@ -39,6 +39,7 @@ function validateOne(input: unknown): EcologyProposal | null {
   if (!input || typeof input !== 'object') return null;
   const p = input as Record<string, unknown>;
   if (!isStr(p.id) || !isStr(p.title) || !isStr(p.rationale)) return null;
+  const steps = Array.isArray(p.steps) ? p.steps.filter(isStr).map(step => step.trim()).slice(0, 3) : [];
 
   const addEntities: ProposalAddEntity[] = [];
   if (Array.isArray(p.addEntities)) {
@@ -114,6 +115,7 @@ function validateOne(input: unknown): EcologyProposal | null {
     id: p.id,
     title: p.title,
     rationale: p.rationale,
+    ...(steps.length ? { steps } : {}),
     ...(addEntities.length ? { addEntities } : {}),
     ...(addFlows.length ? { addFlows } : {}),
     ...(restoresEntityIds.length ? { restoresEntityIds } : {}),

@@ -1,3 +1,5 @@
+import { Check, ChevronRight } from 'lucide-react';
+import { Markdown } from './Markdown';
 import {
   repairedByProposal,
   useAllConflicts,
@@ -7,23 +9,24 @@ import {
 } from '../../store/useEcoStore';
 import type { EcologyProposal } from '../../types/proposals';
 import { useUiText } from '../../lib/uiText';
+import { IdeaSteps } from '../Idea/IdeaSteps';
 
 interface ProposalCardProps {
   proposal: EcologyProposal;
+  /** The strategy's own bullet points from the AI answer, shown behind "Details". */
+  details?: string;
   /** Drop the outer mr-2 when nested inside interleaved content. */
   flush?: boolean;
 }
 
-export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) {
-  const previewProposalId = useEcoStore((s) => s.previewProposalId);
-  const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
-  const startPreview = useEcoStore((s) => s.startPreview);
-  const cancelPreview = useEcoStore((s) => s.cancelPreview);
-  const applyProposalAsOverlay = useEcoStore((s) => s.applyProposalAsOverlay);
-  const discardOverlay = useEcoStore((s) => s.discardOverlay);
+export function ProposalCard({ proposal: p, details, flush = false }: ProposalCardProps) {
+  const isApplied = useEcoStore((s) => s.appliedOverlay[0]?.id === p.id);
+  const selectIdea = useEcoStore((s) => s.selectIdea);
+  const clearIdea = useEcoStore((s) => s.clearIdea);
   const setHoveredEntity = useEcoStore((s) => s.setHoveredEntity);
   const setHoveredFlow = useEcoStore((s) => s.setHoveredFlow);
   const toggleSelection = useEcoStore((s) => s.toggleSelection);
+  const pingOnMap = useEcoStore((s) => s.pingOnMap);
 
   const patient = useEffectivePatient();
   const basePatient = useEcoStore((s) => s.patient);
@@ -31,8 +34,6 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
   const allConflicts = useAllConflicts();
   const { easy, tr } = useUiText();
 
-  const isPreviewing = previewProposalId === p.id;
-  const isApplied = appliedOverlay.some((x) => x.id === p.id);
   const repairs = repairedByProposal(p, impact);
   const coverage = impact.total > 0 ? repairs.total / impact.total : 0;
   const additions = p.addEntities ?? [];
@@ -59,26 +60,32 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
   return (
     <div
       className={`strategy-card rounded-lg border bg-white p-4 shadow-sm transition ${flush ? '' : 'mr-2'} ${
-        isApplied
-          ? 'border-emerald-300 ring-1 ring-emerald-200'
-          : isPreviewing
-            ? 'border-emerald-300 border-dashed'
-            : 'border-stone-200'
+        isApplied ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-stone-200'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="text-sm font-semibold text-slate-800">{p.title}</div>
-        {isApplied ? (
-          <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">
-            {tr('Applied')}
+        <div className={`font-semibold text-slate-800 ${easy ? 'text-base' : 'text-sm'}`}>{p.title}</div>
+        {isApplied && (
+          <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">
+            {tr('On the map now')}
           </span>
-        ) : isPreviewing ? (
-          <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium border border-emerald-200">
-            {tr('Previewing')}
-          </span>
-        ) : null}
+        )}
       </div>
-      <div className="text-xs text-slate-600 mt-1 leading-relaxed">{p.rationale}</div>
+      <div className={`text-slate-600 mt-1 leading-relaxed ${easy ? 'text-[15px]' : 'text-sm'}`}>
+        {p.rationale}
+      </div>
+      <IdeaSteps idea={p} />
+      {details?.trim() && (
+        <details className="group mt-2">
+          <summary className="cursor-pointer list-none inline-flex items-center gap-1 text-sm font-medium text-sky-700 hover:text-sky-900">
+            <ChevronRight className="w-4 h-4 transition group-open:rotate-90" aria-hidden />
+            {tr('Details')}
+          </summary>
+          <div className="mt-1 pl-1">
+            <Markdown size={easy ? 'lg' : 'md'}>{details}</Markdown>
+          </div>
+        </details>
+      )}
 
       {impact.total > 0 && (
         <div className="mt-2.5">
@@ -110,7 +117,10 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
               key={`re-${id}`}
               onMouseEnter={() => setHoveredEntity(id)}
               onMouseLeave={() => setHoveredEntity(null)}
-              onClick={() => toggleSelection({ id, kind: 'entity' })}
+              onClick={() => {
+                toggleSelection({ id, kind: 'entity' });
+                pingOnMap([id]);
+              }}
               title={tr('Hover to locate on the visualization')}
               className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400"
             >
@@ -123,7 +133,10 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
               key={`rf-${id}`}
               onMouseEnter={() => setHoveredFlow(id)}
               onMouseLeave={() => setHoveredFlow(null)}
-              onClick={() => toggleSelection({ id, kind: 'flow' })}
+              onClick={() => {
+                toggleSelection({ id, kind: 'flow' });
+                pingOnMap([id]);
+              }}
               title={tr('Hover to locate on the visualization')}
               className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400"
             >
@@ -170,7 +183,10 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
                 type="button"
                 onMouseEnter={() => setHoveredEntity(id)}
                 onMouseLeave={() => setHoveredEntity(null)}
-                onClick={() => toggleSelection({ id, kind: 'entity' })}
+                onClick={() => {
+                toggleSelection({ id, kind: 'entity' });
+                pingOnMap([id]);
+              }}
                 className="text-[11px] px-2 py-0.5 rounded-full border border-rose-200 bg-rose-50 text-rose-800 hover:border-rose-400"
               >
                 − {labelForEntity(id)}
@@ -182,7 +198,10 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
                 type="button"
                 onMouseEnter={() => setHoveredFlow(id)}
                 onMouseLeave={() => setHoveredFlow(null)}
-                onClick={() => toggleSelection({ id, kind: 'flow' })}
+                onClick={() => {
+                toggleSelection({ id, kind: 'flow' });
+                pingOnMap([id]);
+              }}
                 className="text-[11px] px-2 py-0.5 rounded-full border border-rose-200 bg-rose-50 text-rose-800 hover:border-rose-400"
               >
                 − {labelForFlow(id)}
@@ -209,48 +228,22 @@ export function ProposalCard({ proposal: p, flush = false }: ProposalCardProps) 
         </div>
       )}
 
-      <div className="strategy-actions flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-stone-200/70">
-        {!isApplied && (
-          <button
-            onClick={() => (isPreviewing ? cancelPreview() : startPreview(p.id))}
-            className={`rounded-md border ${
-              easy ? 'text-sm px-3 py-2 min-h-[40px] font-medium' : 'text-xs px-2.5 py-1'
-            } ${
-              isPreviewing
-                ? 'border-slate-500 bg-slate-800 text-white'
-                : 'border-stone-300 bg-white text-slate-700 hover:border-slate-400'
-            }`}
-          >
-            {tr(
-              isPreviewing
-                ? easy
-                  ? 'Stop showing'
-                  : 'Cancel preview'
-                : easy
-                  ? 'Show me on the map'
-                  : 'Preview on map',
-            )}
-          </button>
-        )}
-        {isApplied ? (
-          <button
-            onClick={() => discardOverlay(p.id)}
-            className={`rounded-md border border-rose-300 bg-rose-50 text-rose-700 hover:border-rose-400 ${
-              easy ? 'text-sm px-3 py-2 min-h-[40px] font-medium' : 'text-xs px-2.5 py-1'
-            }`}
-          >
-            {tr('Undo')}
-          </button>
-        ) : (
-          <button
-            onClick={() => applyProposalAsOverlay(p.id)}
-            className={`rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 hover:border-emerald-400 ${
-              easy ? 'text-sm px-3 py-2 min-h-[40px] font-medium' : 'text-xs px-2.5 py-1'
-            }`}
-          >
-            {tr(easy ? 'Try it' : 'Apply what-if')}
-          </button>
-        )}
+      <div className="strategy-actions mt-4 pt-3 border-t border-stone-200/70">
+        <button
+          type="button"
+          onClick={() => (isApplied ? clearIdea() : selectIdea(p.id))}
+          aria-pressed={isApplied}
+          className={`w-full inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition ${
+            easy ? 'text-sm px-3 py-2.5 min-h-[44px]' : 'text-xs px-3 py-2'
+          } ${
+            isApplied
+              ? 'border border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50'
+              : 'bg-emerald-600 text-white hover:bg-emerald-700'
+          }`}
+        >
+          {isApplied && <Check className="w-4 h-4" aria-hidden />}
+          {tr(isApplied ? 'In use. Tap to take it off the map' : 'Use this idea')}
+        </button>
       </div>
     </div>
   );

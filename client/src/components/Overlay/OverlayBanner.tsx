@@ -1,161 +1,47 @@
-import { useState } from 'react';
-import { useActiveHighlight, useEcoStore, useRepairState } from '../../store/useEcoStore';
-import { findPreviewProposal } from './findPreviewProposal';
+import { useActiveHighlight, useEcoStore } from '../../store/useEcoStore';
 import { useUiText } from '../../lib/uiText';
 import { useIsMobile } from '../../lib/useMediaQuery';
 
+/**
+ * Small pill shown while an AI reference is lit up on the map. The idea on the
+ * map has its own card (ActiveIdeaCard), so this sits just below it.
+ */
 export function OverlayBanner() {
   const { easy, tr } = useUiText();
   const isMobile = useIsMobile();
-  const previewProposalId = useEcoStore((s) => s.previewProposalId);
-  const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
-  const messages = useEcoStore((s) => s.messages);
-  const suggestPanel = useEcoStore((s) => s.suggestPanel);
-  const cancelPreview = useEcoStore((s) => s.cancelPreview);
-  const applyPreviewAsOverlay = useEcoStore((s) => s.applyPreviewAsOverlay);
-  const discardOverlay = useEcoStore((s) => s.discardOverlay);
-  const clearAllOverlays = useEcoStore((s) => s.clearAllOverlays);
   const setActiveHighlight = useEcoStore((s) => s.setActiveHighlight);
+  const hasIdea = useEcoStore((s) => s.appliedOverlay.length > 0);
   const activeHighlight = useActiveHighlight();
-  const repair = useRepairState();
 
-  const [managerOpen, setManagerOpen] = useState(false);
+  if (!activeHighlight) return null;
 
-  const preview = previewProposalId
-    ? findPreviewProposal(messages, previewProposalId, suggestPanel)
-    : null;
-
-  if (!preview && appliedOverlay.length === 0 && !activeHighlight) return null;
-
-  const healedPct = repair.total > 0 ? Math.round((repair.repaired / repair.total) * 100) : 0;
-  // Phones: thin full-width strips along the top edge so the ring stays visible.
-  const pill = isMobile ? 'flex-wrap rounded-2xl' : 'rounded-full';
+  const top = hasIdea ? (isMobile ? 'top-[4.25rem]' : 'top-[4.5rem]') : isMobile ? 'top-2' : 'top-3';
 
   return (
     <div
-      className={`ecology-status absolute z-30 flex flex-col gap-2 ${
-        isMobile
-          ? 'top-2 inset-x-2 items-stretch'
-          : 'top-3 left-1/2 -translate-x-1/2 items-center max-w-[calc(100%-7rem)]'
+      className={`ecology-status absolute z-30 flex justify-center pointer-events-none ${top} ${
+        isMobile ? 'inset-x-2' : 'left-1/2 -translate-x-1/2 max-w-[calc(100%-7rem)]'
       }`}
     >
-      {repair.total > 0 && (preview || appliedOverlay.length > 0) && (
-        <div className={`flex items-center gap-2.5 bg-white border border-stone-200 ${pill} pl-3 pr-3 py-1 shadow-md text-xs`}>
-          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-            {tr(easy ? 'Affected' : 'Damage')}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="line-through text-rose-500 font-semibold">{repair.total}</span>
-            <span className="text-slate-400">→</span>
-            <span
-              className={`font-semibold ${
-                repair.remaining === 0 ? 'text-emerald-600' : 'text-slate-700'
-              }`}
-            >
-              {repair.remaining}
-            </span>
-            <span className="text-slate-500">{tr('still affected')}</span>
-          </span>
-          <span className="h-1.5 w-16 rounded-full bg-rose-100 overflow-hidden">
-            <span
-              className="block h-full rounded-full bg-emerald-500 transition-all duration-500"
-              style={{ width: `${healedPct}%` }}
-            />
-          </span>
-        </div>
-      )}
-      {activeHighlight && (
-        <div className={`flex items-center gap-2 bg-white border border-amber-300 ring-1 ring-amber-200 ${pill} pl-3 pr-1.5 py-1 shadow-md text-xs`}>
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
-          <span className="text-slate-700">
-            <span className="text-amber-700 font-semibold">{tr(easy ? 'Showing:' : 'Highlighting:')}</span>{' '}
-            {activeHighlight.title}
-          </span>
-          <button
-            onClick={() => setActiveHighlight(null)}
-            className="text-[11px] px-2 py-0.5 rounded-full border border-stone-300 bg-white text-slate-600 hover:border-slate-400"
-          >
-            {tr('Clear')}
-          </button>
-        </div>
-      )}
-      {preview && (
-        <div className={`flex items-center gap-2 bg-white border border-emerald-300 ring-1 ring-emerald-200 ${pill} pl-3 pr-1.5 py-1 shadow-md text-xs`}>
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-slate-700 min-w-0 flex-1">
-            <span className="text-emerald-700 font-semibold">{tr(easy ? 'Trying out:' : 'Previewing:')}</span>{' '}
-            {preview.title}
-          </span>
-          <button
-            onClick={() => applyPreviewAsOverlay()}
-            className="ml-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-600 text-white font-medium hover:bg-emerald-700"
-          >
-            {tr(easy ? 'Keep this idea' : 'Apply')}
-          </button>
-          <button
-            onClick={() => cancelPreview()}
-            className="text-[11px] px-2 py-0.5 rounded-full border border-stone-300 bg-white text-slate-600 hover:border-slate-400"
-          >
-            {tr(easy ? 'Hide it' : 'Discard')}
-          </button>
-        </div>
-      )}
-      {appliedOverlay.length > 0 && (
-        <div className="relative">
-          <button
-            onClick={() => setManagerOpen((v) => !v)}
-            className={`flex items-center gap-2 bg-white border border-emerald-300 ${pill} px-3 py-1 shadow-sm text-xs hover:border-emerald-400 ${
-              isMobile ? 'w-full' : ''
-            }`}
-          >
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span className="text-slate-700">
-              {tr(easy ? 'Ideas in use:' : 'What-if overlays:')}{' '}
-              <span className="font-semibold text-emerald-700">{appliedOverlay.length}</span>
-            </span>
-            <span className="text-[11px] text-slate-500">{tr(easy ? 'See list' : 'Manage')}</span>
-          </button>
-          {managerOpen && (
-            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-72 bg-white border border-stone-200 rounded-lg shadow-lg p-2 space-y-1.5">
-              <div className="flex items-center justify-between px-1">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-                  {tr(easy ? 'Ideas in use' : 'Active overlays')}
-                </div>
-                <button
-                  onClick={() => {
-                    clearAllOverlays();
-                    setManagerOpen(false);
-                  }}
-                  className="text-[10px] px-2 py-0.5 rounded-md text-rose-600 hover:bg-rose-50"
-                >
-                  {tr(easy ? 'Undo all' : 'Clear all')}
-                </button>
-              </div>
-              {appliedOverlay.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-stone-50"
-                >
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold text-slate-800 truncate">
-                      {p.title}
-                    </div>
-                    <div className="text-[10px] text-slate-500 truncate">
-                      {p.rationale}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => discardOverlay(p.id)}
-                    className="shrink-0 text-[10px] px-2 py-0.5 rounded-md border border-stone-300 text-slate-600 hover:border-rose-300 hover:text-rose-600"
-                  >
-                    {tr(easy ? 'Undo' : 'Remove')}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <div
+        className={`pointer-events-auto flex items-center gap-2 bg-white border border-amber-300 ring-1 ring-amber-200 ${
+          isMobile ? 'rounded-2xl flex-wrap' : 'rounded-full'
+        } pl-3 pr-1.5 py-1 shadow-md text-xs`}
+      >
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+        <span className="text-slate-700">
+          <span className="text-amber-700 font-semibold">
+            {tr(easy ? 'Lit up on the map:' : 'Highlighting:')}
+          </span>{' '}
+          {activeHighlight.title}
+        </span>
+        <button
+          onClick={() => setActiveHighlight(null)}
+          className="text-[11px] px-2 py-0.5 rounded-full border border-stone-300 bg-white text-slate-600 hover:border-slate-400"
+        >
+          {tr('Clear')}
+        </button>
+      </div>
     </div>
   );
 }

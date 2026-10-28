@@ -29,6 +29,7 @@ export function EntityMentionChip({ text, fallback }: EntityMentionChipProps) {
   const toggleSelection = useEcoStore((s) => s.toggleSelection);
   const setHoveredEntity = useEcoStore((s) => s.setHoveredEntity);
   const setHoveredFlow = useEcoStore((s) => s.setHoveredFlow);
+  const pingOnMap = useEcoStore((s) => s.pingOnMap);
   const { tr } = useI18n();
 
   const match = useMemo<Match | null>(() => {
@@ -65,10 +66,13 @@ export function EntityMentionChip({ text, fallback }: EntityMentionChipProps) {
     return (
       <button
         type="button"
-        onClick={() => toggleSelection({ id: e.id, kind: 'entity' })}
+        onClick={() => {
+          toggleSelection({ id: e.id, kind: 'entity' });
+          pingOnMap([e.id]);
+        }}
         onMouseEnter={() => setHoveredEntity(e.id)}
         onMouseLeave={() => setHoveredEntity(null)}
-        className={`inline-flex items-center gap-1 align-baseline rounded-md px-1.5 py-[1px] text-[12px] font-medium border transition-colors ${
+        className={`inline-flex items-center gap-1 align-baseline rounded-md px-1.5 py-[1px] text-[0.88em] font-medium border transition-colors ${
           isSelected
             ? 'border-sky-400 bg-sky-50 text-sky-800'
             : 'border-stone-300 bg-white text-slate-700 hover:border-slate-400'
@@ -93,10 +97,13 @@ export function EntityMentionChip({ text, fallback }: EntityMentionChipProps) {
   return (
     <button
       type="button"
-      onClick={() => toggleSelection({ id: f.id, kind: 'flow' })}
+      onClick={() => {
+        toggleSelection({ id: f.id, kind: 'flow' });
+        pingOnMap([f.id, f.source, f.target]);
+      }}
       onMouseEnter={() => setHoveredFlow(f.id)}
       onMouseLeave={() => setHoveredFlow(null)}
-      className={`inline-flex items-center gap-1 align-baseline rounded-md px-1.5 py-[1px] text-[12px] font-medium border transition-colors ${
+      className={`inline-flex items-center gap-1 align-baseline rounded-md px-1.5 py-[1px] text-[0.88em] font-medium border transition-colors ${
         isSelected
           ? 'border-sky-400 bg-sky-50 text-sky-800'
           : 'border-stone-300 bg-white text-slate-700 hover:border-slate-400'

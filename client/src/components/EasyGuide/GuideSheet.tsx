@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, Lightbulb } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { useEcoStore } from '../../store/useEcoStore';
 import { useUiText } from '../../lib/uiText';
-import { EasyIdeasView } from './EasyIdeasView';
 import { EasyItemCard } from './EasyItemCard';
 import {
   EasyGuideStepper,
@@ -64,8 +63,7 @@ export function GuideSheet({
   const labels = useGuideStepLabels();
   const activeScenarioId = useEcoStore((s) => s.activeScenarioId);
   const suggestOpen = useEcoStore((s) => s.suggestPanel.open);
-  const previewProposalId = useEcoStore((s) => s.previewProposalId);
-  const appliedCount = useEcoStore((s) => s.appliedOverlay.length);
+  const activeIdea = useEcoStore((s) => s.appliedOverlay[0] ?? null);
   const selection = useEcoStore((s) => s.selection);
   const clearSelection = useEcoStore((s) => s.clearSelection);
   const setHoveredEntity = useEcoStore((s) => s.setHoveredEntity);
@@ -90,37 +88,33 @@ export function GuideSheet({
     prevScenario.current = activeScenarioId;
   }, [activeScenarioId, onSnapChange]);
 
+  // Ideas live in step 3; open the sheet fully while browsing them.
   const prevSuggest = useRef(suggestOpen);
   useEffect(() => {
-    if (suggestOpen) onSnapChange('full');
-    else if (prevSuggest.current) onSnapChange('half');
+    if (suggestOpen && !prevSuggest.current) {
+      setStep(3);
+      onSnapChange('full');
+    }
     prevSuggest.current = suggestOpen;
   }, [suggestOpen, onSnapChange]);
 
-  const prevPreview = useRef(previewProposalId);
+  // Using or changing an idea: drop to half so the map change is visible.
+  const prevIdea = useRef(activeIdea);
   useEffect(() => {
-    if (previewProposalId && previewProposalId !== prevPreview.current) onSnapChange('half');
-    prevPreview.current = previewProposalId;
-  }, [previewProposalId, onSnapChange]);
-
-  const prevApplied = useRef(appliedCount);
-  useEffect(() => {
-    if (appliedCount > prevApplied.current) onSnapChange('half');
-    prevApplied.current = appliedCount;
-  }, [appliedCount, onSnapChange]);
+    if (activeIdea && activeIdea !== prevIdea.current) onSnapChange('half');
+    prevIdea.current = activeIdea;
+  }, [activeIdea, onSnapChange]);
 
   // Tapping an item (in the list or on the map) shows its card inside the sheet
   // at half height, so the highlighted node and its details are both visible.
   const selectedId =
     selection.find((s) => s.kind === 'entity' || s.kind === 'flow')?.id ?? null;
-  const showItem = !!selectedId && !suggestOpen;
+  const showItem = !!selectedId;
   const prevSelected = useRef(selectedId);
   useEffect(() => {
-    if (selectedId && selectedId !== prevSelected.current && !suggestOpen) {
-      onSnapChange('half');
-    }
+    if (selectedId && selectedId !== prevSelected.current) onSnapChange('half');
     prevSelected.current = selectedId;
-  }, [selectedId, suggestOpen, onSnapChange]);
+  }, [selectedId, onSnapChange]);
 
   function backFromItem() {
     clearSelection();
@@ -131,7 +125,7 @@ export function GuideSheet({
   // Scroll body to top when the view changes.
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: 0 });
-  }, [step, suggestOpen, selectedId]);
+  }, [step, selectedId]);
 
   // --- Drag handling -------------------------------------------------------
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -188,15 +182,15 @@ export function GuideSheet({
           ? `${HALF_RATIO * 100}%`
           : `calc(100% - ${FULL_INSET_PX}px)`;
 
-  const title = suggestOpen ? profile.strategyLabel : showItem ? tr('About this item') : labels[step];
+  const title = showItem ? tr('About this item') : labels[step];
   const expandLabel = tr(snap === 'peek' ? 'Open the guide' : 'Collapse the guide');
-  const stepStatus =
-    suggestOpen || showItem
+  const stepStatus = showItem
       ? title
       : tr('Step {n} of {total}: {title}', { n: step, total: GUIDE_STEP_COUNT, title });
 
   return (
     <div
+      data-tour="guide"
       ref={sheetRef}
       className={`absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-3xl border-t border-stone-200/80 bg-white shadow-[0_-12px_40px_rgba(28,25,23,0.14)] ${
         dragHeight !== null ? '' : 'transition-[height,transform] duration-300 ease-out motion-reduce:transition-none'
@@ -222,12 +216,7 @@ export function GuideSheet({
         <div className="mt-2 flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <div className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
-              {suggestOpen ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <Lightbulb className="w-3.5 h-3.5 text-emerald-600" aria-hidden />
-                  {tr('Ideas · {role} guide', { role: profile.label })}
-                </span>
-              ) : showItem ? (
+              {showItem ? (
                 tr('Step {n} of {total} · tap the map to look around', { n: step, total: GUIDE_STEP_COUNT })
               ) : (
                 tr('Step {n} of {total} · {role} guide', {
@@ -239,7 +228,7 @@ export function GuideSheet({
             </div>
             <div className="text-base font-semibold text-slate-900 truncate leading-snug">{title}</div>
           </div>
-          {!suggestOpen && !showItem && <StepDots step={step} />}
+          {!showItem && <StepDots step={step} />}
           <span
             className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-slate-600"
             aria-hidden
@@ -257,9 +246,7 @@ export function GuideSheet({
         }`}
       >
         <div className="pt-3">
-          {suggestOpen ? (
-            <EasyIdeasView compact />
-          ) : showItem ? (
+          {showItem ? (
             <div className="flex flex-col gap-4">
               <EasyItemCard preferSelection />
               <button

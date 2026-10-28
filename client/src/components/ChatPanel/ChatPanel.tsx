@@ -37,12 +37,11 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
   const toggleSelection = useEcoStore((s) => s.toggleSelection);
   const clearSelection = useEcoStore((s) => s.clearSelection);
   const resetChat = useEcoStore((s) => s.resetChat);
-  const previewProposalId = useEcoStore((s) => s.previewProposalId);
   const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
   const suggestPanel = useEcoStore((s) => s.suggestPanel);
-  const cancelPreview = useEcoStore((s) => s.cancelPreview);
-  const discardOverlay = useEcoStore((s) => s.discardOverlay);
-  const clearAllOverlays = useEcoStore((s) => s.clearAllOverlays);
+  const discussIdeaId = useEcoStore((s) => s.discussIdeaId);
+  const setDiscussIdea = useEcoStore((s) => s.setDiscussIdea);
+  const clearIdea = useEcoStore((s) => s.clearIdea);
   const pendingChatPrompt = useEcoStore((s) => s.pendingChatPrompt);
   const clearPendingChatPrompt = useEcoStore((s) => s.clearPendingChatPrompt);
   const scenario = useActiveScenario();
@@ -51,26 +50,23 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
   const conflicts = useActiveConflicts();
   const userImpactEntityIds = useEcoStore((s) => s.userImpactEntityIds);
 
-  const previewStrategy = useMemo(
-    () =>
-      previewProposalId
-        ? findPreviewProposal(messages, previewProposalId, suggestPanel)
-        : null,
-    [previewProposalId, messages, suggestPanel],
+  const discussStrategy = useMemo(
+    () => (discussIdeaId ? findPreviewProposal(messages, discussIdeaId, suggestPanel) : null),
+    [discussIdeaId, messages, suggestPanel],
   );
 
   const contextStrategies = useMemo(() => {
-    const list: Array<{ proposal: EcologyProposal; status: 'previewing' | 'applied' }> = [];
+    const list: Array<{ proposal: EcologyProposal; status: 'applied' | 'discussing' }> = [];
     const seen = new Set<string>();
     for (const p of appliedOverlay) {
       seen.add(p.id);
       list.push({ proposal: p, status: 'applied' });
     }
-    if (previewStrategy && !seen.has(previewStrategy.id)) {
-      list.push({ proposal: previewStrategy, status: 'previewing' });
+    if (discussStrategy && !seen.has(discussStrategy.id)) {
+      list.push({ proposal: discussStrategy, status: 'discussing' });
     }
     return list;
-  }, [appliedOverlay, previewStrategy]);
+  }, [appliedOverlay, discussStrategy]);
   const { t, tr, lang, easy, role, profile } = useUiText();
   const roleRevision = useEcoStore((s) => s.roleRevision);
   const quickQuestions = profile.quickLabels.map((label, index) => ({
@@ -113,11 +109,16 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
 
   // Send questions queued from elsewhere in the UI (Easy guide / item cards).
   useEffect(() => {
-    if (pendingChatPrompt && !isStreaming) {
-      const prompt = pendingChatPrompt;
+    if (!pendingChatPrompt || isStreaming) return;
+    // Defer one tick so a StrictMode mount/unmount/mount (which aborts the first
+    // stream) sends the question exactly once, from the mount that stays.
+    const t = window.setTimeout(() => {
+      const prompt = useEcoStore.getState().pendingChatPrompt;
+      if (!prompt || useEcoStore.getState().isStreaming) return;
       clearPendingChatPrompt();
       void send(prompt);
-    }
+    }, 0);
+    return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingChatPrompt, isStreaming]);
 
@@ -147,7 +148,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
       disrupted,
       broken,
       conflicts,
-      previewStrategy,
+      discussStrategy,
       appliedStrategies: appliedOverlay,
       userImpactEntityIds,
     });
@@ -387,7 +388,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
         )}
         {messages.length === 0 && !easy && (
           <div className="space-y-5">
-            <p className="text-[13px] text-slate-600 leading-relaxed">
+            <p className="text-[15px] text-slate-600 leading-relaxed">
               {profile.intro}
             </p>
             {scenario && (
@@ -402,7 +403,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                       type="button"
                       onClick={() => send(p)}
                       disabled={isStreaming}
-                      className="block w-full text-left text-[13px] px-3.5 py-2.5 rounded-xl bg-white/90 border border-stone-200/80 text-slate-700 hover:border-stone-300 hover:bg-white shadow-[0_1px_2px_rgba(28,25,23,0.03)] disabled:opacity-50 transition"
+                      className="block w-full text-left text-[14px] px-3.5 py-2.5 rounded-xl bg-white/90 border border-stone-200/80 text-slate-700 hover:border-stone-300 hover:bg-white shadow-[0_1px_2px_rgba(28,25,23,0.03)] disabled:opacity-50 transition"
                     >
                       {p}
                     </button>
@@ -421,7 +422,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                     type="button"
                     onClick={() => send(p)}
                     disabled={isStreaming}
-                    className="block w-full text-left text-[13px] px-3.5 py-2.5 rounded-xl bg-white/90 border border-stone-200/80 text-slate-700 hover:border-stone-300 hover:bg-white shadow-[0_1px_2px_rgba(28,25,23,0.03)] disabled:opacity-50 transition"
+                    className="block w-full text-left text-[14px] px-3.5 py-2.5 rounded-xl bg-white/90 border border-stone-200/80 text-slate-700 hover:border-stone-300 hover:bg-white shadow-[0_1px_2px_rgba(28,25,23,0.03)] disabled:opacity-50 transition"
                   >
                     {p}
                   </button>
@@ -442,9 +443,9 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                 className={
                   m.role === 'user'
                     ? `ml-4 px-3.5 py-2.5 rounded-2xl rounded-br-md bg-sky-50/90 border border-sky-200/70 text-slate-800 whitespace-pre-wrap shadow-[0_1px_2px_rgba(14,165,233,0.06)] ${
-                        easy ? 'text-base' : 'text-[13px] leading-relaxed'
+                        easy ? 'text-[17px] leading-[1.6]' : 'text-[15px] leading-relaxed'
                       }`
-                    : `mr-1 text-slate-700 leading-relaxed ${easy ? 'text-base' : 'text-[13px]'}`
+                    : `mr-1 text-slate-700 leading-relaxed ${easy ? 'text-[17px]' : 'text-[15px]'}`
                 }
               >
                 {m.role === 'assistant' && (
@@ -480,7 +481,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
               </div>
               {showFollowUps && (
                 <div className="mr-1 space-y-1.5">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                  <div className={`uppercase tracking-wider text-slate-500 font-semibold ${easy ? 'text-xs' : 'text-[11px]'}`}>
                     {tr('Suggested follow-ups')}
                   </div>
                   {m.followUps!.map((q, i) => (
@@ -489,7 +490,9 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                       type="button"
                       onClick={() => send(q)}
                       disabled={isStreaming}
-                      className="block w-full text-left text-[12px] px-3 py-2 rounded-xl bg-white/90 border border-stone-200/80 hover:border-stone-300 text-slate-700 shadow-[0_1px_2px_rgba(28,25,23,0.03)] disabled:opacity-50 transition"
+                      className={`block w-full text-left rounded-xl bg-white/90 border border-stone-200/80 hover:border-stone-300 text-slate-700 shadow-[0_1px_2px_rgba(28,25,23,0.03)] disabled:opacity-50 transition ${
+                        easy ? 'text-[15px] px-3.5 py-2.5 min-h-[44px]' : 'text-[13px] px-3 py-2'
+                      }`}
                     >
                       {q}
                     </button>
@@ -539,17 +542,17 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                 key={`strat-${proposal.id}`}
                 type="button"
                 onClick={() =>
-                  status === 'previewing' ? cancelPreview() : discardOverlay(proposal.id)
+                  status === 'discussing' ? setDiscussIdea(null) : clearIdea()
                 }
                 title={tr(
                   easy
                     ? 'Stop asking about this idea'
-                    : status === 'previewing'
-                      ? 'Remove preview from context'
-                      : 'Remove applied strategy from context',
+                    : status === 'discussing'
+                      ? 'Stop asking about this idea'
+                      : 'Take this idea off the map',
                 )}
                 className={`group inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full border shadow-[0_1px_2px_rgba(16,185,129,0.08)] transition ${
-                  status === 'previewing'
+                  status === 'discussing'
                     ? 'border-emerald-300/80 border-dashed bg-emerald-50/90 hover:border-emerald-400'
                     : 'border-emerald-200 bg-emerald-50/90 hover:border-emerald-300'
                 }`}
@@ -559,7 +562,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                   {proposal.title}
                 </span>
                 <span className="text-[9px] uppercase tracking-wider text-emerald-600/70">
-                  {tr(status === 'previewing' ? (easy ? 'trying out' : 'preview') : (easy ? 'kept' : 'applied'))}
+                  {tr(status === 'discussing' ? 'asking about' : 'on the map')}
                 </span>
                 <span className="text-emerald-400 group-hover:text-emerald-700">×</span>
               </button>
@@ -569,8 +572,8 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
               type="button"
               onClick={() => {
                 clearSelection();
-                if (previewProposalId) cancelPreview();
-                if (appliedOverlay.length > 0) clearAllOverlays();
+                if (discussIdeaId) setDiscussIdea(null);
+                if (appliedOverlay.length > 0) clearIdea();
               }}
               className="text-[11px] font-medium text-slate-400 hover:text-slate-700 ml-0.5 transition"
             >
@@ -614,7 +617,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
               }
               className={`flex-1 min-w-0 bg-transparent border-0 text-slate-800 placeholder-slate-400 focus:outline-none resize-none ${
                 variant === 'drawer' ? 'py-3' : 'py-2'
-              } ${easy ? 'text-base' : 'text-[13px] leading-relaxed'}`}
+              } ${easy ? 'text-base' : 'text-[14px] leading-relaxed'}`}
               disabled={isStreaming}
             />
             {isStreaming ? (

@@ -1,5 +1,9 @@
 /** Chinese for the phone guide sheet, item cards, and the Easy ideas view. */
 export const ZH_GUIDE: Record<string, string> = {
+  'Changes on the map': '图上的变化',
+  'This saved idea does not include practical steps yet.': '这个已保存的想法还没有具体步骤。',
+  'Ask for practical steps': '请 AI 解释具体步骤',
+  'Explain how to try the idea "{title}" in 2-3 practical steps. Say who could do what, what to ask, and what needs checking first. Keep my point of view and explain this idea without choosing it or changing the map.': '请用两到三个具体步骤解释如何尝试“{title}”这个想法：谁可以做什么、该问哪些问题、需要先确认什么。请根据我的视角解释，不要替我选择，也不要改变图上的内容。',
   // ---- Guide sheet (phones) ----
   'Open the guide': '展开指南',
   'Collapse the guide': '收起指南',
@@ -68,4 +72,28 @@ export const ZH_GUIDE: Record<string, string> = {
   'Undo this idea': '撤销这个办法',
   'Keep this idea on the map': '把这个办法保留在图上',
   'Ask about benefits and risks': '问问好处和风险',
+
+  // ---- One idea at a time ----
+  'Use this idea': '用这个办法',
+  'In use. Tap to take it off the map': '正在使用，点此从图上撤下',
+  'On the map now': '已在图上显示',
+  '"Use this idea"': '“用这个办法”',
+  'Ideas for coping with {event}. Tap “Use this idea” to see it on the map. Only one idea is on the map at a time.':
+    '应对“{event}”的办法。点“用这个办法”，就能在图上看到效果。图上一次只放一个办法。',
+
+  // ---- Idea card on the map ----
+  'Idea on the map': '图上正在用的办法',
+  'Show details': '展开详情',
+  'Hide details': '收起详情',
+  Fixes: '能解决',
+  'Change this idea': '修改这个办法',
+  'Say what to change, e.g. "Also ask my daughter to help on weekends."': '说说想怎么改，比如：“周末也请女儿来帮忙。”',
+  'Update the idea': '更新办法',
+  'Updating the idea…': '正在更新办法…',
+  'Undo last change': '撤销上次修改',
+  'Ask the AI helper about it': '问问 AI 助手',
+  'This idea fixes {n} of {total} affected things.': '这个办法解决了 {total} 项受影响内容中的 {n} 项。',
+  'This idea is on the map.': '这个办法已经放到图上了。',
+  'The AI did not return an updated idea. Please try again.': 'AI 没有给出修改后的办法，请再试一次。',
+  Generating: '正在生成',
 };

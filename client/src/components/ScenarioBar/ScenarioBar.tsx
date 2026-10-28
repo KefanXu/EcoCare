@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Languages, MessageCircle, RotateCcw, Search, Sparkles, X } from 'lucide-react';
+import { Check, ChevronDown, FlaskConical, Languages, MessageCircle, RotateCcw, Search, Sparkles, X } from 'lucide-react';
 import { useEcoStore } from '../../store/useEcoStore';
 import { useUiText } from '../../lib/uiText';
 import { useI18n } from '../../i18n';
 import { iconForScenario } from '../../lib/entityIcons';
 import { RoleSwitcher } from './RoleSwitcher';
+import { OnboardingButton } from '../Onboarding/OnboardingTour';
+import { studyWorkspace } from '../../lib/studyRuntime';
 
 export function ScenarioBar() {
   const patient = useEcoStore((s) => s.patient);
+  const participantRole = useEcoStore((s) => s.participantRole);
+  const language = useEcoStore((s) => s.language);
   const activeScenarioId = useEcoStore((s) => s.activeScenarioId);
   const setScenario = useEcoStore((s) => s.setScenario);
   const reset = useEcoStore((s) => s.reset);
@@ -31,7 +35,7 @@ export function ScenarioBar() {
   const ActiveIcon = activeScenario ? iconForScenario(activeScenario.id) : null;
 
   const searchField = (inputRef?: React.RefObject<HTMLInputElement>) => (
-    <label className="relative block h-10 w-full max-w-[360px]">
+    <label data-tour="search" className="relative block h-10 w-full max-w-[360px]">
       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
         <Search className="w-4 h-4" aria-hidden />
       </span>
@@ -83,11 +87,11 @@ export function ScenarioBar() {
         {!easy && (
           <>
             <div className="hidden sm:block h-7 w-px bg-stone-200/90 shrink-0" aria-hidden />
-            <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 min-w-[220px]">
+            <div data-tour="event" className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 min-w-[220px]">
               <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400 shrink-0">
                 {t('lifeEvent')}
               </span>
-              <ScenarioDropdown
+              {studyWorkspace ? <span className="text-sm font-medium text-rose-700">{activeScenario && tr(activeScenario.name)}</span> : <ScenarioDropdown
                 valueId={activeScenarioId}
                 baselineLabel={t('baseline')}
                 activeLabel={activeScenario ? tr(activeScenario.name) : t('baseline')}
@@ -95,7 +99,7 @@ export function ScenarioBar() {
                 ActiveIcon={ActiveIcon}
                 scenarios={patient.scenarios}
                 onSelect={setScenario}
-              />
+              />}
             </div>
           </>
         )}
@@ -107,6 +111,7 @@ export function ScenarioBar() {
               {searchField()}
             </div>
             <button
+              data-tour="search"
               type="button"
               onClick={() => setMobileSearchOpen((v) => !v)}
               aria-expanded={mobileSearchOpen}
@@ -125,8 +130,9 @@ export function ScenarioBar() {
         )}
 
         {/* Mode + assistant + reset */}
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 max-w-full">
+        <div className="header-actions flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 max-w-full">
           <button
+            data-tour="assistant"
             type="button"
             onClick={() => (helperOpen ? closeHelper() : openHelper())}
             aria-pressed={helperOpen}
@@ -181,13 +187,17 @@ export function ScenarioBar() {
             </button>
           </div>
 
-          <LanguageToggle />
+          {!studyWorkspace && <LanguageToggle />}
+          <OnboardingButton />
+          {!studyWorkspace && <>
+            <a href={`?study=1&role=${participantRole}&lang=${language}`} title={tr('Study mode')} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-stone-200 px-3 text-xs font-medium text-slate-600 hover:bg-stone-50"><FlaskConical size={15} aria-hidden />{tr('Study')}</a>
+          </>}
 
           {!easy && (
             <button
               type="button"
               onClick={reset}
-              title={t('resetTitle')}
+              title={studyWorkspace ? tr('Reset the tool. Your assigned situation and study answers stay unchanged.') : t('resetTitle')}
               className="inline-flex h-[38px] items-center gap-1.5 font-medium text-slate-600 hover:text-slate-900 bg-stone-100/80 hover:bg-stone-200/80 border border-transparent hover:border-stone-200/80 transition-all duration-150 text-[12px] px-3 rounded-full"
             >
               <RotateCcw className="w-3.5 h-3.5" strokeWidth={2} aria-hidden />

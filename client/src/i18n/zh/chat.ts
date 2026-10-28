@@ -100,4 +100,23 @@ export const ZH_CHAT: Record<string, string> = {
   't = 0 (LCE strikes)': 't = 0（变故发生）',
   't = 1 (full ripple)': 't = 1（影响完全扩散）',
   'Reset to t=0': '重置到 t=0',
+
+  // ---- Single idea + lit-up references ----
+  Details: '详细说明',
+  'Take this idea off the map': '把这个办法从图上撤下',
+  'asking about': '正在询问',
+  'on the map': '在图上',
+  'Parts of the map mentioned above': '回答里提到的图上内容',
+  'Tap “Light up on map” to make these parts stand out and fade the rest. Tap again to go back.':
+    '点“在图上点亮”，这些内容会突出显示，其余的会变淡。再点一次就恢复原样。',
+  'Light up on map': '在图上点亮',
+  'Stop lighting up': '取消点亮',
+  'Lit up on the map:': '图上点亮的是：',
+  '{n} person or thing': '{n} 个人或事物',
+  '{n} connection': '{n} 条连线',
+  'People and things that light up:': '会点亮的人和事物：',
+  'Entities that light up:': '会点亮的实体：',
+  'Connections that light up:': '会点亮的连线：',
+  'Flows that light up:': '会点亮的信息流：',
+  'Show where this is on the map': '在图上指出它的位置',
 };

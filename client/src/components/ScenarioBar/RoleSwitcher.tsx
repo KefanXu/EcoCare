@@ -3,6 +3,7 @@ import { Check, ChevronDown, Heart, Stethoscope, Users } from 'lucide-react';
 import { PARTICIPANT_ROLES, ROLE_PROFILES } from '../../lib/participantRoles';
 import { useEcoStore } from '../../store/useEcoStore';
 import { useI18n } from '../../i18n';
+import { studyWorkspace } from '../../lib/studyRuntime';
 
 const ICONS = { patient: Heart, caregiver: Users, clinician: Stethoscope };
 
@@ -25,6 +26,8 @@ export function RoleSwitcher() {
     document.addEventListener('pointerdown', closeOutside);
     return () => document.removeEventListener('pointerdown', closeOutside);
   }, [open]);
+
+  if (studyWorkspace) return <div className="shrink-0 pr-2"><div className="text-base font-semibold text-slate-900">EcoCare</div><div className="flex items-center gap-1.5 text-xs text-slate-600"><Icon size={14} aria-hidden />{tr(profile.label)}</div></div>;
 
   return (
     <div className="relative shrink-0" ref={rootRef} onBlur={(event) => {

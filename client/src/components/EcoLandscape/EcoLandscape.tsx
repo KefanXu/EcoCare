@@ -44,6 +44,22 @@ const NODE_BEZEL_R = 22;
 const PATIENT_BEZEL_R = 36;
 const DISRUPTED_COLOR = '#fb7185';
 const OVERLAY_COLOR = '#10b981';
+
+/** One-shot change animation on a node or connection. */
+interface NodePulse {
+  kind: 'fix' | 'add' | 'undo' | 'highlight' | 'ping';
+  delayMs: number;
+  /** Changes with every new change so the animation restarts. */
+  key: number;
+}
+
+const PULSE_COLOR: Record<NodePulse['kind'], string> = {
+  fix: '#10b981',
+  add: '#10b981',
+  undo: '#f43f5e',
+  highlight: '#f59e0b',
+  ping: '#0ea5e9',
+};
 const HIGHLIGHT_COLOR = '#f59e0b';
 const NODE_NUDGE_MAX_PX = 48;
 const NODE_DRAG_CLICK_THRESHOLD_PX = 5;
@@ -457,6 +473,81 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
   const pickModeActive = connectMode.active || impactPickMode;
   const userImpactSet = useMemo(() => new Set(userImpactEntityIds), [userImpactEntityIds]);
 
+  // --- Change animation: what an idea (or a lit-up AI reference) just changed ---
+  const ideaChange = useEcoStore((s) => s.ideaChange);
+  const clearIdeaChange = useEcoStore((s) => s.clearIdeaChange);
+  const activeHighlightId = useEcoStore((s) => s.activeHighlightId);
+  const mapPing = useEcoStore((s) => s.mapPing);
+  const [highlightPulseKey, setHighlightPulseKey] = useState(0);
+  const [dimUnchanged, setDimUnchanged] = useState(false);
+
+  useEffect(() => {
+    if (!ideaChange) return;
+    setDimUnchanged(true);
+    const dim = window.setTimeout(() => setDimUnchanged(false), 1600);
+    const done = window.setTimeout(() => clearIdeaChange(), 2600);
+    return () => {
+      window.clearTimeout(dim);
+      window.clearTimeout(done);
+    };
+  }, [ideaChange, clearIdeaChange]);
+
+  const clearMapPing = useEcoStore((s) => s.pingOnMap);
+  useEffect(() => {
+    if (!mapPing) return;
+    const t = window.setTimeout(() => clearMapPing([]), 1600);
+    return () => window.clearTimeout(t);
+  }, [mapPing, clearMapPing]);
+
+  useEffect(() => {
+    if (!activeHighlightId) return;
+    setHighlightPulseKey(Date.now());
+    const t = window.setTimeout(() => setHighlightPulseKey(0), 1600);
+    return () => window.clearTimeout(t);
+  }, [activeHighlightId]);
+
+  /** id -> what kind of change to animate and when (staggered so the eye can follow). */
+  const pulses = useMemo(() => {
+    const map = new Map<string, NodePulse>();
+    const STAGGER_MS = 80;
+    let i = 0;
+    const add = (id: string, kind: NodePulse['kind'], key: number) => {
+      if (!map.has(id)) map.set(id, { kind, delayMs: i++ * STAGGER_MS, key });
+    };
+    if (ideaChange) {
+      for (const id of ideaChange.fixedIds) {
+        if (repair.entityIds.has(id) || repair.flowIds.has(id)) add(id, 'fix', ideaChange.key);
+      }
+      for (const id of ideaChange.addedIds) add(id, 'add', ideaChange.key);
+      for (const id of ideaChange.undoneIds) add(id, 'undo', ideaChange.key);
+    }
+    if (highlightPulseKey) {
+      highlightIds.entityIds.forEach((id) => add(id, 'highlight', highlightPulseKey));
+      highlightIds.flowIds.forEach((id) => add(id, 'highlight', highlightPulseKey));
+    }
+    // A chip tapped in an AI answer: ping that item (no stagger, it's a single target).
+    if (mapPing) {
+      for (const id of mapPing.ids) map.set(id, { kind: 'ping', delayMs: 0, key: mapPing.key });
+    }
+    return map;
+  }, [ideaChange, highlightPulseKey, highlightIds, repair, mapPing]);
+  const dimForPulse = dimUnchanged && !!ideaChange;
+
+  // Remember where nodes were drawn so items an idea takes out can fade away in place.
+  const lastPositionsRef = useRef(new Map<string, { x: number; y: number; r: number }>());
+  const removedGhosts = useMemo(() => {
+    if (!ideaChange) return [];
+    return ideaChange.removedIds
+      .map((id) => ({ id, pos: lastPositionsRef.current.get(id) }))
+      .filter((g): g is { id: string; pos: { x: number; y: number; r: number } } => !!g.pos);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ideaChange]);
+  useEffect(() => {
+    const next = new Map<string, { x: number; y: number; r: number }>();
+    positions.forEach((p, id) => next.set(id, { x: p.x, y: p.y, r: easy ? NODE_BEZEL_R * 1.25 : NODE_BEZEL_R }));
+    lastPositionsRef.current = next;
+  });
+
   function layerInteraction(layer: Layer, active: boolean) {
     const open = (event: React.SyntheticEvent<SVGGElement>) => {
       if (!active || pickModeActive) return;
@@ -485,6 +576,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
   return (
     <>
     <svg
+      data-tour="map"
       ref={svgRef}
       viewBox={`${-width / 2} ${-height / 2} ${width} ${height}`}
       className="eco-map w-full h-full"
@@ -753,7 +845,11 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
               if (!keep) return null;
             }
 
-            const baseOpacity = isFlowHovered
+            const flowPulse = pulses.get(flow.id);
+            const dimByPulse = dimForPulse && !flowPulse;
+            const baseOpacity = dimByPulse
+              ? 0.12
+              : isFlowHovered
               ? 1
               : hoveredEntityId
                 ? isAdjacent
@@ -865,6 +961,20 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
                     pointerEvents="none"
                   />
                 )}
+                {flowPulse && (
+                  <path
+                    key={`pulse-${flowPulse.key}`}
+                    d={path}
+                    fill="none"
+                    pathLength={1}
+                    stroke={PULSE_COLOR[flowPulse.kind]}
+                    strokeWidth={widthPx + 2.5}
+                    strokeLinecap="round"
+                    className="flow-draw-in"
+                    style={{ animationDelay: `${flowPulse.delayMs}ms` }}
+                    pointerEvents="none"
+                  />
+                )}
                 {easy && breakStrength >= 0.5 && (
                   <g
                     transform={`translate(${midX}, ${midY})`}
@@ -904,6 +1014,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
               isImpactPickMode={impactPickMode}
               isUserImpactMarked={userImpactSet.has(p.id)}
               isEntering={recentlyAddedEntityIds.includes(p.id)}
+              pulse={pulses.get(p.id)}
               dimNonAdjacent={!!hoveredEntityId}
               searchActive={searchActive}
               isSearchMatch={searchMatchIds.has(p.id)}
@@ -917,9 +1028,10 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
               easy={easy}
               displayLabel={labelById.get(p.id)}
               spotlightDim={
-                easySpotlight &&
-                (entityStrengths.get(p.id) ?? 0) < 0.15 &&
-                !repair.entityIds.has(p.id)
+                (dimForPulse && !pulses.has(p.id)) ||
+                (easySpotlight &&
+                  (entityStrengths.get(p.id) ?? 0) < 0.15 &&
+                  !repair.entityIds.has(p.id))
               }
               onActivate={() => handleEntityClick(p.id)}
               onHover={(id) => setHoveredEntity(id)}
@@ -929,6 +1041,25 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
               onPointerCancel={(e) => finishNodePointer(p.id, () => handleEntityClick(p.id), e)}
             />
           ))}
+
+        {/* Items an idea just took out fade away where they were. */}
+        {removedGhosts.map((g) => (
+          <g
+            key={`ghost-${ideaChange?.key}-${g.id}`}
+            transform={`translate(${g.pos.x}, ${g.pos.y})`}
+            pointerEvents="none"
+            aria-hidden
+          >
+            <circle
+              r={g.pos.r}
+              fill="#fff1f2"
+              stroke={DISRUPTED_COLOR}
+              strokeWidth={2}
+              strokeDasharray="4 3"
+              className="ghost-fade"
+            />
+          </g>
+        ))}
 
         {/* Patient at center */}
         {(() => {
@@ -955,6 +1086,7 @@ export function EcoLandscape({ viewMode }: { viewMode: 'ring' | 'row' }) {
             legendActive={legendFocus.active}
             isLegendMatch={legendFocus.entityIds.has('patient')}
             isRepaired={repair.entityIds.has('patient')}
+            pulse={pulses.get('patient')}
             easy={easy}
             spotlightDim={
               easySpotlight &&
@@ -1039,6 +1171,8 @@ interface EntityNodeProps {
   isImpactPickMode?: boolean;
   isUserImpactMarked?: boolean;
   isEntering: boolean;
+  /** One-shot change animation (idea applied / lit-up reference). */
+  pulse?: NodePulse;
   dimNonAdjacent: boolean;
   searchActive: boolean;
   isSearchMatch: boolean;
@@ -1077,6 +1211,7 @@ function EntityNode({
   isImpactPickMode = false,
   isUserImpactMarked = false,
   isEntering,
+  pulse,
   dimNonAdjacent,
   searchActive,
   isSearchMatch,
@@ -1182,7 +1317,16 @@ function EntityNode({
           opacity={0.95}
         />
       )}
-      <g className={isEntering ? 'entity-enter' : undefined}>
+      <g
+        className={
+        isEntering || pulse?.kind === 'add'
+          ? 'entity-enter'
+          : pulse?.kind === 'ping'
+            ? 'node-ping'
+            : undefined
+      }
+        style={pulse?.kind === 'add' ? { animationDelay: `${pulse.delayMs}ms` } : undefined}
+      >
       {showDisruptionGlow && (
         <circle
           r={R + 7}
@@ -1281,7 +1425,18 @@ function EntityNode({
         </div>
       </foreignObject>
 
-      {isRepaired && <RepairBadge r={R} />}
+      {isRepaired &&
+        (pulse?.kind === 'fix' ? (
+          <g
+            key={`badge-${pulse.key}`}
+            className="badge-pop"
+            style={{ animationDelay: `${pulse.delayMs + 250}ms` }}
+          >
+            <RepairBadge r={R} />
+          </g>
+        ) : (
+          <RepairBadge r={R} />
+        ))}
       {easy && disruption > 0.35 && !isRepaired && <AlertBadge r={R} />}
       {isEntering && (
         <circle
@@ -1292,6 +1447,7 @@ function EntityNode({
           className="entity-ripple"
         />
       )}
+      {pulse && <PulseRings pulse={pulse} r={R} />}
       </g>
 
       <text
@@ -1317,6 +1473,26 @@ function EntityNode({
         />
       ) : null}
     </g>
+  );
+}
+
+/** One-shot ripple(s) around a node; a "ping" gets two so it is easy to spot. */
+function PulseRings({ pulse, r }: { pulse: NodePulse; r: number }) {
+  const rings = pulse.kind === 'ping' ? [0, 380] : [0];
+  return (
+    <>
+      {rings.map((extra) => (
+        <circle
+          key={`pulse-${pulse.key}-${extra}`}
+          r={r + 4}
+          fill="none"
+          stroke={PULSE_COLOR[pulse.kind]}
+          strokeWidth={3}
+          className="pulse-ripple"
+          style={{ animationDelay: `${pulse.delayMs + extra}ms` }}
+        />
+      ))}
+    </>
   );
 }
 
@@ -1455,6 +1631,7 @@ interface PatientCenterProps {
   legendActive: boolean;
   isLegendMatch: boolean;
   isRepaired?: boolean;
+  pulse?: NodePulse;
   easy?: boolean;
   spotlightDim?: boolean;
   onActivate: () => void;
@@ -1482,6 +1659,7 @@ function PatientCenter({
   legendActive,
   isLegendMatch,
   isRepaired = false,
+  pulse,
   easy = false,
   spotlightDim = false,
   onActivate,
@@ -1621,7 +1799,19 @@ function PatientCenter({
           })}
         </div>
       </foreignObject>
-      {isRepaired && <RepairBadge r={R} />}
+      {isRepaired &&
+        (pulse?.kind === 'fix' ? (
+          <g
+            key={`badge-${pulse.key}`}
+            className="badge-pop"
+            style={{ animationDelay: `${pulse.delayMs + 250}ms` }}
+          >
+            <RepairBadge r={R} />
+          </g>
+        ) : (
+          <RepairBadge r={R} />
+        ))}
+      {pulse && <PulseRings pulse={pulse} r={R} />}
       <text
         y={R + 18}
         textAnchor="middle"

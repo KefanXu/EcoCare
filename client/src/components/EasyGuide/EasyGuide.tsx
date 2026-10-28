@@ -1,4 +1,4 @@
-import { createElement, useState } from 'react';
+import { createElement, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -15,8 +15,10 @@ import {
 } from '../../store/useEcoStore';
 import { iconFor, iconForScenario } from '../../lib/entityIcons';
 import { SpeakButton } from '../common/SpeakButton';
-import { EasyIdeasView } from './EasyIdeasView';
+import { EasyIdeasList } from './EasyIdeasList';
 import { useUiText } from '../../lib/uiText';
+import { revealElement } from '../../lib/revealElement';
+import { studyWorkspace } from '../../lib/studyRuntime';
 
 export type GuideStep = 1 | 2 | 3;
 export const GUIDE_STEP_COUNT = 3;
@@ -25,33 +27,18 @@ export const GUIDE_STEP_COUNT = 3;
 export function useGuideStepLabels(): Record<GuideStep, string> {
   const { tr, profile } = useUiText();
   return {
-    1: tr('Pick a life-changing event'),
+    1: tr(studyWorkspace ? 'Your assigned situation' : 'Pick a life-changing event'),
     2: tr('See what the event affects'),
     3: profile.decideLabel,
   };
 }
 
 /**
- * Easy-mode helper panel body: guide steps, or ideas results.
+ * Easy-mode helper panel body: the guide steps. Ideas appear inline in step 3.
  * Hovered/selected item details render on the map overlay instead.
  */
 export function EasyHelper({ hideTitle = false }: { hideTitle?: boolean }) {
   const { tr } = useUiText();
-  const suggestOpen = useEcoStore((s) => s.suggestPanel.open);
-
-  if (suggestOpen) {
-    return (
-      <div>
-        {!hideTitle && (
-          <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-3 pr-2">
-            {tr('Ideas')}
-          </div>
-        )}
-        <EasyIdeasView />
-      </div>
-    );
-  }
-
   return (
     <div>
       {!hideTitle && (
@@ -77,8 +64,10 @@ function useGuideModel() {
   const toggleSelection = useEcoStore((s) => s.toggleSelection);
   const clearSelection = useEcoStore((s) => s.clearSelection);
   const setHoveredEntity = useEcoStore((s) => s.setHoveredEntity);
+  const pingOnMap = useEcoStore((s) => s.pingOnMap);
   const selection = useEcoStore((s) => s.selection);
   const suggestOpen = useEcoStore((s) => s.suggestPanel.open);
+  const generating = useEcoStore((s) => s.suggestPanel.streaming);
   const disrupted = useDisruptedEntityIds();
   const broken = useBrokenFlowIds();
 
@@ -102,6 +91,7 @@ function useGuideModel() {
   function selectHurt(id: string) {
     clearSelection();
     toggleSelection({ id, kind: 'entity' });
+    pingOnMap([id]);
   }
 
   return {
@@ -118,6 +108,7 @@ function useGuideModel() {
     setHoveredEntity,
     selection,
     suggestOpen,
+    generating,
     scenario,
     hurtCount,
     brokenCount,
@@ -141,14 +132,15 @@ function IntroBlock({ text }: { text: string }) {
 function StepPickEvent({ m }: { m: GuideModel }) {
   return (
     <div className="space-y-2">
-      {m.patient.scenarios.map((sc) => {
+      {m.patient.scenarios.filter(sc => !studyWorkspace || sc.id === m.activeScenarioId).map((sc) => {
         const Icon = iconForScenario(sc.id);
         const selected = sc.id === m.activeScenarioId;
         return (
           <button
             key={sc.id}
             type="button"
-            onClick={() => m.setScenario(selected ? null : sc.id)}
+            onClick={() => { if (!studyWorkspace) m.setScenario(selected ? null : sc.id); }}
+            disabled={studyWorkspace}
             aria-pressed={selected}
             className={`w-full flex items-center gap-3 text-left rounded-2xl border px-3 py-3 min-h-[52px] transition ${
               selected
@@ -172,7 +164,7 @@ function StepPickEvent({ m }: { m: GuideModel }) {
           </button>
         );
       })}
-      {m.scenario && (
+      {m.scenario && !studyWorkspace && (
         <button
           type="button"
           onClick={() => m.setScenario(null)}
@@ -264,6 +256,7 @@ function StepSeeAffected({ m }: { m: GuideModel }) {
 
 function StepDecide({ m }: { m: GuideModel }) {
   const [myIdea, setMyIdea] = useState('');
+  const ideasRef = useRef<HTMLDivElement>(null);
   const { profile, scenario } = m;
   if (!scenario) {
     return (
@@ -274,11 +267,32 @@ function StepDecide({ m }: { m: GuideModel }) {
     <div className="space-y-3">
       <button
         type="button"
-        onClick={() => m.openSuggestPanel()}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 text-white text-base font-medium px-3 py-3 min-h-[48px] hover:bg-emerald-700 transition"
+        onClick={() => {
+          if (m.suggestOpen) revealElement(ideasRef.current);
+          else m.openSuggestPanel();
+        }}
+        aria-busy={m.generating}
+        className={`relative overflow-hidden w-full inline-flex items-center justify-center gap-2 rounded-2xl text-white text-base font-medium px-3 py-3 min-h-[48px] transition ${
+          m.generating ? 'bg-emerald-500 btn-generating' : 'bg-emerald-600 hover:bg-emerald-700'
+        }`}
       >
-        <Lightbulb className="w-5 h-5" aria-hidden />
-        {profile.strategyLabel}
+        {m.generating ? (
+          <>
+            <span
+              className="inline-block w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin"
+              aria-hidden
+            />
+            <span>
+              {m.tr('Generating')}
+              <span className="generating-dots" aria-hidden />
+            </span>
+          </>
+        ) : (
+          <>
+            <Lightbulb className="w-5 h-5" aria-hidden />
+            {profile.strategyLabel}
+          </>
+        )}
       </button>
 
       <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-3 space-y-2">
@@ -325,9 +339,15 @@ function StepDecide({ m }: { m: GuideModel }) {
       <p className="text-sm text-slate-500 leading-relaxed">
         {m.trx(
           'When you see an idea you like, tap {button} to see what it fixes. You can also ask the AI helper about the benefits and risks of each idea.',
-          { button: <span className="font-medium text-slate-600">{m.tr('"Show on map"')}</span> },
+          { button: <span className="font-medium text-slate-600">{m.tr('"Use this idea"')}</span> },
         )}
       </p>
+
+      {m.suggestOpen && (
+        <div ref={ideasRef} className="border-t border-stone-200 pt-3 scroll-mt-3">
+          <EasyIdeasList />
+        </div>
+      )}
     </div>
   );
 }
@@ -344,7 +364,7 @@ export function EasyGuide() {
 
   return (
     <div className="space-y-5">
-      <IntroBlock text={m.profile.guideIntro} />
+      <IntroBlock text={studyWorkspace ? m.tr('This is your second study situation. Explore what has changed, then consider what you would do from your assigned point of view.') : m.profile.guideIntro} />
 
       <StepCard active={step === 1} muted={false}>
         <StepHeading n={1} done={!!m.scenario} label={labels[1]} />
@@ -390,7 +410,7 @@ export function EasyGuideStepper({
     <div className="flex flex-col gap-4">
       {step === 1 && (
         <>
-          <IntroBlock text={m.profile.guideIntro} />
+          <IntroBlock text={studyWorkspace ? m.tr('This is your second study situation. Explore what has changed, then consider what you would do from your assigned point of view.') : m.profile.guideIntro} />
           <StepPickEvent m={m} />
         </>
       )}
@@ -432,7 +452,7 @@ export function EasyGuideStepper({
             reset();
             onStepChange(1);
           }}
-          title={t('resetTitle')}
+          title={studyWorkspace ? tr('Reset the tool. Your assigned situation and study answers stay unchanged.') : t('resetTitle')}
           className="mt-2 w-full inline-flex items-center justify-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-stone-100/80 hover:bg-stone-200/80 border border-transparent hover:border-stone-200/80 rounded-xl px-4 min-h-[44px] transition"
         >
           <RotateCcw className="w-4 h-4" strokeWidth={2} aria-hidden />

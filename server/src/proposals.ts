@@ -25,6 +25,7 @@ export interface EcologyProposal {
   id: string;
   title: string;
   rationale: string;
+  steps?: string[];
   addEntities?: ProposalAddEntity[];
   addFlows?: ProposalAddFlow[];
   restoresEntityIds?: string[];
@@ -121,6 +122,7 @@ export function validateProposals(
     if (!item || typeof item !== 'object') continue;
     const p = item as Record<string, unknown>;
     if (!isStr(p.id) || !isStr(p.title) || !isStr(p.rationale)) continue;
+    const steps = Array.isArray(p.steps) ? p.steps.filter(isStr).map(step => step.trim()).slice(0, 3) : [];
 
     const addEntities: ProposalAddEntity[] = [];
     const tempIds = new Set<string>();
@@ -200,6 +202,7 @@ export function validateProposals(
       id: p.id,
       title: p.title,
       rationale: p.rationale,
+      ...(steps.length ? { steps } : {}),
       ...(addEntities.length ? { addEntities } : {}),
       ...(addFlows.length ? { addFlows } : {}),
       ...(restoresEntityIds.length ? { restoresEntityIds } : {}),
@@ -216,7 +219,7 @@ export function validateProposals(
 }
 
 /** Render a markdown-friendly description of the schema for the system prompt. */
-export const PROPOSAL_SCHEMA_BLURB = `An "ecology proposal" is a structured care-ecology modification you can offer alongside your prose. Each proposal MUST have an \`id\`, a short \`title\`, a one-sentence \`rationale\`, and at least ONE of: \`addEntities[]\`, \`addFlows[]\`, \`restoresEntityIds[]\`, \`restoresFlowIds[]\`, \`resolvesConflictIds[]\`, \`removeEntityIds[]\`, \`removeFlowIds[]\`.
+export const PROPOSAL_SCHEMA_BLURB = `An "ecology proposal" is a structured care-ecology modification you can offer alongside your prose. Each proposal MUST have an \`id\`, a short \`title\`, a plain-language \`rationale\`, \`steps\` with 2-3 specific practical actions, and at least ONE of: \`addEntities[]\`, \`addFlows[]\`, \`restoresEntityIds[]\`, \`restoresFlowIds[]\`, \`resolvesConflictIds[]\`, \`removeEntityIds[]\`, \`removeFlowIds[]\`.
 
 Schema (TypeScript):
 \`\`\`
@@ -224,6 +227,7 @@ EcologyProposal = {
   id: string,
   title: string,
   rationale: string,
+  steps: string[],
   addEntities?: [{ tempId, label, category, layer, description }],
   addFlows?:    [{ source, target, label, kind, content, description }],
   restoresEntityIds?: string[],
@@ -236,6 +240,7 @@ EcologyProposal = {
 - \`category\`: one of "component" | "stakeholder" | "information" | "practice"
 - \`layer\`: one of "individual" | "microsystem" | "mesosystem" | "exosystem" | "macrosystem"
 - \`kind\`: one of "data" | "guidance" | "feedback" | "communication"
+- \`steps\`: 2-3 short, ordered actions tailored to the participant role. Name who could do what, who to contact or what to ask, and any prerequisite to check. Use plain words, not map-edit instructions or jargon. Start with a feasible first step; do not assume access, coverage, consent, or that a service exists. No diagnosis, dosing, or treatment instructions. When interpreting a participant's own idea, stay within its intent and do not invent extra commitments.
 - \`tempId\` MUST start with "temp-" and be unique within the proposal.
 - \`source\` / \`target\` MUST reference either an existing entity id (see "Known entity ids" below) or a \`tempId\` you introduced in this proposal's \`addEntities\`.
 - \`restoresEntityIds\` / \`restoresFlowIds\` / \`resolvesConflictIds\` / \`removeEntityIds\` / \`removeFlowIds\` MUST reference real ids from the lists below.

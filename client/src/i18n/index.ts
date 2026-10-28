@@ -11,7 +11,7 @@ export type Tr = (text: string, vars?: TrVars) => string;
 
 /** English strings that had no Chinese entry (dev only; inspect via `window.__i18nMissing`). */
 const missing = new Set<string>();
-if (import.meta.env.DEV && typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   (window as unknown as { __i18nMissing: Set<string> }).__i18nMissing = missing;
 }
 

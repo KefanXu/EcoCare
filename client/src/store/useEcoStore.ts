@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { studyMode, studyWorkspace, studyStorageKey, workspaceAssignment } from '../lib/studyRuntime';
 import { useMemo } from 'react';
 import { samplePatient } from '../data/samplePatient';
 import type {
@@ -119,9 +120,15 @@ interface EcoState {
   simulationTime: number;
   simulationPlaying: boolean;
 
-  // AI ecology preview (session-only; NOT persisted)
-  previewProposalId: string | null;
+  // Idea on the map (session-only; NOT persisted). At most one item: it stays an
+  // array so the overlay hooks below can remain list-based.
   appliedOverlay: EcologyProposal[];
+  /** Idea the participant is asking the AI about without putting it on the map. */
+  discussIdeaId: string | null;
+  /** Latest map change caused by an idea; drives the change animation. */
+  ideaChange: IdeaChange | null;
+  /** One-shot "look here" pulse on map items (e.g. a chip tapped in an AI answer). */
+  mapPing: { key: number; ids: string[] } | null;
 
   // AI ecology highlight (session-only; NOT persisted)
   activeHighlightId: string | null;
@@ -203,13 +210,14 @@ interface EcoState {
   requestUserStrategy: (text: string) => void;
   clearPendingUserStrategy: () => void;
 
-  // Proposal preview / overlay actions (session-only)
-  startPreview: (proposalId: string) => void;
-  cancelPreview: () => void;
-  applyPreviewAsOverlay: () => void;
-  applyProposalAsOverlay: (proposalId: string) => void;
-  discardOverlay: (proposalId: string) => void;
-  clearAllOverlays: () => void;
+  // Idea actions (session-only). Only one idea is on the map at a time.
+  selectIdea: (proposalId: string) => void;
+  clearIdea: () => void;
+  /** Replace an idea everywhere it appears, keeping its id. */
+  reviseIdea: (proposalId: string, revised: EcologyProposal) => void;
+  setDiscussIdea: (proposalId: string | null) => void;
+  clearIdeaChange: () => void;
+  pingOnMap: (ids: string[]) => void;
 
   // Edit actions
   setEditMode: (v: boolean) => void;
@@ -299,6 +307,50 @@ function findHighlight(
   return findHighlightInMessages(messages, highlightId);
 }
 
+export interface IdeaChange {
+  key: number;
+  /** Damaged entity/flow ids the idea now repairs. */
+  fixedIds: string[];
+  /** Entity tempIds and overlay flow ids the idea adds. */
+  addedIds: string[];
+  /** Entity/flow ids the idea takes out. */
+  removedIds: string[];
+  /** Ids a previous idea repaired that are back to affected. */
+  undoneIds: string[];
+}
+
+function ideaFootprint(p: EcologyProposal | null) {
+  if (!p) return { fixed: new Set<string>(), added: new Set<string>(), removed: new Set<string>() };
+  return {
+    fixed: new Set([...(p.restoresEntityIds ?? []), ...(p.restoresFlowIds ?? [])]),
+    added: new Set([
+      ...(p.addEntities ?? []).map((e) => e.tempId),
+      ...(p.addFlows ?? []).map((_f, i) => `overlay-flow-${p.id}-${i}`),
+    ]),
+    removed: new Set([...(p.removeEntityIds ?? []), ...(p.removeFlowIds ?? [])]),
+  };
+}
+
+function diffIdeas(prev: EcologyProposal | null, next: EcologyProposal | null): IdeaChange | null {
+  const a = ideaFootprint(prev);
+  const b = ideaFootprint(next);
+  const minus = (x: Set<string>, y: Set<string>) => [...x].filter((id) => !y.has(id));
+  const change = {
+    key: Date.now(),
+    fixedIds: minus(b.fixed, a.fixed),
+    addedIds: minus(b.added, a.added),
+    removedIds: minus(b.removed, a.removed),
+    undoneIds: minus(a.fixed, b.fixed),
+  };
+  const any =
+    change.fixedIds.length + change.addedIds.length + change.removedIds.length + change.undoneIds.length;
+  return any > 0 ? change : null;
+}
+
+function replaceProposal(list: EcologyProposal[] | undefined, id: string, next: EcologyProposal) {
+  return list?.map((p) => (p.id === id ? next : p));
+}
+
 type RoleWorkspace = Pick<EcoState, 'messages' | 'suggestPanel' | 'appliedOverlay' | 'userImpactEntityIds'>;
 
 interface PersistedShape {
@@ -311,11 +363,11 @@ export const useEcoStore = create<EcoState>()(
   persist(
     (set, get) => ({
       patient: samplePatient,
-      participantRole: 'patient',
+      participantRole: workspaceAssignment?.role ?? 'patient',
       roleRevision: 0,
       roleWorkspaces: {},
       setParticipantRole: (participantRole) => set((s) => {
-        if (!isParticipantRole(participantRole) || participantRole === s.participantRole) return s;
+        if (!isParticipantRole(participantRole) || participantRole === s.participantRole || (workspaceAssignment?.role && participantRole !== workspaceAssignment.role)) return s;
         const saved: RoleWorkspace = {
           messages: s.messages.filter((message) => !message.pending),
           suggestPanel: s.suggestPanel.streaming ? { ...INITIAL_SUGGEST_PANEL } : { ...s.suggestPanel, open: false, pendingUserStrategy: null },
@@ -333,7 +385,8 @@ export const useEcoStore = create<EcoState>()(
           userImpactEntityIds: next?.userImpactEntityIds ?? [],
           isStreaming: false,
           pendingChatPrompt: null,
-          previewProposalId: null,
+          discussIdeaId: null,
+          ideaChange: null,
           activeHighlightId: null,
           selection: [],
           hoveredEntityId: null,
@@ -344,7 +397,7 @@ export const useEcoStore = create<EcoState>()(
           flowForm: { open: false, sourceId: null, targetId: null },
         };
       }),
-      activeScenarioId: null,
+      activeScenarioId: workspaceAssignment?.eventId ?? null,
       selection: [],
       hoveredEntityId: null,
       hoveredFlowId: null,
@@ -363,11 +416,13 @@ export const useEcoStore = create<EcoState>()(
       guideOpen: true,
       guideWidth: GUIDE_WIDTH_DEFAULT,
 
-      simulationTime: 0,
+      simulationTime: workspaceAssignment?.eventId ? 1 : 0,
       simulationPlaying: false,
 
-      previewProposalId: null,
       appliedOverlay: [],
+      discussIdeaId: null,
+      ideaChange: null,
+      mapPing: null,
 
       activeHighlightId: null,
 
@@ -382,7 +437,7 @@ export const useEcoStore = create<EcoState>()(
       recentlyAddedEntityIds: [],
 
       setScenario: (id) =>
-        set({
+        set((s) => workspaceAssignment?.eventId && id !== workspaceAssignment.eventId ? s : {
           activeScenarioId: id,
           roleWorkspaces: {},
           selection: [],
@@ -392,7 +447,8 @@ export const useEcoStore = create<EcoState>()(
           simulationPlaying: false,
           // Drop the suggest panel when the LCE changes — its strategies are scenario-specific.
           suggestPanel: { ...INITIAL_SUGGEST_PANEL },
-          previewProposalId: null,
+          discussIdeaId: null,
+          ideaChange: null,
           activeHighlightId: null,
           userImpactEntityIds: [],
           impactPickMode: false,
@@ -413,16 +469,17 @@ export const useEcoStore = create<EcoState>()(
         set({ simulationTime: 0, simulationPlaying: false }),
       reset: () =>
         set((s) => ({
-          activeScenarioId: null,
+          activeScenarioId: workspaceAssignment?.eventId ?? null,
           roleRevision: s.roleRevision + 1,
           roleWorkspaces: {},
           selection: [],
           messages: [],
           isStreaming: false,
           pendingChatPrompt: null,
-          simulationTime: 0,
+          simulationTime: workspaceAssignment?.eventId ? 1 : 0,
           simulationPlaying: false,
-          previewProposalId: null,
+          discussIdeaId: null,
+          ideaChange: null,
           appliedOverlay: [],
           activeHighlightId: null,
           suggestPanel: { ...INITIAL_SUGGEST_PANEL },
@@ -446,7 +503,7 @@ export const useEcoStore = create<EcoState>()(
       setEntitySearchQuery: (entitySearchQuery) => set({ entitySearchQuery }),
       setUiMode: (uiMode) =>
         set({ uiMode, helperOpen: uiMode === 'standard' }),
-      setLanguage: (language) => set({ language }),
+      setLanguage: (language) => set({ language: workspaceAssignment?.lang ?? language }),
       toggleLegend: () => set((s) => ({ showLegend: !s.showLegend })),
       toggleInformationFlows: () =>
         set((s) => {
@@ -492,18 +549,18 @@ export const useEcoStore = create<EcoState>()(
         set((s) => ({
           messages: s.messages.map((m) => (m.id === id ? { ...m, content } : m)),
         })),
+      // A new chat keeps the idea on the map: it may have come from the guide.
       resetChat: () =>
         set({
           messages: [],
-          previewProposalId: null,
-          appliedOverlay: [],
+          discussIdeaId: null,
           activeHighlightId: null,
         }),
-      requestChatPrompt: (text) => set((s) => ({ pendingChatPrompt: text, helperOpen: true, ...(s.uiMode === 'easy' ? { guideOpen: false } : {}) })),
+      requestChatPrompt: (text) => set({ pendingChatPrompt: text, helperOpen: true }),
       clearPendingChatPrompt: () => set({ pendingChatPrompt: null }),
-      openHelper: () => set((s) => ({ helperOpen: true, ...(s.uiMode === 'easy' ? { guideOpen: false } : {}) })),
+      openHelper: () => set({ helperOpen: true }),
       closeHelper: () => set({ helperOpen: false }),
-      openGuide: () => set((s) => ({ guideOpen: true, ...(s.uiMode === 'easy' ? { helperOpen: false } : {}) })),
+      openGuide: () => set({ guideOpen: true }),
       closeGuide: () => set({ guideOpen: false }),
       setGuideWidth: (px) => set({ guideWidth: clampGuideWidth(px) }),
 
@@ -607,48 +664,47 @@ export const useEcoStore = create<EcoState>()(
             error: null,
           },
           guideOpen: true,
-          ...(s.uiMode === 'easy' ? { helperOpen: false } : {}),
         })),
       clearPendingUserStrategy: () =>
         set((s) => ({
           suggestPanel: { ...s.suggestPanel, pendingUserStrategy: null },
         })),
 
-      startPreview: (proposalId) => set({ previewProposalId: proposalId }),
-      cancelPreview: () => set({ previewProposalId: null }),
-      applyPreviewAsOverlay: () =>
+      selectIdea: (proposalId) =>
         set((s) => {
-          const id = s.previewProposalId;
-          if (!id) return s;
-          if (s.appliedOverlay.some((p) => p.id === id)) {
-            return { previewProposalId: null };
-          }
-          const proposal = findProposal(s.messages, s.suggestPanel, id);
-          if (!proposal) return { previewProposalId: null };
-          return {
-            previewProposalId: null,
-            appliedOverlay: [...s.appliedOverlay, proposal],
-          };
-        }),
-      applyProposalAsOverlay: (proposalId) =>
-        set((s) => {
-          if (s.appliedOverlay.some((p) => p.id === proposalId)) return s;
+          const current = s.appliedOverlay[0] ?? null;
+          if (current?.id === proposalId) return s;
           const proposal = findProposal(s.messages, s.suggestPanel, proposalId);
           if (!proposal) return s;
+          return { appliedOverlay: [proposal], ideaChange: diffIdeas(current, proposal) };
+        }),
+      clearIdea: () =>
+        set((s) => ({
+          appliedOverlay: [],
+          ideaChange: diffIdeas(s.appliedOverlay[0] ?? null, null),
+        })),
+      reviseIdea: (proposalId, revised) =>
+        set((s) => {
+          const next = { ...revised, id: proposalId };
+          const current = s.appliedOverlay[0] ?? null;
+          const isActive = current?.id === proposalId;
           return {
-            previewProposalId:
-              s.previewProposalId === proposalId ? null : s.previewProposalId,
-            appliedOverlay: [...s.appliedOverlay, proposal],
+            suggestPanel: {
+              ...s.suggestPanel,
+              proposals: replaceProposal(s.suggestPanel.proposals, proposalId, next) ?? [],
+            },
+            messages: s.messages.map((m) =>
+              m.proposals?.some((p) => p.id === proposalId)
+                ? { ...m, proposals: replaceProposal(m.proposals, proposalId, next) }
+                : m,
+            ),
+            appliedOverlay: isActive ? [next] : s.appliedOverlay,
+            ideaChange: isActive ? diffIdeas(current, next) : s.ideaChange,
           };
         }),
-      discardOverlay: (proposalId) =>
-        set((s) => ({
-          appliedOverlay: s.appliedOverlay.filter((p) => p.id !== proposalId),
-          previewProposalId:
-            s.previewProposalId === proposalId ? null : s.previewProposalId,
-        })),
-      clearAllOverlays: () =>
-        set({ appliedOverlay: [], previewProposalId: null }),
+      setDiscussIdea: (discussIdeaId) => set({ discussIdeaId }),
+      clearIdeaChange: () => set({ ideaChange: null }),
+      pingOnMap: (ids) => set({ mapPing: ids.length > 0 ? { key: Date.now(), ids } : null }),
 
       setEditMode: (v) =>
         set({
@@ -775,13 +831,14 @@ export const useEcoStore = create<EcoState>()(
           roleRevision: s.roleRevision + 1,
           roleWorkspaces: {},
           selection: [],
-          activeScenarioId: null,
+          activeScenarioId: workspaceAssignment?.eventId ?? null,
           messages: [],
           isStreaming: false,
           pendingChatPrompt: null,
-          simulationTime: 0,
+          simulationTime: workspaceAssignment?.eventId ? 1 : 0,
           simulationPlaying: false,
-          previewProposalId: null,
+          discussIdeaId: null,
+          ideaChange: null,
           appliedOverlay: [],
           activeHighlightId: null,
           suggestPanel: { ...INITIAL_SUGGEST_PANEL },
@@ -835,10 +892,11 @@ export const useEcoStore = create<EcoState>()(
             userImpactEntityIds: [],
             impactPickMode: false,
             selection: [],
-            activeScenarioId: null,
-            simulationTime: 0,
+            activeScenarioId: workspaceAssignment?.eventId ?? null,
+            simulationTime: workspaceAssignment?.eventId ? 1 : 0,
             simulationPlaying: false,
-            previewProposalId: null,
+            discussIdeaId: null,
+            ideaChange: null,
             appliedOverlay: [],
             activeHighlightId: null,
           }));
@@ -849,9 +907,10 @@ export const useEcoStore = create<EcoState>()(
       },
     }),
     {
-      name: 'ecocare:patient',
+      name: studyMode || studyWorkspace ? studyStorageKey : 'ecocare:patient',
       version: 2,
-      storage: createJSONStorage(() => localStorage),
+      // The shell's map is a temporary image source, never a saved editable map.
+      storage: createJSONStorage(() => studyMode ? { getItem: () => null, setItem: () => {}, removeItem: () => {} } : studyWorkspace ? sessionStorage : localStorage),
       partialize: (s) => ({
         patient: {
           ...s.patient,
@@ -868,6 +927,12 @@ export const useEcoStore = create<EcoState>()(
         language: s.language,
         participantRole: s.participantRole,
         guideWidth: s.guideWidth,
+        ...(studyWorkspace ? { studyWorkspaceState: {
+          messages: s.messages.filter(message => !message.pending),
+          appliedOverlay: s.appliedOverlay,
+          userImpactEntityIds: s.userImpactEntityIds,
+          suggestPanel: s.suggestPanel.streaming ? { ...INITIAL_SUGGEST_PANEL } : { ...s.suggestPanel, open: false, pendingUserStrategy: null },
+        } } : {}),
       }),
       merge: (persisted, current) => {
         if (!persisted) return current;
@@ -879,6 +944,7 @@ export const useEcoStore = create<EcoState>()(
           language?: unknown;
           participantRole?: unknown;
           guideWidth?: unknown;
+          studyWorkspaceState?: Pick<EcoState, 'messages' | 'appliedOverlay' | 'userImpactEntityIds' | 'suggestPanel'>;
         };
         const persistedPatient = p.patient;
         const mergedEntities = Array.isArray(persistedPatient?.entities)
@@ -900,13 +966,19 @@ export const useEcoStore = create<EcoState>()(
         });
         return {
           ...current,
-          participantRole: isParticipantRole(p.participantRole) ? p.participantRole : 'patient',
+          ...(studyWorkspace && p.studyWorkspaceState ? {
+            messages: Array.isArray(p.studyWorkspaceState.messages) ? p.studyWorkspaceState.messages : [],
+            appliedOverlay: Array.isArray(p.studyWorkspaceState.appliedOverlay) ? p.studyWorkspaceState.appliedOverlay : [],
+            userImpactEntityIds: Array.isArray(p.studyWorkspaceState.userImpactEntityIds) ? p.studyWorkspaceState.userImpactEntityIds : [],
+            suggestPanel: { ...INITIAL_SUGGEST_PANEL, ...p.studyWorkspaceState.suggestPanel, streaming: false, open: false, pendingUserStrategy: null },
+          } : {}),
+          participantRole: workspaceAssignment?.role ?? (isParticipantRole(p.participantRole) ? p.participantRole : 'patient'),
           ...(p.showLegend !== undefined ? { showLegend: p.showLegend } : {}),
           ...(p.showInformationFlows !== undefined
             ? { showInformationFlows: p.showInformationFlows }
             : {}),
           ...(p.uiMode !== undefined ? { uiMode: p.uiMode } : {}),
-          ...(isLanguage(p.language) ? { language: p.language } : {}),
+          ...(isLanguage(p.language) ? { language: workspaceAssignment?.lang ?? p.language } : {}),
           ...(typeof p.guideWidth === 'number'
             ? { guideWidth: clampGuideWidth(p.guideWidth) }
             : {}),
@@ -966,21 +1038,13 @@ function computeStrengthMap(ids: readonly string[], t: number): Map<string, numb
   return map;
 }
 
-/** Internal helper: returns the currently-active proposals (preview + applied). */
+/** Internal helper: the idea on the map (`preview` is kept for the hooks below and is always null). */
 function useActiveProposalSet(): {
   preview: EcologyProposal | null;
   applied: EcologyProposal[];
 } {
-  const previewProposalId = useEcoStore((s) => s.previewProposalId);
   const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
-  const messages = useEcoStore((s) => s.messages);
-  const suggestPanel = useEcoStore((s) => s.suggestPanel);
-  return useMemo(() => {
-    const preview = previewProposalId
-      ? findProposal(messages, suggestPanel, previewProposalId)
-      : null;
-    return { preview, applied: appliedOverlay };
-  }, [previewProposalId, appliedOverlay, messages, suggestPanel]);
+  return useMemo(() => ({ preview: null, applied: appliedOverlay }), [appliedOverlay]);
 }
 
 /** Patient with proposal entities/flows merged in. New entities use their

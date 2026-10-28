@@ -6,8 +6,9 @@ export interface InterleavedSegment {
 }
 
 function peelTrailingAfterStrategy(section: string): { body: string; trailing: string } {
-  // Keep post-strategy sections (e.g. Ask your care team) after the card.
-  const askIdx = section.search(/\n(?:\*\*Ask your care team\*\*|##\s)/i);
+  // Keep post-strategy sections (e.g. "Questions for the care team") after the card:
+  // they start with a line that is only a bold label, or a ## heading.
+  const askIdx = section.search(/\n(?:\s*\*\*[^*\n]+\*\*\s*[:：]?\s*(?:\n|$)|##\s)/);
   if (askIdx >= 0) {
     return {
       body: section.slice(0, askIdx).trimEnd(),

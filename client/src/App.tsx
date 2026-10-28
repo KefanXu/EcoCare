@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { studyWorkspace } from './lib/studyRuntime';
 import { ChevronDown, ClipboardList, Layers, List, Orbit, RotateCcw, Search, Sparkles, X } from 'lucide-react';
 import { ChatPanel } from './components/ChatPanel/ChatPanel';
 import { EcoLandscape } from './components/EcoLandscape/EcoLandscape';
@@ -12,6 +13,7 @@ import { EditToolbar } from './components/Edit/EditToolbar';
 import { EntityForm } from './components/Edit/EntityForm';
 import { FlowForm } from './components/Edit/FlowForm';
 import { OverlayBanner } from './components/Overlay/OverlayBanner';
+import { ActiveIdeaCard } from './components/Idea/ActiveIdeaCard';
 import { SuggestSolutionsPanel, SuggestStrategiesTrigger } from './components/Suggest/SuggestSolutionsPanel';
 import { EasyHelper } from './components/EasyGuide/EasyGuide';
 import { EasyItemOverlay } from './components/EasyGuide/EasyItemCard';
@@ -27,6 +29,10 @@ import {
 import { useUiText } from './lib/uiText';
 import { useI18n } from './i18n';
 import { CATEGORY_COLOR } from './types/ecology';
+import { Onboarding } from './components/Onboarding/OnboardingTour';
+import { useStudySetup } from './lib/useStudySetup';
+import { useOnboardingStore } from './components/Onboarding/useOnboardingStore';
+import { getTourSteps, MAP_FOCUS_STEPS } from './components/Onboarding/tourContent';
 
 // Keep panels mounted during their exit animation; cancel pending exits on reopen.
 function usePanelPresence(open: boolean) {
@@ -43,6 +49,7 @@ function usePanelPresence(open: boolean) {
 }
 
 export default function App() {
+  useStudySetup();
   const entitySearchQuery = useEcoStore((s) => s.entitySearchQuery);
   const setEntitySearchQuery = useEcoStore((s) => s.setEntitySearchQuery);
   const uiMode = useEcoStore((s) => s.uiMode);
@@ -94,11 +101,12 @@ export default function App() {
       setGuideWidth(GUIDE_WIDTH_MAX);
     }
   }
-  const suggestOpen = useEcoStore((s) => s.suggestPanel.open);
   const reset = useEcoStore((s) => s.reset);
   const scenario = useActiveScenario();
   const { t, tr, lang, easy, profile } = useUiText();
   const roleRevision = useEcoStore((s) => s.roleRevision);
+  const participantRole = useEcoStore((s) => s.participantRole);
+  const tourMapPreview = useOnboardingStore((s) => s.open && MAP_FOCUS_STEPS.has(getTourSteps(participantRole, uiMode)[s.step]?.id));
 
   useEffect(() => {
     document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
@@ -145,7 +153,7 @@ export default function App() {
     <>
       {/* Standard mode keeps map-corner search; Easy uses the top-bar field */}
       {!easy && (
-        <div className="absolute top-3 right-3 z-20 inline-flex flex-col items-end pointer-events-none gap-2 max-w-[calc(100%-1.5rem)]">
+        <div data-tour="search" className="absolute top-3 right-3 z-20 inline-flex flex-col items-end pointer-events-none gap-2 max-w-[calc(100%-1.5rem)]">
             <button
               ref={searchTriggerRef}
               type="button"
@@ -247,10 +255,11 @@ export default function App() {
         )}</>}
 
       <EcoLandscape viewMode={viewMode} />
+      <ActiveIdeaCard />
       <OverlayBanner />
       <SuggestSolutionsPanel key={roleRevision} />
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 max-w-[calc(100%-2rem)]">
+      <div data-tour="editing" className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 max-w-[calc(100%-2rem)]">
         <EditToolbar />
         <SuggestStrategiesTrigger />
       </div>
@@ -353,7 +362,7 @@ export default function App() {
               height (not the live drag) so the ring recenters without jitter. */}
           <div
             className="map-workspace absolute inset-x-0 top-0 pb-[4.5rem] transition-[bottom] duration-300 ease-out motion-reduce:transition-none"
-            style={{ bottom: helperOpen ? sheetMapInset('peek') : sheetMapInset(sheetSnap) }}
+            style={{ bottom: tourMapPreview ? 0 : helperOpen ? sheetMapInset('peek') : sheetMapInset(sheetSnap) }}
           >
             {mapChrome}
           </div>
@@ -361,7 +370,7 @@ export default function App() {
             key={roleRevision}
             snap={sheetSnap}
             onSnapChange={setSheetSnap}
-            hidden={helperOpen}
+            hidden={helperOpen || tourMapPreview}
           />
           <AssistantOverlay open={helperOpen} onClose={closeHelper} mobile />
         </div>
@@ -381,6 +390,7 @@ export default function App() {
 
           {guideOpen && (
             <aside
+              data-tour="guide"
               className="absolute top-3 left-3 bottom-3 z-20 flex flex-col rounded-2xl border border-stone-200/80 bg-white/95 shadow-[0_12px_40px_rgba(28,25,23,0.12)] backdrop-blur-xl overflow-hidden"
               style={{ width: `min(${guideWidth}px, calc(100% - 1.5rem))` }}
             >
@@ -414,7 +424,7 @@ export default function App() {
               </div>
               <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-stone-200/80 shrink-0">
                 <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
-                  {suggestOpen ? profile.strategyLabel : tr('{role} guide', { role: profile.label })}
+                  {tr('{role} guide', { role: profile.label })}
                 </div>
                 <button
                   type="button"
@@ -433,7 +443,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => reset()}
-                  title={t('resetTitle')}
+                  title={studyWorkspace ? tr('Reset the tool. Your assigned situation and study answers stay unchanged.') : t('resetTitle')}
                   className="w-full inline-flex items-center justify-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-stone-100/80 hover:bg-stone-200/80 border border-transparent hover:border-stone-200/80 rounded-xl px-4 py-2.5 min-h-[44px] transition"
                 >
                   <RotateCcw className="w-4 h-4" strokeWidth={2} aria-hidden />
@@ -461,6 +471,7 @@ export default function App() {
 
       <EntityForm />
       <FlowForm />
+      <Onboarding />
     </div>
   );
 }
@@ -490,8 +501,13 @@ function AssistantOverlay({
         return;
       }
       // Next frame so the enter transition runs from the closed styles.
+      // The timer covers browsers that pause animation frames in background views.
       const id = requestAnimationFrame(() => setVisible(true));
-      return () => cancelAnimationFrame(id);
+      const fallback = window.setTimeout(() => setVisible(true), 80);
+      return () => {
+        cancelAnimationFrame(id);
+        window.clearTimeout(fallback);
+      };
     }
     skipEnterAnim.current = false;
     setVisible(false);
