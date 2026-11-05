@@ -27,6 +27,11 @@ export interface EcologyProposal {
   id: string;
   title: string;
   rationale: string;
+  /** Participant wording; any inferred map effects are explained separately in assessment. */
+  decisionOnly?: boolean;
+  assessment?: DecisionAssessment & { contextKey: string };
+  /** Supersedes the original chat explanation, which may describe an older version. */
+  refined?: boolean;
   /** Practical actions in order; optional for ideas saved before this field existed. */
   steps?: string[];
   addEntities?: ProposalAddEntity[];
@@ -44,6 +49,19 @@ export interface EcologyProposal {
   removeEntityIds?: string[];
   /** Existing flow ids to hide from the ecology for this what-if. */
   removeFlowIds?: string[];
+}
+
+export type DecisionMapEffects = Pick<EcologyProposal,
+  'addEntities' | 'addFlows' | 'restoresEntityIds' | 'restoresFlowIds' | 'resolvesConflictIds'>;
+
+/** AI interpretation, never appended to the participant's saved answer. */
+export interface DecisionAssessment {
+  explanation: string;
+  benefits: string[];
+  drawbacks: string[];
+  checks: string[];
+  steps: string[];
+  mapEffects?: DecisionMapEffects;
 }
 
 /**

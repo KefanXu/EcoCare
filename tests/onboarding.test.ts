@@ -5,6 +5,21 @@ import { readStudyConfig } from '../client/src/lib/studyConfig';
 import { ZH } from '../client/src/i18n/zh';
 import { SESSION_PHASES } from '../client/src/components/Onboarding/tourContent';
 
+test('interactive study tour covers separate map actions and the new decision workspace', () => {
+  const steps = getTourSteps('patient', 'easy', true);
+  for (const id of ['layers', 'hover', 'flows', 'details', 'search', 'ai', 'ideas', 'own-idea']) {
+    assert.ok(steps.find(s => s.id === id)?.target, `${id} must be an interactive step`);
+  }
+  assert.match(steps.find(s => s.id === 'ideas')!.body, /row below the map/);
+  assert.match(steps.find(s => s.id === 'search')!.body, /bottom left/);
+  assert.match(steps.find(s => s.id === 'event')!.body, /choose Continue to read about your point of view/);
+  assert.match(steps.find(s => s.id === 'event')!.body, /choose See affected items/);
+  assert.match(steps.find(s => s.id === 'ideas')!.body, /Expand to read the steps and limits/);
+  assert.match(steps.find(s => s.id === 'own-idea')!.body, /Write a decision to open it/);
+  assert.match(steps.find(s => s.id === 'ai')!.body, /stays open/);
+  assert.ok(steps.every(s => !s.note?.includes('Pause the tour to try')));
+});
+
 test('researcher links accept only known roles, modes, languages and events', () => {
   assert.deepEqual(readStudyConfig('?role=caregiver&event=lce-relocation&baseline=lce-insurance&lang=zh&mode=easy&tour=on'), {
     role: 'caregiver', eventId: 'lce-relocation', baselineEventId: 'lce-insurance', lang: 'zh', mode: 'easy', tour: 'on', eventConflict: false,
@@ -66,6 +81,14 @@ test('tour surfaces stay on screen, including short and narrow viewports', () =>
         assert.ok(box.top + box.maxHeight <= height - 12);
       }
     }
+  }
+});
+
+test('tour instructions leave the bottom guide unobstructed when there is room above it', () => {
+  for (const width of [390, 1023]) {
+    const target = { left: 0, top: 556, width, height: 288 };
+    const box = placeTourCard({ width, height: 844 }, target, 480);
+    assert.ok(box.top + box.maxHeight < target.top);
   }
 });
 

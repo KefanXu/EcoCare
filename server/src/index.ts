@@ -17,6 +17,7 @@ import { classifyItem } from './handlers/classify.js';
 import type { ClassifyPayload } from './handlers/classify.js';
 import { suggestFlowsForEntity } from './handlers/classify.js';
 import type { SuggestFlowsPayload } from './handlers/classify.js';
+import { generateDecisionAssessment } from './decisionAssessment.js';
 
 const app = express();
 app.use(cors());
@@ -131,6 +132,29 @@ app.post('/api/classify', async (req, res) => {
   } catch (err) {
     console.error('[ecocare] classify error', err);
     res.status(500).json({ error: 'Classification failed' });
+  }
+});
+
+app.post('/api/decision-assessment', async (req, res) => {
+  const body = req.body;
+  if (!body?.decision || !['id', 'title', 'rationale'].every(key =>
+    typeof body.decision[key] === 'string' && body.decision[key].trim()) || !body.context?.patient) {
+    res.status(400).json({ error: 'Invalid assessment request' });
+    return;
+  }
+  if (!openai) {
+    res.status(503).json({ error: 'AI assessment is unavailable.' });
+    return;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 55000);
+  res.on('close', () => controller.abort());
+  try {
+    res.json({ assessment: await generateDecisionAssessment(openai, rt, body, controller.signal) });
+  } catch {
+    if (!res.destroyed) res.status(502).json({ error: 'Could not assess this decision. Please try again.' });
+  } finally {
+    clearTimeout(timeout);
   }
 });
 

@@ -25,6 +25,8 @@ export const ZH_CHAT: Record<string, string> = {
   'Ask about what you tapped on the map…': '询问您在图上点选的内容…',
   'Ask about the selected items…': '询问选中的项目…',
   'Stop answer': '停止回答',
+  'Message composer': '消息输入区',
+  'Send message': '发送消息',
   Stop: '停止',
   'Network error': '网络错误',
   'Stream error': '连接中断',

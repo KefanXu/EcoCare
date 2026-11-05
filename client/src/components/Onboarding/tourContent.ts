@@ -12,7 +12,7 @@ export interface TourStep {
 }
 
 export const FIRST_TOOL_STEP = 3;
-export const MAP_FOCUS_STEPS = new Set(['map', 'layers', 'details', 'edit']);
+export const MAP_FOCUS_STEPS = new Set(['map', 'layers', 'hover', 'flows', 'details', 'edit']);
 
 export const DECISION_TEXT: Record<ParticipantRole, string> = {
   patient: 'Imagine you are Jordan. Explain what you would do to cope with this event and why that choice could fit your daily life.',
@@ -43,7 +43,7 @@ export function getTourSteps(role: ParticipantRole, mode: UiMode, inStudy = fals
       id: 'map', phase: 'Meet the tool', title: "See the pieces of Jordan's care",
       body: 'The map brings together people, tools, routines, and information that support care. Together, these make up a care ecology. Lines show how information moves between them.',
       points: ['Jordan is at the center. The surrounding layers place care in the context of everyday life and wider systems.', 'The map key explains the colors and line styles.'],
-      note: 'Pause the tour to try a control. Reopen Tour in the top bar to continue where you left off.',
+      note: 'The tool stays active during these steps. Try each action, then choose Next when you are ready.',
       target: '[data-tour="map"]',
     },
     {
@@ -53,9 +53,23 @@ export function getTourSteps(role: ParticipantRole, mode: UiMode, inStudy = fals
       target: '[data-tour="map"]',
     },
     {
+      id: 'hover', phase: 'Meet the tool', title: 'Read about a person or thing',
+      body: 'Move your pointer over a person or thing on the map. Read its details and notice the connected items. On a touch screen, tap the item instead.',
+      target: '[data-tour="map"]',
+    },
+    {
+      id: 'flows', phase: 'Meet the tool', title: 'Follow a connection',
+      body: 'Move your pointer over a line, or tap it. Read what information moves between its two ends and whether that connection is affected by the event.',
+      target: '[data-tour="map"]',
+    },
+    {
       id: 'details', phase: 'Meet the tool', title: 'Inspect something that interests you',
-      body: 'Hover over an item or a line to read about it. Click or tap it to select it. Selected items give the AI context for your questions; select them again to remove them.',
-      note: easy ? 'Details appear on the map. Use the search at the top to find an item by name.' : 'Details appear in the Inspector. Use the magnifying glass to search for an item by name.',
+      body: 'Click or tap an item to select it. It becomes context for your AI questions. Try selecting a second item, then select either item again to remove it.',
+      target: '[data-tour="map"]',
+    },
+    {
+      id: 'search', phase: 'Meet the tool', title: 'Find something on the map',
+      body: easy ? 'Use the search at the top to find an item by name. Try pharmacy, then clear the search to see the whole map again.' : 'Open the magnifying glass and search for pharmacy. Clear the search to see the whole map again.',
       target: '[data-tour="search"]',
     },
     {
@@ -102,12 +116,25 @@ export function getTourSteps(role: ParticipantRole, mode: UiMode, inStudy = fals
     body: 'You have finished the first decision and questions. Now you will use EcoCare for a different situation. This short tour shows you around before you explore.',
     note: 'This is a research prototype, not medical advice. We are learning about the tool, not testing your knowledge.',
   }, ...steps.slice(FIRST_TOOL_STEP).map(step => {
+    if (step.id === 'search') return {
+      ...step,
+      body: 'Select the magnifying glass at the bottom left of the map toolbar. Search for pharmacy, then clear the search to see the whole map again.',
+    };
     if (step.id === 'event') return {
       ...step,
-      body: easy
-        ? 'Your second situation is already selected in the guide. Read what has changed, then look at the affected items. Red rings mark affected items; broken connections show where information may no longer get through.'
-        : 'Your second situation is already selected in the top bar. Red rings mark affected items; broken connections show where information may no longer get through. Use Play or the timeline to review the changes.',
+      body: 'Your second situation is already selected in the guide below the map. Read the situation, choose Continue to read about your point of view, then choose Explore the map. Review what has changed, then choose See affected items to look at the people and things involved. Red rings mark affected items; broken connections show where information may no longer get through.',
       note: 'Your assigned situation and point of view stay the same during this task.',
+      target: '[data-tour="guide"]',
+    };
+    if (step.id === 'ai') return {
+      ...step,
+      body: 'The AI assistant stays open beside the map, or below it on a small screen. Type a question or choose a suggested question. Try asking about an item you selected, then ask a follow-up if the answer is unclear.',
+      target: '[data-tour="study-assistant"]',
+    };
+    if (step.id === 'ideas') return {
+      ...step,
+      body: 'Choose Consider a decision in the guide. Possible responses will load in a row below the map. Select Expand to read the steps and limits, or Use this idea to see its proposed changes on the map.',
+      target: '[data-tour="study-decide"]',
     };
     if (step.id === 'decision') return {
       ...step,
@@ -115,12 +142,16 @@ export function getTourSteps(role: ParticipantRole, mode: UiMode, inStudy = fals
     };
     if (step.id === 'finish') return {
       ...step, title: 'When you are ready to decide',
-      body: 'Choose “Ready to make my decision” above EcoCare. The idea you selected will be copied into the decision box. You can edit it or write your own decision, then answer the final questions on this page.',
+      body: 'Select an idea or save your own decision first. Then choose “Ready to make my decision” in the guide below the map. Your choice will be copied into the decision box. You can edit it, then answer the final questions on this page.',
       points: ['You can return to EcoCare before you continue to the questions. Your edits will be kept.', 'After the questions, download your responses and talk with the researcher.'],
-      note: 'You can pause this tour and reopen Tour in the top bar whenever you need it.',
+      note: 'You can pause this tour and reopen Tour at the top right of the map whenever you need it.',
     };
     return step;
-  })];
+  }).flatMap(step => step.id === 'ideas' ? [step, {
+    id: 'own-idea', phase: 'Meet the tool' as const, title: 'Your own decision matters',
+    body: 'The first option is Your own decision. Select Write a decision to open it. Write what you would do and why, then select Use my own decision. You can still revise it in the next part of the study.',
+    target: '[data-tour="own-decision"], [data-tour="study-decide"]',
+  }] : [step])];
 }
 
 export const SESSION_PHASES = [
@@ -150,9 +181,10 @@ export function placeTourCard(view: { width: number; height: number }, target: T
     if (right + width <= view.width - margin) { left = right; top = target.top; }
     else if (target.left - width - 18 >= margin) { left = target.left - width - 18; top = target.top; }
     else if (target.top + target.height + maxHeight + 18 <= view.height - margin) { top = target.top + target.height + 18; left = target.left; }
+    else if (target.top - maxHeight - 18 >= margin) { top = target.top - maxHeight - 18; left = target.left; }
     else { left = view.width - width - 24; top = view.height - maxHeight - 24; }
   } else if (target) {
-    top = view.height - maxHeight - margin;
+    top = target.top - maxHeight - 18 >= margin ? target.top - maxHeight - 18 : view.height - maxHeight - margin;
   }
   return { width, maxHeight, left: Math.max(margin, Math.min(left, view.width - width - margin)), top: Math.max(margin, Math.min(top, view.height - maxHeight - margin)) };
 }

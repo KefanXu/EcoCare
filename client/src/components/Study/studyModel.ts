@@ -3,6 +3,7 @@ import { samplePatient } from '../../data/samplePatient';
 import { ZH_STUDY } from '../../i18n/zh/study';
 
 export const STUDY_KEY = 'ecocare.study.v1';
+// Keep historical skipped responses readable; current questionnaires offer only 1-5.
 export type Answer = 1 | 2 | 3 | 4 | 5 | 'skip';
 export type Phase = 'case' | 'survey1' | 'explore' | 'decision2' | 'survey2' | 'complete';
 export interface StudyIdea { id: string; title: string; rationale: string; steps?: string[] }

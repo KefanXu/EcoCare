@@ -45,7 +45,8 @@ export interface ContextStrategy {
   title: string;
   rationale: string;
   steps?: string[];
-  status: 'applied' | 'discussing' | 'previewing';
+  assessment?: { explanation: string; benefits: string[]; drawbacks: string[]; checks: string[]; steps: string[] };
+  status: 'applied' | 'discussing' | 'previewing' | 'selected';
   addsEntities?: string[];
   addsFlows?: number;
   restoresEntityIds?: string[];
@@ -139,7 +140,7 @@ export function buildSystemPrompt(ctx: ChatContext): string {
       'The user has selected these strategies on the visualization and wants to discuss them. ' +
         'Treat them as the primary focus for follow-up questions: compare, refine, surface trade-offs, ' +
         'or explain which disrupted items they might affect and under what conditions. Do NOT re-propose the same strategy unless asked. ' +
-        '[applied] means the idea is on the map now; [discussing] means the participant is asking about it without using it yet.',
+        '[applied] means the idea is on the map now; [discussing] means the participant is asking about it without using it yet. [selected] preserves the participant\'s own written decision. Without a separate AI assessment, no map changes have been inferred: do not claim it fixes or fails to fix an item. If an AI assessment is supplied, distinguish it from the participant\'s words. Its map effects are conditional hypotheses, not confirmed benefits, clinical outcomes, or a score for the decision. Discuss its drawbacks and checks as well as possible benefits.',
     );
     for (const s of activeStrategies) {
       const bits: string[] = [];
@@ -162,6 +163,7 @@ export function buildSystemPrompt(ctx: ChatContext): string {
       lines.push(
         `- [${s.status}] **${s.title}**: ${s.rationale}${detail}${s.steps?.length ? ` Practical steps: ${s.steps.join(' ')}` : ''}`,
       );
+      if (s.assessment) lines.push(`  Separate AI assessment (not the participant's answer): ${JSON.stringify(s.assessment)}`);
     }
     lines.push(
       'When the user asks a follow-up about these active strategies, skip the full strategy-proposal skeleton. ' +

@@ -16,6 +16,8 @@ import type {
 import type { EcologyHighlight, EcologyProposal } from '../types/proposals';
 import { isParticipantRole, type ParticipantRole } from '../lib/participantRoles';
 import { isLanguage, type Language } from '../i18n/language';
+import { ZH } from '../i18n/zh';
+import { normalizeStudyAssistantWidth } from '../lib/studyAssistantSizing';
 
 export type OverlayTag = 'preview' | 'applied' | 'restored' | 'removed';
 
@@ -115,6 +117,9 @@ interface EcoState {
   guideOpen: boolean;
   /** Easy-mode Guide panel width in px (user-resizable; persisted). */
   guideWidth: number;
+  /** Null retains the responsive study layout until the participant resizes it. */
+  studyAssistantWidth: number | null;
+  setStudyAssistantWidth: (width: number | null) => void;
 
   // Timeline simulation
   simulationTime: number;
@@ -125,6 +130,9 @@ interface EcoState {
   appliedOverlay: EcologyProposal[];
   /** Idea the participant is asking the AI about without putting it on the map. */
   discussIdeaId: string | null;
+  refiningIdeaId: string | null;
+  refinementRequest: number;
+  setRefiningIdea: (id: string | null) => void;
   /** Latest map change caused by an idea; drives the change animation. */
   ideaChange: IdeaChange | null;
   /** One-shot "look here" pulse on map items (e.g. a chip tapped in an AI answer). */
@@ -212,6 +220,7 @@ interface EcoState {
 
   // Idea actions (session-only). Only one idea is on the map at a time.
   selectIdea: (proposalId: string) => void;
+  saveOwnDecision: (text: string) => void;
   clearIdea: () => void;
   /** Replace an idea everywhere it appears, keeping its id. */
   reviseIdea: (proposalId: string, revised: EcologyProposal) => void;
@@ -386,6 +395,7 @@ export const useEcoStore = create<EcoState>()(
           isStreaming: false,
           pendingChatPrompt: null,
           discussIdeaId: null,
+          refiningIdeaId: null,
           ideaChange: null,
           activeHighlightId: null,
           selection: [],
@@ -415,12 +425,16 @@ export const useEcoStore = create<EcoState>()(
       helperOpen: false,
       guideOpen: true,
       guideWidth: GUIDE_WIDTH_DEFAULT,
+      studyAssistantWidth: null,
+      setStudyAssistantWidth: (width) => set({ studyAssistantWidth: normalizeStudyAssistantWidth(width) }),
 
       simulationTime: workspaceAssignment?.eventId ? 1 : 0,
       simulationPlaying: false,
 
       appliedOverlay: [],
       discussIdeaId: null,
+      refiningIdeaId: null,
+      refinementRequest: 0,
       ideaChange: null,
       mapPing: null,
 
@@ -448,6 +462,7 @@ export const useEcoStore = create<EcoState>()(
           // Drop the suggest panel when the LCE changes — its strategies are scenario-specific.
           suggestPanel: { ...INITIAL_SUGGEST_PANEL },
           discussIdeaId: null,
+          refiningIdeaId: null,
           ideaChange: null,
           activeHighlightId: null,
           userImpactEntityIds: [],
@@ -479,6 +494,7 @@ export const useEcoStore = create<EcoState>()(
           simulationTime: workspaceAssignment?.eventId ? 1 : 0,
           simulationPlaying: false,
           discussIdeaId: null,
+          refiningIdeaId: null,
           ideaChange: null,
           appliedOverlay: [],
           activeHighlightId: null,
@@ -670,6 +686,19 @@ export const useEcoStore = create<EcoState>()(
           suggestPanel: { ...s.suggestPanel, pendingUserStrategy: null },
         })),
 
+      saveOwnDecision: (text) => set(s => {
+        if (!text.trim()) return s;
+        const proposal: EcologyProposal = { id: `own-${crypto.randomUUID()}`, title: s.language === 'zh' ? ZH['My own decision'] : 'My own decision', rationale: text.trim(), decisionOnly: true };
+        return {
+          suggestPanel: {
+            ...s.suggestPanel,
+            proposals: [...s.suggestPanel.proposals.filter(p => !s.suggestPanel.userStrategyIds.includes(p.id)), proposal],
+            userStrategyIds: [proposal.id],
+          },
+          appliedOverlay: [proposal],
+          ideaChange: diffIdeas(s.appliedOverlay[0] ?? null, proposal),
+        };
+      }),
       selectIdea: (proposalId) =>
         set((s) => {
           const current = s.appliedOverlay[0] ?? null;
@@ -703,6 +732,7 @@ export const useEcoStore = create<EcoState>()(
           };
         }),
       setDiscussIdea: (discussIdeaId) => set({ discussIdeaId }),
+      setRefiningIdea: (refiningIdeaId) => set(s => ({ refiningIdeaId, refinementRequest: s.refinementRequest + 1 })),
       clearIdeaChange: () => set({ ideaChange: null }),
       pingOnMap: (ids) => set({ mapPing: ids.length > 0 ? { key: Date.now(), ids } : null }),
 
@@ -827,6 +857,7 @@ export const useEcoStore = create<EcoState>()(
         })),
       resetEcology: () =>
         set((s) => ({
+          refiningIdeaId: null,
           patient: samplePatient,
           roleRevision: s.roleRevision + 1,
           roleWorkspaces: {},
@@ -884,6 +915,7 @@ export const useEcoStore = create<EcoState>()(
               baselineConflicts: (parsed.baselineConflicts as Conflict[]) ?? [],
             },
             roleRevision: s.roleRevision + 1,
+            refiningIdeaId: null,
             roleWorkspaces: {},
             messages: [],
             isStreaming: false,
@@ -927,7 +959,7 @@ export const useEcoStore = create<EcoState>()(
         language: s.language,
         participantRole: s.participantRole,
         guideWidth: s.guideWidth,
-        ...(studyWorkspace ? { studyWorkspaceState: {
+        ...(studyWorkspace ? { studyAssistantWidth: s.studyAssistantWidth, studyWorkspaceState: {
           messages: s.messages.filter(message => !message.pending),
           appliedOverlay: s.appliedOverlay,
           userImpactEntityIds: s.userImpactEntityIds,
@@ -944,6 +976,7 @@ export const useEcoStore = create<EcoState>()(
           language?: unknown;
           participantRole?: unknown;
           guideWidth?: unknown;
+          studyAssistantWidth?: unknown;
           studyWorkspaceState?: Pick<EcoState, 'messages' | 'appliedOverlay' | 'userImpactEntityIds' | 'suggestPanel'>;
         };
         const persistedPatient = p.patient;
@@ -966,6 +999,7 @@ export const useEcoStore = create<EcoState>()(
         });
         return {
           ...current,
+          ...(studyWorkspace ? { studyAssistantWidth: normalizeStudyAssistantWidth(p.studyAssistantWidth) } : {}),
           ...(studyWorkspace && p.studyWorkspaceState ? {
             messages: Array.isArray(p.studyWorkspaceState.messages) ? p.studyWorkspaceState.messages : [],
             appliedOverlay: Array.isArray(p.studyWorkspaceState.appliedOverlay) ? p.studyWorkspaceState.appliedOverlay : [],

@@ -46,7 +46,6 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
   const appliedOverlay = useEcoStore((s) => s.appliedOverlay);
   const discussIdeaId = useEcoStore((s) => s.discussIdeaId);
   const selectIdea = useEcoStore((s) => s.selectIdea);
-  const reviseIdea = useEcoStore((s) => s.reviseIdea);
   const disrupted = useDisruptedEntityIds();
   const broken = useBrokenFlowIds();
   const conflicts = useActiveConflicts();
@@ -62,10 +61,10 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
     };
   }, [roleRevision]);
 
-  function buildContext() {
-    const discussStrategy = discussIdeaId
+  function buildContext(target?: EcologyProposal) {
+    const discussStrategy = target ?? (discussIdeaId
       ? findPreviewProposal(messages, discussIdeaId, panel)
-      : null;
+      : null);
     return buildChatContext({
       participantRole,
       uiMode: easy ? 'easy' : 'standard',
@@ -78,7 +77,7 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
       broken,
       conflicts,
       discussStrategy,
-      appliedStrategies: appliedOverlay,
+      appliedStrategies: target ? appliedOverlay.filter(p => p.id !== target.id) : appliedOverlay,
       userImpactEntityIds,
     });
   }
@@ -219,25 +218,26 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
 
   /**
    * Change an idea with the participant's own words. The AI answer is parsed
-   * privately (not streamed into the ideas list) and replaces the idea in place.
+   * privately (not streamed into the ideas list) for review before saving.
    */
   async function runReviseIdea(
     idea: EcologyProposal,
     changeText: string,
-  ): Promise<{ ok: true } | { ok: false; error: string }> {
+  ): Promise<{ ok: true; proposal: EcologyProposal } | { ok: false; error: string }> {
     const trimmed = changeText.trim();
     if (!trimmed) return { ok: false, error: 'Empty change' };
     reviseAbortRef.current?.abort();
     const request = startRoleRequest(roleRevision);
     const ctrl = request.controller;
     reviseAbortRef.current = ctrl;
+    const scenarioId = useEcoStore.getState().activeScenarioId;
 
     let raw = '';
     let error = null as string | null;
     await streamChat(
       {
         messages: [{ role: 'user', content: REVISE_IDEA_PROMPT(idea, trimmed, easy) }],
-        context: buildContext(),
+        context: buildContext(idea),
       },
       {
         onDelta: (d) => {
@@ -251,12 +251,11 @@ export function useSuggestStrategies(opts?: { easy?: boolean }) {
       ctrl.signal,
     );
     request.dispose();
-    if (ctrl.signal.aborted || !request.isCurrent()) return { ok: false, error: 'aborted' };
+    if (ctrl.signal.aborted || !request.isCurrent() || reviseAbortRef.current !== ctrl || useEcoStore.getState().activeScenarioId !== scenarioId) return { ok: false, error: 'aborted' };
     if (error) return { ok: false, error };
     const revised = parseProposalsFromContent(raw).proposals[0];
     if (!revised) return { ok: false, error: 'The AI did not return an updated idea. Please try again.' };
-    reviseIdea(idea.id, { ...revised, id: idea.id });
-    return { ok: true };
+    return { ok: true, proposal: { ...revised, id: idea.id } };
   }
 
   return { runSuggest, runUserStrategy, runReviseIdea, abortSuggest, scenario, panel };

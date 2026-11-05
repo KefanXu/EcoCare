@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, Download, FlaskConical, Heart, LockKeyhole, Pause, Play, Stethoscope, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, Download, FlaskConical, Heart, LockKeyhole, Pause, Play, Stethoscope, Users } from 'lucide-react';
 import { samplePatient } from '../../data/samplePatient';
 import { PARTICIPANT_ROLES, ROLE_PROFILES, type ParticipantRole } from '../../lib/participantRoles';
 import { readStudyConfig } from '../../lib/studyConfig';
 import { useEcoStore } from '../../store/useEcoStore';
 import { translate } from '../../i18n';
 import { StaticMap } from './StaticMap';
+import { STUDY_REVIEW_DECISION } from './studyGuidance';
 import { STUDY_KEY, RESPONSE_LABELS, advance, answered, decisionFromIdea, exportSession, importSelectedIdea, parseSession, questionnaire, readSelectedIdea, startSession, validEvents, type Answer, type StudySession } from './studyModel';
 import './study.css';
+import './studyWorkspace.css';
 
 const STEPS = ['Read & decide', 'First questions', 'Explore EcoCare', 'Decide again', 'Final questions'];
 const PHASES = ['case', 'survey1', 'explore', 'decision2', 'survey2', 'complete'];
@@ -46,6 +48,7 @@ export function StudyFlow() {
   const [imageReady, setImageReady] = useState(false);
   const [workspaceOpened, setWorkspaceOpened] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
+  const workspace = useRef<HTMLIFrameElement>(null);
   const lang = session?.language ?? language;
   const tr = (text: string) => translate(lang, text);
   const stage = session ? PHASES.indexOf(session.phase) : -1;
@@ -62,7 +65,20 @@ export function StudyFlow() {
     try { sessionStorage.setItem(STUDY_KEY, JSON.stringify(session)); setStorageError(''); }
     catch { setStorageError('This browser cannot save your progress. Download a copy before leaving.'); }
   }, [session]);
-  useEffect(() => { heading.current?.focus(); setError(''); setConfirmRestore(false); window.scrollTo(0, 0); }, [session?.phase, session?.page, paused]);
+  useEffect(() => {
+    const target = heading.current ?? (session?.phase === 'explore' && !paused ? document.querySelector<HTMLElement>('#study-guide-host h1') : null);
+    target?.focus(); setError(''); setConfirmRestore(false); window.scrollTo(0, 0);
+  }, [session?.phase, session?.page, paused]);
+  useEffect(() => {
+    function receive(event: MessageEvent) {
+      if (event.origin !== window.location.origin || event.source !== workspace.current?.contentWindow || event.data?.type !== STUDY_REVIEW_DECISION || !session || paused || session.phase !== 'explore') return;
+      // The workspace renders the action only for a selection; verify again at the boundary.
+      try { if (!readSelectedIdea(sessionStorage, session)) return; } catch { return; }
+      next();
+    }
+    window.addEventListener('message', receive);
+    return () => window.removeEventListener('message', receive);
+  }, [session, paused]);
 
   function next() {
     if (!session) return;
@@ -102,7 +118,7 @@ export function StudyFlow() {
     if (!session) return;
     const missing = Array.from({ length: 4 }, (_, i) => session.page * 4 + i + 1).find(i => !answered(session.answers[trial][i]));
     if (missing) {
-      setError('Choose one response for each statement. You can choose “Prefer not to answer”.');
+      setError('Choose one response for each statement.');
       document.querySelector<HTMLInputElement>(`#study-q-${missing} input`)?.focus();
       return;
     }
@@ -138,19 +154,19 @@ export function StudyFlow() {
     <p className="study-muted">{tr('Your decision will be kept as it is when you continue to the questions.')}</p>
   </div>;
 
-  return <div className="study-shell" lang={lang}>
-    <header className="study-header">
+  return <div className={`study-shell ${session?.phase === 'explore' && !paused ? 'study-shell-exploring' : ''}`} lang={lang}>
+    <header className={`study-header ${session && !paused ? 'study-header-with-progress' : ''}`}>
       <a className="study-brand" href="/" aria-label="EcoCare">EcoCare <span><FlaskConical size={14} aria-hidden />{tr('Study mode')}</span></a>
+      {session && !paused && <nav className="study-progress-compact" aria-label={tr('Study progress')}><details><summary><span className="study-progress-count">{Math.min(stage + 1, 5)} / 5</span><strong>{tr(STEPS[Math.min(stage, 4)])}</strong><ChevronDown size={14} aria-hidden /></summary><ol>{STEPS.map((label, i) => <li key={label} aria-current={stage === i ? 'step' : undefined} className={stage > i ? 'is-done' : ''}><span>{stage > i ? <Check size={14} aria-hidden /> : i + 1}</span>{tr(label)}</li>)}</ol></details><div className="study-progress-track" aria-hidden>{STEPS.map((label, i) => <span key={label} className={stage >= i ? 'is-done' : ''} />)}</div></nav>}
       <div className="study-header-actions">
         {session ? <>
           <span className="study-role">{tr(ROLE_PROFILES[session.role].label)}</span>
           <button type="button" onClick={saveCopy} title={tr('Download responses')} aria-label={tr('Download responses')}><Download size={18} /></button>
-          {session.phase !== 'complete' && !paused && <button type="button" onClick={() => setPaused(true)}><Pause size={16} aria-hidden />{tr('Pause')}</button>}
+          {session.phase !== 'complete' && !paused && <button type="button" title={tr('Pause')} aria-label={tr('Pause')} onClick={() => setPaused(true)}><Pause size={16} aria-hidden /><span className="study-pause-label">{tr('Pause')}</span></button>}
         </> : <label className="study-language"><span>{tr('Language')}</span><select value={language} onChange={e => setLanguage(e.target.value as 'en' | 'zh')}><option value="en">English</option><option value="zh">简体中文</option></select></label>}
       </div>
     </header>
     {storageError && <p className="study-alert" role="alert">{tr(storageError)}</p>}
-    {session && !paused && <nav className="study-progress" aria-label={tr('Study progress')}><ol>{STEPS.map((label, i) => <li key={label} aria-current={stage === i ? 'step' : undefined} className={stage > i ? 'is-done' : ''}><span>{stage > i ? <Check size={15} aria-hidden /> : i + 1}</span><strong>{tr(label)}</strong></li>)}</ol></nav>}
 
     {!session && <main className="study-main study-setup">
       <p className="study-eyebrow">{tr('Before we begin')}</p>
@@ -165,7 +181,7 @@ export function StudyFlow() {
         {lang === 'zh' && <p className="study-alert">{tr('The Chinese questionnaire is a draft translation. Please confirm with the researcher before using it in a study.')}</p>}
         <label className="study-ready"><input type="checkbox" checked={researcherReady} onChange={e => setResearcherReady(e.target.checked)} /><span>{tr('My researcher has completed the consent and introduction, and confirmed these two situations.')}</span></label>
       </section>
-      <div className="study-privacy"><LockKeyhole size={18} aria-hidden /><p>{tr('Your decisions and answers stay in this browser tab. They are not sent to the researcher automatically. Download them before closing the tab. In the EcoCare task, messages you send to AI are processed by the AI service. You can pause, skip a question, or stop at any time.')}</p></div>
+      <div className="study-privacy"><LockKeyhole size={18} aria-hidden /><p>{tr('Your decisions and answers stay in this browser tab. They are not sent to the researcher automatically. Download them before closing the tab. In the EcoCare task, messages you send to AI are processed by the AI service. You can pause or stop at any time.')}</p></div>
       {draft.raw && !draft.session && <p className="study-alert">{tr('A previous draft could not be opened.')} <button type="button" className="study-text-button" onClick={() => download(draft.raw!, 'EcoCare-recovery.json')}>{tr('Download recovery copy')}</button></p>}
       <div className="study-footer"><a href="/">{tr('Back to EcoCare')}</a><button type="button" className="study-primary" disabled={!researcherReady || !validEvents(baseline, event)} onClick={() => { setSession(startSession(role, baseline, event, language)); setPaused(false); }}>{tr('Begin study')}<ArrowRight size={17} aria-hidden /></button></div>
     </main>}
@@ -180,8 +196,11 @@ export function StudyFlow() {
     </main>}
 
     {session && workspaceOpened && stage >= 2 && stage < 5 && <section className="study-tool-stage" hidden={paused || session.phase !== 'explore'}>
-      <div className="study-tool-heading"><div><p className="study-eyebrow">{tr('Part 2 · A different situation')}</p><h1 ref={session.phase === 'explore' && !paused ? heading : undefined} tabIndex={-1}>{tr('Explore before you decide')}</h1><p>{tr(activeEvent.easyName ?? activeEvent.name)}. {tr('Use the guide, select items on the map, and ask the AI helper questions. AI suggestions may be wrong. Check what fits Jordan’s situation.')}</p></div><button type="button" className="study-primary" onClick={next}>{tr('Ready to make my decision')}<ArrowRight size={17} aria-hidden /></button></div>
-      <iframe title={tr('EcoCare study workspace')} src={workspaceUrl} className="study-workspace" />
+      <div className="study-workspace-row">
+        <div id="study-decision-host" />
+        <iframe ref={workspace} title={tr('EcoCare study workspace')} src={workspaceUrl} className="study-workspace" />
+      </div>
+      <div id="study-guide-host" />
     </section>}
 
     {session && !paused && session.phase === 'decision2' && <main className="study-main">
@@ -191,16 +210,16 @@ export function StudyFlow() {
     </main>}
 
     {session && !paused && survey && <main className="study-main study-survey">
-      <p className="study-eyebrow">{tr(trial === 0 ? 'Part 1 · Your first decision' : 'Part 2 · Your second decision')}</p><h1 ref={heading} tabIndex={-1}>{tr('How do you feel about your decision?')}</h1><p className="study-lead">{tr('For each statement, choose the answer that best fits how you feel right now. You can choose “Prefer not to answer”.')}</p>
+      <p className="study-eyebrow">{tr(trial === 0 ? 'Part 1 · Your first decision' : 'Part 2 · Your second decision')}</p><h1 ref={heading} tabIndex={-1}>{tr('How do you feel about your decision?')}</h1><p className="study-lead">{tr('For each statement, choose the answer that best fits how you feel right now.')}</p>
       <details className="study-decision-summary"><summary>{tr('Your decision')} · {tr(activeEvent.easyName ?? activeEvent.name)}</summary><p>{session.decisions[trial]}</p></details>
       <div className="study-survey-page"><span>{tr('Statements')} {session.page * 4 + 1}–{session.page * 4 + 4} / 16</span><progress aria-label={tr('Questionnaire progress')} value={session.page + 1} max={4} /></div>
       <form onSubmit={e => { e.preventDefault(); nextSurveyPage(); }}>
-        {questionnaire(session.role).slice(session.page * 4, session.page * 4 + 4).map((text, index) => { const number = session.page * 4 + index + 1; return <fieldset className="study-question" id={`study-q-${number}`} key={number}><legend><span>{number}</span>{tr(text)}</legend><div className="study-responses">{[...RESPONSE_LABELS, 'Prefer not to answer'].map((label, i) => { const value: Answer = i === 5 ? 'skip' : i + 1 as Answer; return <label key={label} className={session.answers[trial][number] === value ? 'selected' : ''}><input type="radio" name={`question-${number}`} value={value} checked={session.answers[trial][number] === value} onChange={() => recordAnswer(number, value)} /><span>{tr(label)}</span></label>; })}</div></fieldset>; })}
+        {questionnaire(session.role).slice(session.page * 4, session.page * 4 + 4).map((text, index) => { const number = session.page * 4 + index + 1; return <fieldset className="study-question" id={`study-q-${number}`} key={number}><legend><span>{number}</span>{tr(text)}</legend><div className="study-responses">{RESPONSE_LABELS.map((label, i) => { const value = i + 1 as Answer; return <label key={label} className={session.answers[trial][number] === value ? 'selected' : ''}><input type="radio" name={`question-${number}`} value={value} checked={session.answers[trial][number] === value} onChange={() => recordAnswer(number, value)} /><span>{tr(label)}</span></label>; })}</div></fieldset>; })}
         {error && <p className="study-alert" role="alert">{tr(error)}</p>}
         <div className="study-footer"><button type="button" disabled={session.page === 0} onClick={() => setSession({ ...session, page: session.page - 1 })}><ArrowLeft size={17} aria-hidden />{tr('Previous statements')}</button><button type="submit" className="study-primary">{tr(session.page < 3 ? 'Next statements' : trial === 0 ? 'Finish questions & open EcoCare' : 'Finish questionnaire')}<ArrowRight size={17} aria-hidden /></button></div>
       </form>
     </main>}
 
-    {session && session.phase === 'complete' && <main className="study-main study-complete"><div className="study-status-icon"><CheckCircle2 size={30} aria-hidden /></div><p className="study-eyebrow">{tr('Study tasks complete')}</p><h1 ref={heading} tabIndex={-1}>{tr('Thank you for sharing your perspective.')}</h1><p className="study-lead">{tr('Please let the researcher know you are ready to talk about your experience. You can discuss what helped, what was confusing, and what you would change.')}</p><div className="study-completion-details"><p><Check size={18} aria-hidden />{tr('Two decisions recorded')}</p><p><Check size={18} aria-hidden />{tr('Two questionnaires completed, including any skipped items')}</p></div><p className="study-muted">{tr('The responses have not been sent anywhere. Download the file and give it to your researcher using their agreed method before closing this tab.')}</p><div className="study-footer"><button type="button" onClick={clearSession}>{tr('Clear session')}</button><button type="button" className="study-primary" onClick={saveCopy}><Download size={17} aria-hidden />{tr('Download responses')}</button></div>{error && <p className="study-alert" role="alert">{tr(error)}</p>}</main>}
+    {session && session.phase === 'complete' && <main className="study-main study-complete"><div className="study-status-icon"><CheckCircle2 size={30} aria-hidden /></div><p className="study-eyebrow">{tr('Study tasks complete')}</p><h1 ref={heading} tabIndex={-1}>{tr('Thank you for sharing your perspective.')}</h1><p className="study-lead">{tr('Please let the researcher know you are ready to talk about your experience. You can discuss what helped, what was confusing, and what you would change.')}</p><div className="study-completion-details"><p><Check size={18} aria-hidden />{tr('Two decisions recorded')}</p><p><Check size={18} aria-hidden />{tr('Two questionnaires completed')}</p></div><p className="study-muted">{tr('The responses have not been sent anywhere. Download the file and give it to your researcher using their agreed method before closing this tab.')}</p><div className="study-footer"><button type="button" onClick={clearSession}>{tr('Clear session')}</button><button type="button" className="study-primary" onClick={saveCopy}><Download size={17} aria-hidden />{tr('Download responses')}</button></div>{error && <p className="study-alert" role="alert">{tr(error)}</p>}</main>}
   </div>;
 }

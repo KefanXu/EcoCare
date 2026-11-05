@@ -10,6 +10,7 @@ import {
 import type { EcologyProposal } from '../../types/proposals';
 import { useUiText } from '../../lib/uiText';
 import { IdeaSteps } from '../Idea/IdeaSteps';
+import { RefineDecisionButton } from '../Idea/RefineDecisionButton';
 
 interface ProposalCardProps {
   proposal: EcologyProposal;
@@ -67,7 +68,7 @@ export function ProposalCard({ proposal: p, details, flush = false }: ProposalCa
         <div className={`font-semibold text-slate-800 ${easy ? 'text-base' : 'text-sm'}`}>{p.title}</div>
         {isApplied && (
           <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">
-            {tr('On the map now')}
+            {tr(p.decisionOnly ? 'Selected decision' : 'On the map now')}
           </span>
         )}
       </div>
@@ -75,7 +76,7 @@ export function ProposalCard({ proposal: p, details, flush = false }: ProposalCa
         {p.rationale}
       </div>
       <IdeaSteps idea={p} />
-      {details?.trim() && (
+      {!p.decisionOnly && !p.refined && details?.trim() && (
         <details className="group mt-2">
           <summary className="cursor-pointer list-none inline-flex items-center gap-1 text-sm font-medium text-sky-700 hover:text-sky-900">
             <ChevronRight className="w-4 h-4 transition group-open:rotate-90" aria-hidden />
@@ -87,7 +88,7 @@ export function ProposalCard({ proposal: p, details, flush = false }: ProposalCa
         </details>
       )}
 
-      {impact.total > 0 && (
+      {!p.decisionOnly && impact.total > 0 && (
         <div className="mt-2.5">
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
@@ -218,7 +219,7 @@ export function ProposalCard({ proposal: p, details, flush = false }: ProposalCa
         </div>
       )}
 
-      {impact.total > 0 && repairs.total === 0 && (
+      {!p.decisionOnly && impact.total > 0 && repairs.total === 0 && (
         <div className="mt-2 text-[11px] text-slate-400">
           {tr(
             easy
@@ -229,6 +230,7 @@ export function ProposalCard({ proposal: p, details, flush = false }: ProposalCa
       )}
 
       <div className="strategy-actions mt-4 pt-3 border-t border-stone-200/70">
+        <div className="mb-2"><RefineDecisionButton id={p.id} /></div>
         <button
           type="button"
           onClick={() => (isApplied ? clearIdea() : selectIdea(p.id))}
@@ -242,7 +244,7 @@ export function ProposalCard({ proposal: p, details, flush = false }: ProposalCa
           }`}
         >
           {isApplied && <Check className="w-4 h-4" aria-hidden />}
-          {tr(isApplied ? 'In use. Tap to take it off the map' : 'Use this idea')}
+          {tr(p.decisionOnly ? isApplied ? 'Remove selection' : 'Select this decision' : isApplied ? 'In use. Tap to take it off the map' : 'Use this idea')}
         </button>
       </div>
     </div>

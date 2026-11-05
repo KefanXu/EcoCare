@@ -14,6 +14,7 @@ import { EntityForm } from './components/Edit/EntityForm';
 import { FlowForm } from './components/Edit/FlowForm';
 import { OverlayBanner } from './components/Overlay/OverlayBanner';
 import { ActiveIdeaCard } from './components/Idea/ActiveIdeaCard';
+import { DecisionRefiner } from './components/Idea/DecisionRefiner';
 import { SuggestSolutionsPanel, SuggestStrategiesTrigger } from './components/Suggest/SuggestSolutionsPanel';
 import { EasyHelper } from './components/EasyGuide/EasyGuide';
 import { EasyItemOverlay } from './components/EasyGuide/EasyItemCard';
@@ -33,6 +34,8 @@ import { Onboarding } from './components/Onboarding/OnboardingTour';
 import { useStudySetup } from './lib/useStudySetup';
 import { useOnboardingStore } from './components/Onboarding/useOnboardingStore';
 import { getTourSteps, MAP_FOCUS_STEPS } from './components/Onboarding/tourContent';
+import { StudyWorkspace } from './components/Study/StudyWorkspace';
+import { StudyMapControls } from './components/Study/StudyMapControls';
 
 // Keep panels mounted during their exit animation; cancel pending exits on reopen.
 function usePanelPresence(open: boolean) {
@@ -106,7 +109,7 @@ export default function App() {
   const { t, tr, lang, easy, profile } = useUiText();
   const roleRevision = useEcoStore((s) => s.roleRevision);
   const participantRole = useEcoStore((s) => s.participantRole);
-  const tourMapPreview = useOnboardingStore((s) => s.open && MAP_FOCUS_STEPS.has(getTourSteps(participantRole, uiMode)[s.step]?.id));
+  const tourMapPreview = useOnboardingStore((s) => s.open && MAP_FOCUS_STEPS.has(getTourSteps(participantRole, uiMode, studyWorkspace)[s.step]?.id));
 
   useEffect(() => {
     document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
@@ -118,7 +121,7 @@ export default function App() {
   const [sheetSnap, setSheetSnap] = useState<SheetSnap>('half');
 
   const [viewMode, setViewMode] = useState<'ring' | 'row'>('ring');
-  const [inspectorMinimized, setInspectorMinimized] = useState(false);
+  const [inspectorMinimized, setInspectorMinimized] = useState(studyWorkspace);
   const [legendMinimized, setLegendMinimized] = useState(false);
   const [searchMinimized, setSearchMinimized] = useState(true);
   const [legendExpanded, setLegendExpanded] = useState(false);
@@ -152,7 +155,7 @@ export default function App() {
   const mapChrome = (
     <>
       {/* Standard mode keeps map-corner search; Easy uses the top-bar field */}
-      {!easy && (
+      {!studyWorkspace && !easy && (
         <div data-tour="search" className="absolute top-3 right-3 z-20 inline-flex flex-col items-end pointer-events-none gap-2 max-w-[calc(100%-1.5rem)]">
             <button
               ref={searchTriggerRef}
@@ -203,7 +206,7 @@ export default function App() {
         </div>
       )}
 
-      {!easy && scenario && (
+      {!studyWorkspace && !easy && scenario && (
         <section aria-labelledby="active-event-title" className={`map-panel absolute ${searchPresent ? 'top-40' : 'top-16'} right-3 z-10 w-80 max-w-[calc(100%-1.5rem)] transition-[top] duration-200 motion-reduce:transition-none`}>
           <div className="map-panel-header">
             <div className="map-panel-title flex items-center gap-2">
@@ -257,14 +260,14 @@ export default function App() {
       <EcoLandscape viewMode={viewMode} />
       <ActiveIdeaCard />
       <OverlayBanner />
-      <SuggestSolutionsPanel key={roleRevision} />
+      {!studyWorkspace && <SuggestSolutionsPanel key={roleRevision} />}
 
-      <div data-tour="editing" className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 max-w-[calc(100%-2rem)]">
+      {studyWorkspace ? <StudyMapControls viewMode={viewMode} onToggleView={() => setViewMode(v => v === 'ring' ? 'row' : 'ring')} /> : <div data-tour="editing" className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 max-w-[calc(100%-2rem)]">
         <EditToolbar />
-        <SuggestStrategiesTrigger />
-      </div>
+        {!studyWorkspace && <SuggestStrategiesTrigger />}
+      </div>}
 
-      <div
+      {!studyWorkspace && <div
         className={`absolute z-[15] pointer-events-none flex flex-col items-end gap-2 max-w-[calc(100%-2rem)] max-h-[calc(100%-6rem)] ${
           easy && isMobile ? 'bottom-[4.5rem] right-3' : 'bottom-20 right-4'
         }`}
@@ -290,7 +293,7 @@ export default function App() {
             <div className={`panel-motion origin-bottom-right ${legendExpanded ? 'panel-enter' : 'panel-exit'} pointer-events-auto flex flex-col items-end gap-2 min-h-0 max-w-full`}>
               <Legend onMinimize={() => setLegendExpanded(false)} />
             </div>
-          ) : isMobile ? (
+          ) : isMobile || studyWorkspace ? (
             <button
               type="button"
               onClick={() => setLegendExpanded(true)}
@@ -325,12 +328,12 @@ export default function App() {
             <Legend onMinimize={() => { setLegendMinimized(true); legendTriggerRef.current?.focus(); }} />
           </div>
         )}</>}
-      </div>
+      </div>}
 
       {easy && (
         <>
           <EasyItemOverlay />
-          {!guideOpen && !isMobile && (
+          {!studyWorkspace && !guideOpen && !isMobile && (
             <button
               type="button"
               onClick={() => openGuide()}
@@ -354,9 +357,11 @@ export default function App() {
         uiMode === 'easy' ? ' mode-easy' : ''
       }`}
     >
-      <ScenarioBar />
+      {!studyWorkspace && <ScenarioBar />}
+      <Onboarding />
+      <DecisionRefiner />
 
-      {easy && isMobile ? (
+      {studyWorkspace ? <StudyWorkspace map={mapChrome} /> : easy && isMobile ? (
         <div className="flex-1 min-h-0 bg-white relative overflow-hidden">
           {/* The map keeps the full width; its bottom edge follows the sheet's snapped
               height (not the live drag) so the ring recenters without jitter. */}
@@ -471,7 +476,6 @@ export default function App() {
 
       <EntityForm />
       <FlowForm />
-      <Onboarding />
     </div>
   );
 }

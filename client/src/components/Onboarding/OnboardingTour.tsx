@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, BookOpen, Check, ClipboardList, Heart, Info, Map, MessageCircle, RotateCcw, Stethoscope, Users, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, ChevronUp, ClipboardList, Heart, Info, Map, MessageCircle, RotateCcw, Stethoscope, Users, X } from 'lucide-react';
 import { useEcoStore } from '../../store/useEcoStore';
 import { useI18n } from '../../i18n';
 import { PARTICIPANT_ROLES, ROLE_PROFILES } from '../../lib/participantRoles';
@@ -60,48 +61,68 @@ function TourDialog() {
   const steps = useMemo(() => getTourSteps(role, mode, studyWorkspace), [role, mode]);
   const index = Math.max(0, Math.min(Number.isInteger(savedStep) ? savedStep : 0, steps.length - 1));
   const step = steps[index];
+  const shellHost = studyWorkspace && ['event', 'ideas', 'own-idea'].includes(step.id)
+    ? window.frameElement?.ownerDocument.getElementById('study-guide-host') ?? null : null;
+  const tourDocument = shellHost?.ownerDocument ?? document;
+  const interactive = !!step.target;
+  const [compact, setCompact] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [target, setTarget] = useState<TourRect | null>(null);
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight, top: 0 });
+  const constrained = interactive && viewport.height < 280;
+  const collapsed = compact || constrained;
   const [height, setHeight] = useState(500);
   const initialPanels = useRef({ helperOpen: useEcoStore.getState().helperOpen, guideOpen: useEcoStore.getState().guideOpen });
   const caseScenario = useEcoStore(s => s.patient.scenarios.find(sc => sc.id === study?.eventId));
 
   useLayoutEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const dialog = dialogRef.current!;
-    dialog.showModal();
     return () => {
-      dialog.close();
       useEcoStore.setState(initialPanels.current);
       if (opener?.isConnected && opener !== document.body && opener.getClientRects().length) opener.focus();
       else document.querySelector<HTMLElement>('.tour-menu-trigger')?.focus();
     };
   }, []);
 
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (interactive) dialog?.show();
+    else dialog?.showModal();
+    return () => dialog?.close();
+  }, [interactive, shellHost]);
+
   useEffect(() => {
     const showMap = MAP_FOCUS_STEPS.has(step.id);
     // Presentation only: never change selections, events, ideas or conversations.
     useEcoStore.setState({
-      helperOpen: showMap ? false : initialPanels.current.helperOpen,
-      guideOpen: showMap ? false : ['event', 'ideas'].includes(step.id) ? true : initialPanels.current.guideOpen,
+      helperOpen: studyWorkspace ? true : step.id === 'ai' ? true : showMap ? false : initialPanels.current.helperOpen,
+      guideOpen: showMap ? false : ['event', 'ideas', 'own-idea'].includes(step.id) ? true : initialPanels.current.guideOpen,
     });
     headingRef.current?.focus({ preventScroll: true });
     bodyRef.current?.scrollTo(0, 0);
+    setCompact(false);
+    // The study guide lives in the shell, outside this tool's iframe.
+    if (studyWorkspace && step.target) {
+      const shellDocument = window.frameElement?.ownerDocument;
+      const target = step.id === 'own-idea' ? shellDocument?.querySelector<HTMLElement>('[data-tour="own-decision"]') : null;
+      (target ?? shellDocument?.querySelector<HTMLElement>(step.target))?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
   }, [step.id]);
 
   useLayoutEffect(() => {
     let frame = 0;
     const measure = () => {
-      const width = document.documentElement.clientWidth;
-      const height = window.visualViewport?.height ?? window.innerHeight;
-      const frame = studyWorkspace ? window.frameElement : null;
+      const tourWindow = tourDocument.defaultView ?? window;
+      const width = tourDocument.documentElement.clientWidth;
+      const height = tourWindow.visualViewport?.height ?? tourWindow.innerHeight;
+      const frame = studyWorkspace && !shellHost ? window.frameElement : null;
       const view = frame ? visibleTourViewport(width, height, frame.getBoundingClientRect().top, window.parent.visualViewport?.height ?? window.parent.innerHeight) : visibleTourViewport(width, height);
       setViewport(previous => previous.width === view.width && previous.height === view.height && previous.top === view.top ? previous : view);
-      const elements = step.target ? [...document.querySelectorAll<HTMLElement>(step.target)] : [];
+      const elements = step.target ? [...tourDocument.querySelectorAll<HTMLElement>(step.target)] : [];
+      if (step.id === 'own-idea') elements.sort((a, b) => Number(b.dataset.tour === 'own-decision') - Number(a.dataset.tour === 'own-decision'));
       const node = elements.find(el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < height; });
       const rect = node?.getBoundingClientRect();
       const next = rect ? {
@@ -117,9 +138,9 @@ function TourDialog() {
     };
     const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
     const observer = new ResizeObserver(schedule);
-    observer.observe(document.documentElement);
+    observer.observe(tourDocument.documentElement);
     if (cardRef.current) observer.observe(cardRef.current);
-    if (step.target) document.querySelectorAll(step.target).forEach(el => observer.observe(el));
+    if (step.target) tourDocument.querySelectorAll(step.target).forEach(el => observer.observe(el));
     window.addEventListener('resize', schedule);
     window.addEventListener('scroll', schedule, true);
     window.visualViewport?.addEventListener('resize', schedule);
@@ -141,7 +162,7 @@ function TourDialog() {
         window.parent.visualViewport?.removeEventListener('resize', schedule);
       }
     };
-  }, [step.target, step.id, lang, mode]);
+  }, [step.target, step.id, lang, mode, shellHost, tourDocument]);
 
   const wide = !step.target;
   const position = placeTourCard(viewport, target ? { ...target, top: target.top - viewport.top } : null, height, wide);
@@ -160,31 +181,39 @@ function TourDialog() {
     else setStep(index + 1);
   }
 
-  return <dialog ref={dialogRef} className="onboarding-dialog" aria-labelledby="tour-heading" aria-describedby="tour-description" onCancel={e => { e.preventDefault(); closeTour(); }} onKeyDown={event => {
-    if (event.key !== 'Tab') return;
+  const tour = <dialog ref={dialogRef} className={`onboarding-dialog ${interactive ? 'tour-interactive' : ''}`} aria-labelledby="tour-heading" aria-describedby={collapsed ? undefined : 'tour-description'} onCancel={e => { e.preventDefault(); closeTour(); }} onKeyDown={event => {
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeTour(); }
+    if (interactive || event.key !== 'Tab') return;
     const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), select, input:not(:disabled)')].filter(el => el.getClientRects().length);
     const first = controls[0];
     const last = controls[controls.length - 1];
-    if (event.shiftKey && (document.activeElement === first || document.activeElement === headingRef.current)) {
+    if (event.shiftKey && (tourDocument.activeElement === first || tourDocument.activeElement === headingRef.current)) {
       event.preventDefault(); last?.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
+    } else if (!event.shiftKey && tourDocument.activeElement === last) {
       event.preventDefault(); first?.focus();
     }
   }}>
-    {target ? <div aria-hidden className="tour-spotlight" style={target} /> : <div aria-hidden className="tour-dimmer" />}
-    <div ref={cardRef} className={`tour-card ${wide ? 'tour-card-wide' : ''}`} style={{ left: position.left, top: position.top + viewport.top, width: position.width, maxHeight: Math.max(0, viewport.height - 24) }}>
+    {target ? <div aria-hidden className="tour-spotlight" style={target} /> : !interactive && <div aria-hidden className="tour-dimmer" />}
+    <div ref={cardRef} className={`tour-card ${wide ? 'tour-card-wide' : ''} ${collapsed ? 'tour-card-compact' : ''}`} style={{ left: position.left, top: position.top + viewport.top, width: position.width, maxHeight: Math.max(0, viewport.height - 24) }}>
       <div className="tour-card-top">
-        <span className="tour-brand"><BookOpen size={17} aria-hidden />{tr('Study & tool tour')}</span>
+        <span className="tour-brand"><BookOpen size={17} aria-hidden />{constrained ? tr('Step {current} of {total}', { current: index + 1, total: steps.length }) : tr('Study & tool tour')}</span>
+        <div className="tour-card-tools">
+        {interactive && <button type="button" className="map-panel-action" aria-label={tr(collapsed ? 'Expand tour instructions' : 'Minimize tour instructions')} title={tr(collapsed ? 'Expand tour instructions' : 'Minimize tour instructions')} aria-expanded={!collapsed} onClick={() => {
+          if (constrained) window.frameElement?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+          setCompact(constrained ? false : !compact);
+        }}>{collapsed ? <ChevronDown size={18} aria-hidden /> : <ChevronUp size={18} aria-hidden />}</button>}
         <button type="button" className="map-panel-action" title={tr('Close tour')} aria-label={tr('Close tour')} onClick={closeTour}><X size={18} aria-hidden /></button>
+        </div>
       </div>
-      <div className="tour-phases" aria-label={tr('Tour sections')}>
+      <div className="tour-phases" hidden={collapsed} aria-label={tr('Tour sections')}>
         {phases.map((phase, i) => <span key={phase} aria-current={i === phaseIndex ? 'step' : undefined} className={i === phaseIndex ? 'current' : i < phaseIndex ? 'past' : ''}>
           {i < phaseIndex ? <Check size={12} aria-hidden /> : <span aria-hidden>{i + 1}</span>}{tr(phase)}
         </span>)}
       </div>
-      <div ref={bodyRef} className="tour-body scrollbar-thin">
+      <div ref={bodyRef} className="tour-body scrollbar-thin" hidden={constrained}>
         <div className="tour-step-label"><PhaseIcon size={15} aria-hidden /><span>{tr('Step {current} of {total}', { current: index + 1, total: steps.length })}</span></div>
         <h2 ref={headingRef} id="tour-heading" tabIndex={-1}>{tr(step.title)}</h2>
+        <div hidden={collapsed}>
         <p id="tour-description">{tr(step.body)}</p>
 
         {step.id === 'welcome' && <>
@@ -212,8 +241,9 @@ function TourDialog() {
         {step.id === 'ready' && caseScenario && <div className="tour-assignment"><span>{tr('Your EcoCare event')}</span><strong>{tr(caseScenario.name)}</strong></div>}
         {step.id === 'ready' && study?.eventConflict && <p role="alert" className="tour-warning">{tr('This link assigns the same event to both tasks. Ask the researcher for a different EcoCare event before continuing.')}</p>}
         {step.note && <div className="tour-note"><Info size={16} aria-hidden /><p>{tr(step.note)}</p></div>}
+        </div>
       </div>
-      <footer className="tour-footer">
+      <footer className="tour-footer" hidden={constrained}>
         <div className="tour-progress" role="progressbar" aria-label={tr('Tour progress')} aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={index + 1}><span style={{ width: `${((index + 1) / steps.length) * 100}%` }} /></div>
         <div className="tour-footer-actions">
           <button type="button" className="tour-pause" onClick={closeTour}>{tr(step.phase === 'Before you begin' ? 'Close for now' : 'Pause tour')}</button>
@@ -224,4 +254,5 @@ function TourDialog() {
       </footer>
     </div>
   </dialog>;
+  return shellHost ? createPortal(tour, shellHost) : tour;
 }

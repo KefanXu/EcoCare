@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { test } from 'node:test';
-import { advance, decisionFromIdea, exportSession, importSelectedIdea, parseSession, questionnaire, readSelectedIdea, startSession, surveyComplete, type StudyIdea, type StudySession } from '../client/src/components/Study/studyModel';
+import { RESPONSE_LABELS, advance, decisionFromIdea, exportSession, importSelectedIdea, parseSession, questionnaire, readSelectedIdea, startSession, surveyComplete, type StudyIdea, type StudySession } from '../client/src/components/Study/studyModel';
 
 Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
 
@@ -90,7 +90,11 @@ test('study requires different valid scenarios', () => {
   assert.throws(() => startSession('patient', 'lce-insurance', 'lce-insurance', 'en'));
   assert.throws(() => startSession('patient', 'missing', 'lce-relocation', 'en'));
 });
-test('baseline decision and all responses gate access to EcoCare', () => {
+test('questionnaires offer five responses with stable numeric coding', () => {
+  assert.deepEqual(RESPONSE_LABELS, ['Strongly agree', 'Agree', 'Neither agree nor disagree', 'Disagree', 'Strongly disagree']);
+  assert.deepEqual(RESPONSE_LABELS.map((_, i) => i + 1), [1, 2, 3, 4, 5]);
+});
+test('baseline decision and all responses gate access to EcoCare, preserving historical skips', () => {
   let s = startSession('patient', 'lce-insurance', 'lce-relocation', 'en');
   assert.equal(advance(s), s);
   s.decisions[0] = 'Test decision'; s = advance(s); assert.equal(s.phase, 'survey1');

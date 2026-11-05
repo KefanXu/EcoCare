@@ -66,10 +66,10 @@ export function ScenarioBar() {
   );
 
   return (
-    <header className="relative z-40 shrink-0 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-stone-200/80 bg-white/90 backdrop-blur-xl shadow-[0_1px_0_rgba(28,25,23,0.04)]">
+    <header className={studyWorkspace ? 'study-workspace-header relative z-40 shrink-0 px-3 py-1.5 bg-white' : 'relative z-40 shrink-0 px-3 sm:px-5 py-2.5 sm:py-3 border-b border-stone-200/80 bg-white/90 backdrop-blur-xl shadow-[0_1px_0_rgba(28,25,23,0.04)]'}>
       <div className="flex items-center flex-wrap gap-1.5 sm:gap-3 min-h-[40px]">
         {/* Brand */}
-        <RoleSwitcher />
+        {!studyWorkspace && <RoleSwitcher />}
         <div className={`flex-col min-w-0 max-w-[220px] ${easy ? 'hidden sm:flex' : 'flex'}`}>
           <div
             title={`${tr(patient.name)}: ${tr(patient.condition)}`}
@@ -134,12 +134,15 @@ export function ScenarioBar() {
           <button
             data-tour="assistant"
             type="button"
-            onClick={() => (helperOpen ? closeHelper() : openHelper())}
-            aria-pressed={helperOpen}
-            aria-label={tr(easy ? (helperOpen ? 'Hide the AI helper' : 'Show the AI helper') : 'AI Sense-Making Assistant')}
-            title={tr(easy ? (helperOpen ? 'Hide the AI helper' : 'Show the AI helper') : 'AI Sense-Making Assistant')}
+            onClick={() => {
+              if (studyWorkspace) document.querySelector<HTMLElement>('[data-tour="study-assistant"] textarea')?.focus();
+              else if (helperOpen) closeHelper(); else openHelper();
+            }}
+            aria-pressed={studyWorkspace || helperOpen}
+            aria-label={tr(studyWorkspace ? 'Ask the AI assistant' : easy ? (helperOpen ? 'Hide the AI helper' : 'Show the AI helper') : 'AI Sense-Making Assistant')}
+            title={tr(studyWorkspace ? 'Ask the AI assistant' : easy ? (helperOpen ? 'Hide the AI helper' : 'Show the AI helper') : 'AI Sense-Making Assistant')}
             className={`inline-flex items-center justify-center gap-2 font-medium rounded-full transition-all duration-150 ${
-              helperOpen
+              studyWorkspace || helperOpen
                 ? 'bg-sky-600 text-white border border-sky-600 shadow-sm'
                 : 'bg-sky-50 text-sky-800 border border-sky-200 hover:bg-sky-100'
             } ${

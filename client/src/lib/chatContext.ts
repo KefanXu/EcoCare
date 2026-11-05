@@ -1,5 +1,5 @@
 import type { Conflict, LCE, Patient, SelectionRef } from '../types/ecology';
-import type { EcologyProposal } from '../types/proposals';
+import type { DecisionAssessment, EcologyProposal } from '../types/proposals';
 import type { ParticipantRole } from './participantRoles';
 import { translate, type Language } from '../i18n';
 
@@ -8,8 +8,9 @@ export interface ContextStrategy {
   title: string;
   rationale: string;
   steps?: string[];
-  /** `applied` = on the map; `discussing` = asked about without being on the map. */
-  status: 'applied' | 'discussing';
+  /** `selected` preserves participant wording; any AI assessment is separate. */
+  status: 'applied' | 'discussing' | 'selected';
+  assessment?: Pick<DecisionAssessment, 'explanation' | 'benefits' | 'drawbacks' | 'checks' | 'steps'>;
   addsEntities: string[];
   addsFlows: number;
   restoresEntityIds: string[];
@@ -68,6 +69,10 @@ function summarizeStrategy(
     rationale: proposal.rationale,
     ...(proposal.steps?.length ? { steps: proposal.steps } : {}),
     status,
+    ...(proposal.assessment ? { assessment: {
+      explanation: proposal.assessment.explanation, benefits: proposal.assessment.benefits,
+      drawbacks: proposal.assessment.drawbacks, checks: proposal.assessment.checks, steps: proposal.assessment.steps,
+    } } : {}),
     addsEntities: (proposal.addEntities ?? []).map((e) => e.label),
     addsFlows: (proposal.addFlows ?? []).length,
     restoresEntityIds: proposal.restoresEntityIds ?? [],
@@ -147,7 +152,7 @@ export function buildChatContext(args: {
   for (const p of appliedStrategies) {
     if (seenStrategyIds.has(p.id)) continue;
     seenStrategyIds.add(p.id);
-    activeStrategies.push(summarizeStrategy(p, 'applied'));
+    activeStrategies.push(summarizeStrategy(p, p.decisionOnly ? 'selected' : 'applied'));
   }
   if (discussStrategy && !seenStrategyIds.has(discussStrategy.id)) {
     activeStrategies.push(summarizeStrategy(discussStrategy, 'discussing'));
@@ -271,11 +276,12 @@ Rules (Easy mode):
  * must keep the same proposal id so the idea stays "the same idea, changed".
  */
 export function REVISE_IDEA_PROMPT(idea: EcologyProposal, change: string, easy: boolean): string {
-  return `The participant wants to change the idea that is currently on the map.
+  const { assessment: _assessment, ...decision } = idea;
+  return `The participant wants to refine the following decision. It may be their own decision or an AI suggestion, and it may not be selected on the map. Return a candidate for their review; nothing is applied yet.
 
 Current idea (ecology-proposal JSON):
 """
-${JSON.stringify(idea)}
+${JSON.stringify(decision)}
 """
 
 Their change, in their own words:
@@ -294,5 +300,7 @@ Rules:
 - Prefer \`restoresEntityIds\` / \`restoresFlowIds\` for healing active LCE damage; use \`addEntities\` / \`addFlows\` for new supports their change introduces.
 - Use \`removeEntityIds\` / \`removeFlowIds\` ONLY when they clearly drop something. Never remove \`patient\`.
 - Stay faithful to what they asked; do not add unrelated changes.
+- Use the selected map items and the participant role as context where relevant. If decisionOnly is true, do not treat the original decision as an existing map repair. Infer hypothetical map changes only where supported by the revised plan.
+- Explain uncertainties in plain language; do not promise clinical outcomes or assume a person has agreed to help.
 - No bullet lists outside the strategy, no "Ask your care team" section.`;
 }

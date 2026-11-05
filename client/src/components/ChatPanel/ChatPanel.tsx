@@ -19,6 +19,7 @@ import { InterleavedAssistantBody } from './InterleavedAssistantBody';
 import { SpeakButton } from '../common/SpeakButton';
 import { useUiText } from '../../lib/uiText';
 import { startRoleRequest } from '../../lib/roleRequest';
+import { ChatComposer } from './ChatComposer';
 
 export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' }) {
   const basePatient = useEcoStore((s) => s.patient);
@@ -78,7 +79,6 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     setInput('');
     return () => {
@@ -87,21 +87,6 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
       if (state.roleRevision === roleRevision && state.isStreaming) state.finishStreaming();
     };
   }, [roleRevision]);
-
-  function autoResizeTextarea() {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = el.scrollHeight + 'px';
-  }
-
-  // reset height when input is cleared (e.g. after send)
-  useEffect(() => {
-    if (!input) {
-      autoResizeTextarea();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -264,6 +249,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
       return (
         <button
           key={`e-${ref.id}`}
+          type="button"
           onClick={() => toggleSelection(ref)}
           className="group inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full border border-stone-200/90 bg-white/90 hover:border-stone-300 hover:bg-white shadow-[0_1px_2px_rgba(28,25,23,0.04)] transition"
         >
@@ -288,6 +274,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
     return (
       <button
         key={`f-${ref.id}`}
+        type="button"
         onClick={() => toggleSelection(ref)}
         className="group inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full border border-stone-200/90 bg-white/90 hover:border-stone-300 hover:bg-white shadow-[0_1px_2px_rgba(28,25,23,0.04)] transition"
       >
@@ -356,7 +343,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
 
       <div
         ref={scrollRef}
-        className={`flex-1 overflow-y-auto scrollbar-thin space-y-4 ${
+        className={`flex-1 min-h-0 overflow-y-auto scrollbar-thin space-y-4 ${
           variant === 'drawer' ? 'px-4 py-4' : 'px-5 py-5'
         }`}
       >
@@ -504,13 +491,9 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
         })}
       </div>
 
-      <div
-        className={`shrink-0 space-y-2.5 ${
-          variant === 'drawer' ? 'pt-2' : 'px-4 pb-4 pt-2'
-        }`}
-      >
+      <div className="chat-composer-area space-y-2.5">
         {easy && messages.length > 0 && (
-          <div className={`flex flex-wrap gap-1.5 ${variant === 'drawer' ? 'px-4' : ''}`}>
+          <div className="flex flex-wrap gap-1.5">
             {quickQuestions.filter((q) => !q.needsScenario || !!scenario).map((q) => {
               const Icon = q.icon;
               return (
@@ -528,13 +511,14 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
             })}
           </div>
         )}
-        {(selection.length > 0 || contextStrategies.length > 0) && (
-          <div
-            className={`flex items-center gap-1.5 flex-wrap ${
-              variant === 'drawer' ? 'px-4' : 'px-0.5'
-            }`}
-          >
-            <span className="text-[10px] uppercase tracking-wider text-slate-400 mr-0.5 font-semibold">
+        <ChatComposer value={input} onChange={setInput} onSend={send} onStop={stopStreaming} streaming={isStreaming}
+          placeholder={contextStrategies.length > 0
+            ? tr(easy ? 'Ask more about this idea…' : 'Ask a follow-up about this strategy…')
+            : selection.length === 0 ? t('chatPlaceholder')
+              : tr(easy ? 'Ask about what you tapped on the map…' : 'Ask about the selected items…')}
+          context={(selection.length > 0 || contextStrategies.length > 0) && (
+          <div className="chat-composer-context-list">
+            <span className="chat-composer-context-label">
               {tr(easy ? 'Asking about' : 'Context')}
             </span>
             {contextStrategies.map(({ proposal, status }) => (
@@ -562,7 +546,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
                   {proposal.title}
                 </span>
                 <span className="text-[9px] uppercase tracking-wider text-emerald-600/70">
-                  {tr(status === 'discussing' ? 'asking about' : 'on the map')}
+                  {tr(status === 'discussing' ? 'asking about' : proposal.decisionOnly ? 'Selected decision' : 'on the map')}
                 </span>
                 <span className="text-emerald-400 group-hover:text-emerald-700">×</span>
               </button>
@@ -580,77 +564,7 @@ export function ChatPanel({ variant = 'panel' }: { variant?: 'panel' | 'drawer' 
               {tr(easy ? 'Clear all' : 'Clear')}
             </button>
           </div>
-        )}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            send(input);
-          }}
-        >
-          <div
-            className={`relative flex bg-white/95 backdrop-blur-xl ${
-              variant === 'drawer'
-                ? 'items-stretch gap-0 rounded-none border-0 border-t border-stone-200/80 pl-3 pr-0 py-0'
-                : `items-end gap-2 rounded-2xl border border-stone-200/80 shadow-[0_8px_30px_rgba(28,25,23,0.06),0_1px_2px_rgba(28,25,23,0.04)] ${
-                    easy ? 'p-2 pl-3' : 'p-1.5 pl-3'
-                  }`
-            }`}
-          >
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onInput={autoResizeTextarea}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  send(input);
-                }
-              }}
-              placeholder={
-                contextStrategies.length > 0
-                  ? tr(easy ? 'Ask more about this idea…' : 'Ask a follow-up about this strategy…')
-                  : selection.length === 0
-                    ? t('chatPlaceholder')
-                    : tr(easy ? 'Ask about what you tapped on the map…' : 'Ask about the selected items…')
-              }
-              className={`flex-1 min-w-0 bg-transparent border-0 text-slate-800 placeholder-slate-400 focus:outline-none resize-none ${
-                variant === 'drawer' ? 'py-3' : 'py-2'
-              } ${easy ? 'text-base' : 'text-[14px] leading-relaxed'}`}
-              disabled={isStreaming}
-            />
-            {isStreaming ? (
-              <button
-                type="button"
-                onClick={stopStreaming}
-                className={
-                  variant === 'drawer'
-                    ? 'shrink-0 self-stretch rounded-none border-0 border-l border-rose-200 bg-rose-50 px-4 text-[12px] font-medium text-rose-700 hover:bg-rose-100 transition'
-                    : `shrink-0 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-medium hover:bg-rose-100 transition ${
-                        easy ? 'px-4 py-2 text-sm min-h-[40px]' : 'px-3.5 py-1.5 text-[12px]'
-                      }`
-                }
-              >
-                {tr(easy ? 'Stop answer' : 'Stop')}
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={!input.trim()}
-                className={
-                  variant === 'drawer'
-                    ? 'shrink-0 self-stretch rounded-none border-0 bg-slate-900 px-4 text-[12px] font-medium text-white disabled:opacity-35 hover:bg-slate-800 transition'
-                    : `shrink-0 rounded-full bg-slate-900 text-white font-medium disabled:opacity-35 hover:bg-slate-800 transition shadow-sm ${
-                        easy ? 'px-4 py-2 text-sm min-h-[40px]' : 'px-3.5 py-1.5 text-[12px]'
-                      }`
-                }
-              >
-                {t('ask')}
-              </button>
-            )}
-          </div>
-        </form>
+        )} />
       </div>
     </div>
   );
