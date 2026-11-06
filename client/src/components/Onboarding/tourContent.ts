@@ -113,7 +113,7 @@ export function getTourSteps(role: ParticipantRole, mode: UiMode, inStudy = fals
   if (!inStudy) return steps;
   return [{
     id: 'tool-welcome', phase: 'Meet the tool', title: 'Let’s explore EcoCare',
-    body: 'You have finished the first decision and questions. Now you will use EcoCare for a different situation. This short tour shows you around before you explore.',
+    body: 'For this situation, you will use the interactive EcoCare map. This short tour shows you around before you explore.',
     note: 'This is a research prototype, not medical advice. We are learning about the tool, not testing your knowledge.',
   }, ...steps.slice(FIRST_TOOL_STEP).map(step => {
     if (step.id === 'search') return {
@@ -122,7 +122,7 @@ export function getTourSteps(role: ParticipantRole, mode: UiMode, inStudy = fals
     };
     if (step.id === 'event') return {
       ...step,
-      body: 'Your second situation is already selected in the guide below the map. Read the situation, choose Continue to read about your point of view, then choose Explore the map. Review what has changed, then choose See affected items to look at the people and things involved. Red rings mark affected items; broken connections show where information may no longer get through.',
+      body: 'Your assigned situation is already selected in the guide below the map. Read the situation, choose Continue to read about your point of view, then choose Explore the map. Review what has changed, then choose See affected items to look at the people and things involved. Red rings mark affected items; broken connections show where information may no longer get through.',
       note: 'Your assigned situation and point of view stay the same during this task.',
       target: '[data-tour="guide"]',
     };
@@ -142,8 +142,8 @@ export function getTourSteps(role: ParticipantRole, mode: UiMode, inStudy = fals
     };
     if (step.id === 'finish') return {
       ...step, title: 'When you are ready to decide',
-      body: 'Select an idea or save your own decision first. Then choose “Ready to make my decision” in the guide below the map. Your choice will be copied into the decision box. You can edit it, then answer the final questions on this page.',
-      points: ['You can return to EcoCare before you continue to the questions. Your edits will be kept.', 'After the questions, download your responses and talk with the researcher.'],
+      body: 'Select an idea or save your own decision first. Then choose “Ready to make my decision” in the guide below the map. Your choice will be copied into the decision box. You can edit it, then answer the questions about this decision.',
+      points: ['You can return to EcoCare before you continue to the questions. Your edits will be kept.', 'The study page will take you to the next task or show when both tasks are complete.'],
       note: 'You can pause this tour and reopen Tour at the top right of the map whenever you need it.',
     };
     return step;

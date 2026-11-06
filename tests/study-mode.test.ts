@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { test } from 'node:test';
+import { completedIntake } from './fixtures/studyIntake';
 import { RESPONSE_LABELS, advance, decisionFromIdea, exportSession, importSelectedIdea, parseSession, questionnaire, readSelectedIdea, startSession, surveyComplete, type StudyIdea, type StudySession } from '../client/src/components/Study/studyModel';
 
 Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
 
 const idea: StudyIdea = { id: 'idea-a', title: 'Arrange a phone check-in', rationale: 'Ask Jordan which time would fit their routine.' };
 function exploringSession() {
-  const s = startSession('patient', 'lce-insurance', 'lce-relocation', 'en');
+  const s = advance({ ...startSession('patient', 'lce-insurance', 'lce-relocation', 'en'), intake: completedIntake('patient') });
   s.decisions[0] = 'First decision';
   for (let i = 1; i <= 16; i++) s.answers[0][i] = 3;
   return advance(advance(s));
@@ -63,7 +64,7 @@ test('an untouched import follows selection changes, revisions and deselection',
 
 test('manual edits survive return visits, refresh and deselection; replacement is explicit', () => {
   let s: StudySession = advance(importSelectedIdea(exploringSession(), idea));
-  s = { ...s, decisions: [s.decisions[0], 'My own revised decision'], decision2Edited: true, phase: 'explore' };
+  s = { ...s, decisions: [s.decisions[0], 'My own revised decision'], interactiveDecisionEdited: true, phase: 'explore' };
   const other = { ...idea, id: 'idea-b', title: 'A different idea' };
   s = advance(importSelectedIdea(parseSession(JSON.stringify(s))!, other));
   assert.equal(s.decisions[1], 'My own revised decision');
@@ -71,7 +72,7 @@ test('manual edits survive return visits, refresh and deselection; replacement i
   assert.equal(importSelectedIdea(s, null).decisions[1], 'My own revised decision');
   const replaced = importSelectedIdea(s, other, true);
   assert.equal(replaced.decisions[1], decisionFromIdea(other));
-  assert.equal(replaced.decision2Edited, false);
+  assert.equal(replaced.interactiveDecisionEdited, false);
   assert.equal(importSelectedIdea({ ...s, decisions: [s.decisions[0], ''] }, other).decisions[1], '');
   assert.equal(importSelectedIdea(advance(replaced), idea).phase, 'survey2');
   assert.equal(importSelectedIdea(advance(replaced), idea).decisions[1], replaced.decisions[1]);
@@ -95,7 +96,7 @@ test('questionnaires offer five responses with stable numeric coding', () => {
   assert.deepEqual(RESPONSE_LABELS.map((_, i) => i + 1), [1, 2, 3, 4, 5]);
 });
 test('baseline decision and all responses gate access to EcoCare, preserving historical skips', () => {
-  let s = startSession('patient', 'lce-insurance', 'lce-relocation', 'en');
+  let s = advance({ ...startSession('patient', 'lce-insurance', 'lce-relocation', 'en'), intake: completedIntake('patient') });
   assert.equal(advance(s), s);
   s.decisions[0] = 'Test decision'; s = advance(s); assert.equal(s.phase, 'survey1');
   assert.equal(advance(s), s);

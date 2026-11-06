@@ -5,11 +5,13 @@ import { ZH_GUIDE } from './zh/guide';
 import { ZH_MAP } from './zh/map';
 import { ZH_ONBOARDING } from './zh/onboarding';
 import { ZH_STUDY } from './zh/study';
+import { ZH_INTAKE } from './zh/intake';
 import { ZH_REFINEMENT } from './zh/refinement';
 import { ZH_ASSESSMENT } from './zh/assessment';
 
 /** Simplified Chinese, keyed by the exact English text used in the code. */
 export const ZH: Record<string, string> = {
+  ...ZH_INTAKE,
   ...ZH_CORE,
   ...ZH_GUIDE,
   ...ZH_MAP,

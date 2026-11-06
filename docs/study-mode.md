@@ -4,7 +4,7 @@ Open **Study** in the normal EcoCare toolbar, or use `/?study=1`.
 
 ## Researcher setup
 
-Complete consent, the introductory interview and any recording arrangements with the participant before starting. The setup checkbox records readiness only; it is not an electronic consent form. Select the participant's role, language, and two **different** events. The researcher controls assignment; the app does not randomize or counterbalance it.
+Complete consent, the introductory interview and any recording arrangements with the participant before starting. The setup checkbox records readiness only; it is not an electronic consent form. Select the participant's role, language, and two **different** events. Below the situation selectors, choose **Static image first** or **Interactive EcoCare first**. **Randomize order** makes an independent 50/50 draw and immediately displays the result; it does not balance counts across participants. The two chosen situations stay in chronological order. Beginning the session locks the assignment, including across pauses or refreshes.
 
 Example preconfigured link:
 
@@ -15,6 +15,14 @@ Events: `lce-insurance`, `lce-relocation`, `lce-caregiver-surgery`.
 
 ## Participant flow
 
+The intake shows a write-in field wherever it offers another answer: gender, patient support, caregiver help, clinical specialty and professional role. Typing a single-choice response selects its “another” option automatically; choosing a listed answer instead discards that text. For support and caregiving tasks, written answers can stand alone or supplement checked options. Only the relationship or role of an additional helper is requested, not their name.
+
+After **Before we begin**, participants must answer every shared and assigned-role intake question before the first case. Partial drafts can still be paused, resumed or downloaded. Age range, gender and previous AI chat use are shared. Patients and caregivers describe their years of experience, whether their care involves conditions beyond diabetes, and support received or provided. For caregiving tasks, choose at least one listed task or write in other practical help (or both). Selected self-description and other-area responses require nonblank text. Clinicians report primary specialty, total years of direct clinical practice and professional role separately. Sessions already past intake are not forced back.
+
+Intake responses are saved in the study shell, not in the EcoCare workspace or AI prompts. The response download includes a separate `backgroundQuestionnaire` section: unanswered items are null; older sessions are marked `not-collected` and resume at their original task. The intake is separate from the five numbered tasks and does not change either decisional conflict questionnaire.
+
+With the default **static image first** assignment:
+
 1. Read Jordan's case and the first event. View a static image captured from the existing seeded visualization with Easy-view labels, matching the tool's initial display. The image can be enlarged; it has no interactive entities, AI, or editing controls.
 2. Write a decision and reason, or explicitly indicate that a decision cannot yet be made.
 3. Answer the 16 Appendix B statements, four per page. Each item offers the five response choices in the proposal. Participants can still pause or stop. Answers can be reviewed within that questionnaire; the first decision and questionnaire are locked before entering EcoCare.
@@ -23,7 +31,7 @@ Events: `lce-insurance`, `lce-relocation`, `lce-caregiver-surgery`.
 6. Review the second decision. The idea actively selected in EcoCare (an AI suggestion, an interpreted idea, or a verbatim participant decision) is copied into phase 4 as its title, explanation, and practical steps when available, ready to edit. **Use my own decision** preserves the participant's words without an AI request or inferred changes to the map. Unselected suggestions are not imported. With no selected idea, the participant can write their own decision. Returning to EcoCare keeps manual edits; an untouched imported draft follows the latest selection. **Use selected idea again** explicitly replaces edits after confirmation. The first decision and questionnaires are unaffected.
 7. Answer the same role-specific questionnaire, then download the response record and proceed to the researcher-led interview.
 
-This follows proposal (18), section 1.2.4, and the user's explicit confirmation that the second event must differ from baseline. Appendix A describes a different sequence; that sequence is not used here.
+With **interactive EcoCare first**, exploration, decision review and questionnaire 1 use the first situation. Only then does the participant see the second situation as a static picture, write a fresh decision and complete questionnaire 2. The interactive tour runs when EcoCare opens in either order. Exported trials have chronological positions, event IDs, conditions, decisions and questionnaire responses. The export also records the first condition and assignment method; pre-existing drafts retain their original static-first sequence.
 
 ## Data and privacy
 

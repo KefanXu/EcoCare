@@ -7,7 +7,7 @@ import { useI18n } from '../../i18n';
 import type { StudySession } from './studyModel';
 
 /** Capture the existing map once. Only the resulting image is participant-facing. */
-export function StaticMap({ session, onReady }: { session: StudySession; onReady: (ready: boolean) => void }) {
+export function StaticMap({ session, scenarioId, onReady }: { session: StudySession; scenarioId: string; onReady: (ready: boolean) => void }) {
   const { tr } = useI18n();
   const source = useRef<HTMLDivElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -17,9 +17,9 @@ export function StaticMap({ session, onReady }: { session: StudySession; onReady
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     onReady(false);
-    useEcoStore.setState({ patient: samplePatient, participantRole: session.role, language: session.language, activeScenarioId: session.baseline, uiMode: 'easy', simulationTime: 1, simulationPlaying: false, selection: [], appliedOverlay: [], userImpactEntityIds: [], hoveredEntityId: null, hoveredFlowId: null, entitySearchQuery: '', showInformationFlows: true });
+    useEcoStore.setState({ patient: samplePatient, participantRole: session.role, language: session.language, activeScenarioId: scenarioId, uiMode: 'easy', simulationTime: 1, simulationPlaying: false, selection: [], appliedOverlay: [], userImpactEntityIds: [], hoveredEntityId: null, hoveredFlowId: null, entitySearchQuery: '', showInformationFlows: true });
     setReady(true);
-  }, [session.role, session.language, session.baseline, onReady]);
+  }, [session.role, session.language, scenarioId, onReady]);
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
